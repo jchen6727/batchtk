@@ -1,13 +1,11 @@
-from netpyne import sim
-from HHTut import netParams, cfg
-import subprocess
 import os
 
-class net_runner(object): # has to run within an mpi by parsing environ 
+class net_runner(object): # has to run within an mpi by parsing environ
+    sim = object()
+    netParams = object()
+    cfg = object()
     def __init__(self):
         self.map_strings = [os.environ[map_string] for map_string in os.environ if 'NETM' in map_string]
-        self.netParams = netParams
-        self.cfg = cfg
         self.set_maps()
 
     def __getitem__(self, k):
@@ -37,19 +35,12 @@ class net_runner(object): # has to run within an mpi by parsing environ
         return value
     
     def create(self):
-        sim.create(self.netParams, self.cfg)
+        self.sim.create(self.netParams, self.cfg)
 
     def simulate(self):
-        sim.simulate()
+        self.sim.simulate()
     
     def save(self):
-        sim.saveData()
+        self.sim.saveData()
 
-if __name__ == "__main__":
-    nr = net_runner()
-    nr.set_maps()
-    nr.create()
-    nr.simulate()
-    nr.save()
-    
 
