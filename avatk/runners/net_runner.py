@@ -4,8 +4,9 @@ class net_runner(object): # has to run within an mpi by parsing environ
     sim = object()
     netParams = object()
     cfg = object()
+    grepfunc = staticmethod(lambda map_string: 'NETM' in map_string)
     def __init__(self):
-        self.map_strings = [os.environ[map_string] for map_string in os.environ if 'NETM' in map_string]
+        self.map_strings = [os.environ[map_string] for map_string in os.environ if self.grepfunc(map_string)]
         self.set_maps()
 
     def __getitem__(self, k):
