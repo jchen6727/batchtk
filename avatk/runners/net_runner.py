@@ -22,19 +22,19 @@ class net_runner(object): # has to run within an mpi by parsing environ
 
     def set_map(self, map_string):
         # split the map_string based on delimiters
-        assign_path, value = map_string.split('=')
-        assigns = assign_path.strip().split('.')
+        assign_path, value = [s.strip() for s in map_string.split('=')]
+        assigns = assign_path.split('.')
         try:
             value = float(value)
         except:
-            value = value.strip()
+            pass
         # crawl assigns array
         crawler = self.__getitem__(assigns[0])
         for gi in assigns[1:-1]:
             crawler = crawler.__getitem__(gi)
         
         crawler.__setitem__(assigns[-1], value)
-        self.maps[assign_path] = value
+        self.maps[assign_path] = value # json does not accept tuple() as keys. 
         
     def get_maps(self):
         return self.maps
