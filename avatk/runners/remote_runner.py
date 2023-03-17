@@ -1,6 +1,5 @@
 import subprocess
 import os
-import json
 
 class remote_runner(object):
 # runner that calls remote net_runner
@@ -28,6 +27,7 @@ class remote_runner(object):
         return self.stdout, self.stderr
 
     def gather_data(self):
+        import json
         filename = "{}_data.json".format(self.filename)
         self.data = json.load( open(filename) )
         return self.data

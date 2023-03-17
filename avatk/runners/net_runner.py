@@ -5,6 +5,7 @@ class net_runner(object): # has to run within an mpi by parsing environ
     netParams = object()
     cfg = object()
     grepfunc = staticmethod(lambda map_string: 'NETM' in map_string) # otherwise takes self as an argument ----
+    maps = {}
     def __init__(self):
         self.map_strings = [os.environ[map_string] for map_string in os.environ if self.grepfunc(map_string)]
         self.set_maps()
@@ -33,7 +34,10 @@ class net_runner(object): # has to run within an mpi by parsing environ
             crawler = crawler.__getitem__(gi)
         
         crawler.__setitem__(assigns[-1], value)
-        return value
+        self.maps[assign_path] = value
+        
+    def get_maps(self):
+        return self.maps
     
     def create(self):
         self.sim.create(self.netParams, self.cfg)
