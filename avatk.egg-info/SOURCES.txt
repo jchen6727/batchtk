@@ -7,4 +7,4 @@ avatk.egg-info/requires.txt
 avatk.egg-info/top_level.txt
 avatk/runners/__init__.py
 avatk/runners/net_runner.py
-avatk/runners/rem_runner.py
+avatk/runners/remote_runner.py
