@@ -11,13 +11,13 @@ def batchify( batch_dict = {}, bin_size = 1, file_label = "batch" ):
 
     for batch in dcx(**batch_dict):
         batch.update({"run": run})
-        curr_batch.append(batch)
+        curr_batch.append(pandas.Series(batch))
         run += 1
         curr_size += 1
         if curr_size == bin_size:
             # write bin to csv
             filename = "{}{}.csv".format(file_label, bin_num)
-            pandas.DataFrame
+                       
 
 
 
