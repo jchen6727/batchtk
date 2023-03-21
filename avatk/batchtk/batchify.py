@@ -1,6 +1,6 @@
 import pandas
 import itertools
-def batchify( batch_dict = {}, bin_size = 1, file_label = None ):
+def batchify( batch_dict, bin_size = 1, file_label = None ):
     """
     batch_dict = {string: list}
     bin_size = integer
@@ -19,6 +19,7 @@ def batchify( batch_dict = {}, bin_size = 1, file_label = None ):
         curr_batch.append(pandas.Series(batch))
         curr_size += 1
         if curr_size == bin_size:
+            curr_size = 0
             bin_df = pandas.DataFrame(curr_batch)
             curr_batch = []
             bins.append(bin_df)
@@ -27,6 +28,13 @@ def batchify( batch_dict = {}, bin_size = 1, file_label = None ):
                 filename = "{}{}.csv".format(file_label, bin_num)
                 bin_num += 1
                 bin_df.to_csv(filename, index=False)
+    if curr_batch:
+        # write last batch if empty
+        bin_df = pandas.DataFrame(curr_batch)
+        bins.append(bin_df)
+        if file_label:
+            filename = "{}{}.csv".format(file_label, bin_num)
+            bin_df.to_csv(filename, index=False)
     return bins
 
 def dcx(**kwargs):
