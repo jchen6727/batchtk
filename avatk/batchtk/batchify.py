@@ -8,6 +8,7 @@ def batchify( batch_dict, bin_size = 1, file_label = None ):
     --------------------------------------------------------------------------------------------------------------------
     creates a list of pandas dataframes, if file_label exists, each pandas dataframe is written to a csv file.
     """
+# rewrite using pandas.cut: https://pandas.pydata.org/docs/reference/api/pandas.cut.html
     bins = []
 
     bin_num = 0
