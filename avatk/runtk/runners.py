@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-class remote_runner(object):
+class dispatcher(object):
 # runner that calls remote net_runner
     cmdstr = "mpiexec -n {} nrniv -python -mpi {}".format( 1, 'runner.py' )
     savekey = None
@@ -33,7 +33,18 @@ class remote_runner(object):
         self.data = json.load( open(filename) )
         return self.data
 
-
+class runner(object):
+    def __init__(
+        self, 
+        grepstr='PMAP', 
+        ):
+        self.grepstr = grepstr
+        self.grepfunc = staticmethod(lambda key: grepstr in key )
+        self.greplist = [os.environ[key].split('=') for key in os.environ if 
+            self.grepfunc(key)]
+        self.maps = { s[0].strip(), s[1].strip() for s in self.grep}
+        
+        
 class process_runner(object):  # parsing environ
     sim = object()
     netParams = object()
