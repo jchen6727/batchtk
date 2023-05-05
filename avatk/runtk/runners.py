@@ -1,10 +1,13 @@
 import os
 import subprocess
 import json
+from avatk.runtk.utils import convert, set_map
 
+#TODO logger support
 class dispatcher(object):
-# runner that calls remote net_runner
-    cmdstr = "mpiexec -n {} nrniv -python -mpi {}".format( 1, 'runner.py' )
+# dispatcher calls some runner python script
+    cmdstr = "python runner.py"
+    #cmdstr = "mpiexec -n {} nrniv -python -mpi {}".format( 1, 'runner.py' )
     savekey = None
     def __init__(self, cmdstr=None, env={}):
         if cmdstr:
@@ -28,11 +31,13 @@ class dispatcher(object):
         self.stderr = self.proc.stderr
         return self.stdout, self.stderr
 
+"""
     def gather_data(self):
         import json
         filename = "{}_data.json".format(self.filename)
         self.data = json.load( open(filename) )
         return self.data
+"""
 
 class runner(object):
     grepstr = 'PMAP' # unique delimiter to select environment variables to map
@@ -44,16 +49,19 @@ class runner(object):
         'STRING': staticmethod(lambda val: val),
     }
     mappings = {}# self.mappings keys are the variables to map, self.maps[key] are values supported by _supports
+    debug = []# list of debug statements: self.debug.append(statement)
     def __init__(
         self,
         grepstr='PMAP',
         _testenv={}
     ):
+        #self.debug.append("grepstr = {}".format(grepstr))
         self.grepstr = grepstr
         self.grepfunc = staticmethod(lambda key: grepstr in key )
         if not _testenv:
             self.greptups = {key: os.environ[key].split('=') for key in os.environ if
                              self.grepfunc(key)}
+            self.debug.append(os.environ)
             # readability, greptups as the environment variables: (key,value) passed by 'PMAP' environment variables
             # saved the environment variables TODO JSON vs. STRING vs. FLOAT
         else: # supply _testenv dictionary for internal testing
@@ -61,7 +69,15 @@ class runner(object):
                              self.grepfunc(key)}
         self.mappings = {
             val[0].strip(): self._convert(key.split(grepstr)[0], val[1].strip())
-            for key, val in self.greptups.items()}
+            for key, val in self.greptups.items()
+        }
+
+    def get_debug(self):
+        return self.debug
+
+    def get_mappings(self):
+        return self.mappings
+
 
     def __getitem__(self, k):
         try:
@@ -70,22 +86,10 @@ class runner(object):
             raise KeyError(k)
 
     def _convert(self, _type, val):
-        if _type in self._supports:
-            return self._supports[_type](val)
-        if _type == '':
-            for _type in self._supports:
-                try:
-                    return self._supports[_type](val)
-                except:
-                    pass
-        raise KeyError(_type)
+        return convert(self, _type, val)
 
-def set_map(self, assign_path, value):
-    assigns = assign_path.split('.')
-    crawler = self.__getitem__(assigns[0])
-    for gi in assigns[1:-1]:
-        crawler = crawler.__getitem__(gi)
-    crawler.__setitem__(assigns[-1], value)
+
+
 
 class netpyne_runner(runner):
     """
@@ -100,56 +104,8 @@ class netpyne_runner(runner):
         super().__init__(grepstr='NETM')
 
     def set_mappings(self):
-        for assign_path in self.mappings.items():
-            set_map(self, assign_path, self.mappings[assign_path])
-
-    def create(self):
-        self.sim.create(self.netParams, self.cfg)
-
-    def simulate(self):
-        self.sim.simulate()
-
-    def save(self):
-        self.sim.saveData()
-class process_runner(object):  # parsing environ
-    sim = object()
-    netParams = object()
-    cfg = object()
-    grepfunc = staticmethod(lambda map_string: 'NETM' in map_string)  # otherwise takes self as an argument ----
-    maps = {}
-
-    def __init__(self):
-        self.map_strings = [os.environ[map_string] for map_string in os.environ if self.grepfunc(map_string)]
-        self.set_maps()
-
-    def __getitem__(self, k):
-        try:
-            return object.__getattribute__(self, k)
-        except:
-            raise KeyError(k)
-
-    def set_maps(self):
-        for map_string in self.map_strings:
-            self.set_map(map_string)
-
-    def set_map(self, map_string):
-        # split the map_string based on delimiters
-        assign_path, value = [s.strip() for s in map_string.split('=')]
-        assigns = assign_path.split('.')
-        try:
-            value = float(value)
-        except:
-            pass
-        # crawl assigns array
-        crawler = self.__getitem__(assigns[0])
-        for gi in assigns[1:-1]:
-            crawler = crawler.__getitem__(gi)
-
-        crawler.__setitem__(assigns[-1], value)
-        self.maps[assign_path] = value  # json does not accept tuple() as keys.
-
-    def get_maps(self):
-        return self.maps
+        for assign_path, value in self.mappings.items():
+            set_map(self, assign_path, value)
 
     def create(self):
         self.sim.create(self.netParams, self.cfg)
