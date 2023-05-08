@@ -6,12 +6,13 @@ from avatk.runtk.utils import convert, set_map
 #TODO logger support
 class dispatcher(object):
 # dispatcher calls some runner python script
-    cmdstr = "python runner.py"
+    #cmdstr = "python runner.py"
     #cmdstr = "mpiexec -n {} nrniv -python -mpi {}".format( 1, 'runner.py' )
     savekey = None
+
     def __init__(self, cmdstr=None, env={}):
         if cmdstr:
-            self.cmdstr = self.cmdstr
+            self.cmdstr = cmdstr
         self.cmdarr = self.cmdstr.split()
         # need to copy environ or else cannot find necessary paths.
         self.__osenv = os.environ.copy()
