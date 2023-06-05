@@ -2,45 +2,27 @@
 
 avatk is my (james.chen@downstate.edu) personal toolkit for python packages. it contains 2 very use-specific-tools and
 my jupyters.
-
+```
 .
-
 ├── README.md
-
 ├── avatk
-
 │   ├── batchtk ->generate batch exploration csv based on exploration space<-
-
 │   │   ├── __init__.py
-
 │   │   └── batchify.py 
-
 │   ├── ipynb ->jupyter notebooks to test out various things<-
-
 │   │   └── batchify.ipynb
-
 │   └── runtk ->a script with subprocess handling, with variable passing through the environment<-
-
 │       ├── __init__.py
-
 │       ├── runners.py 
-
 │       └── utils.py
-
 ├── avatk.egg-info ->python package stuff that allows for pip install -e .<-
-
 │   ├── PKG-INFO
-
 │   ├── SOURCES.txt
-
 │   ├── dependency_links.txt
-
 │   ├── requires.txt
-
 │   └── top_level.txt
-
 └── pyproject.toml
-
+```
 since this is a WIP, if you wish to use the code I would request that you fork it / branch it so that I can also see 
 what direction to take the code.
 
