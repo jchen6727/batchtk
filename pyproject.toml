@@ -3,6 +3,10 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "avatk"
+name = "pubtk"
 version = "0.0.1"
+authors = [
+    { name = "James Chen", email = "jchen.6727@gmail.com" },
+]
+description = "A public version of my personal toolkit."
 dependencies = ['importlib-metadata; python_version>"3"']
