@@ -1,14 +1,14 @@
 import os
 import subprocess
 import json
-from avatk.runtk.utils import convert, set_map
+from .utils import convert, set_map
 
 #TODO logger support
 class dispatcher(object):
 # dispatcher calls some runner python script
     #cmdstr = "python runner.py"
     #cmdstr = "mpiexec -n {} nrniv -python -mpi {}".format( 1, 'runner.py' )
-    savekey = None
+    watch_file = None
 
     def __init__(self, cmdstr=None, env={}):
         if cmdstr:
@@ -32,6 +32,21 @@ class dispatcher(object):
         self.stderr = self.proc.stderr
         return self.stdout, self.stderr
 
+    def init_run(self):
+        self.watch_file = 
+        self.run()
+        return self.stdout, self.stderr
+    
+    def check_run(self):
+        # if file exists, return data, otherwise return None
+         
+
+class hpc_dispatcher(dispatcher):
+# HPC using submission engine, currently written for SGE
+
+    def __init__(self, cmdstr=None, env={}, watch_file=None):
+        super().__init__(cmdstr=cmdstr, env=env)
+        self.watch_file 
 """
     def gather_data(self):
         import json
