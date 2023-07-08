@@ -16,11 +16,14 @@ def set_map(self, assign_path, value):
         crawler = crawler.__getitem__(gi)
     crawler.__setitem__(assigns[-1], value)
 
-def make_script(env, script, file, **kwargs):
+def make_script(env, script, filename, template, **kwargs):
     """
     # make_script
-    # env: environment variables
-    # script: script to run
+    # env: dictionary of environment variables to copy to script
+    # template: script template
+    # filename: filename of script
+    # template: template of script to be formatted
     """
+
 
     return '\n'.join(['{}={}'.format(key, val) for key, val in env.items()] + [script])
