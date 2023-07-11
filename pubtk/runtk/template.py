@@ -5,9 +5,12 @@ sge_template = """#!/bin/bash
 #$ -pe smp {cores}
 #$ -l h_vmem={vmem}
 source ~/.bashrc
-export NETM="{name}.out"
 {env}
 {pre}
 {command}
 {post}
 """
+
+# make sure to export something to .out
+# e.g:
+# export NETMSAVE="test.out"
