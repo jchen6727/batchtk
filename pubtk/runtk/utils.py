@@ -16,7 +16,7 @@ def set_map(self, assign_path, value):
         crawler = crawler.__getitem__(gi)
     crawler.__setitem__(assigns[-1], value)
 
-def write_script(env, filename, template, **kwargs):
+def create_script(env, filename, template, **kwargs):
     """
     # make_script
     # env: dictionary of environment variables to copy to script
@@ -29,6 +29,6 @@ def write_script(env, filename, template, **kwargs):
     # environment string will be handled via export commands, e.g.:
     # export VAR0="VAL0"
     envstr = '\nexport '.join(['{}="{}"'.format(key, val) for key, val in env.items()])
-    shstr = template.format(envstr=envstr, script=script, **kwargs)
+    shstr = template.format(envstr=envstr, **kwargs)
     fptr.write(shstr)
 

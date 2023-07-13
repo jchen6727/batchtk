@@ -1,8 +1,10 @@
 import os
 import subprocess
 import json
-from .utils import convert, set_map, write_script
+import hashlib
+from .utils import convert, set_map, create_script
 from .template import sge_template
+
 
 #TODO logger support
 class dispatcher(object):
@@ -11,6 +13,7 @@ class dispatcher(object):
     #cmdstr = "mpiexec -n {} nrniv -python -mpi {}".format( 1, 'runner.py' )
     watch_file = None
     grepstr = 'PMAP'
+    id = None
     env = {}
     def __init__(self, cmdstr=None, grepstr=None, env={}):
         if cmdstr:
@@ -19,6 +22,7 @@ class dispatcher(object):
             self.grepstr = grepstr
         if env:
             self.env = env
+        self.id = hashlib.md5(self.env.encode()).hexdigest()
         self.cmdarr = self.cmdstr.split()
         # need to copy environ or else cannot find necessary paths.
         self.__osenv = os.environ.copy()
@@ -38,7 +42,7 @@ class dispatcher(object):
         self.stderr = self.proc.stderr
         return self.stdout, self.stderr
 
-    def shrun(self, name=None, template=sge_template, **kwargs):
+    def shrun(self, template=sge_template, **kwargs):
         """
         instead of directly calling run, create and submit a shell script based on a custom template and 
         kwargs
@@ -47,7 +51,9 @@ class dispatcher(object):
         kwargs: keyword arguments for template, must include unique {name}
             name: name for .sh, .run, .err files
         """
-        write_script(env=self.env, filename="{}.sh".format(kwargs['name']), template=template, **kwargs)
+        self.env
+        create_script(env=self.env, filename="{}.{}.sh".format(kwargs['name'], self.id), template=template, **kwargs)
+
         self.watch_file = subprocess.run()
         self.run()
         return self.stdout, self.stderr
