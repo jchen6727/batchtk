@@ -85,22 +85,24 @@ class Runner(object):
         grepstr='PMAP',
         _testenv={}
     ):
+        if not _testenv:
+            self.env = os.environ
+        else:
+            self.env = _testenv
         #self.debug.append("grepstr = {}".format(grepstr))
         self.grepstr = grepstr
         self.grepfunc = staticmethod(lambda key: grepstr in key )
-        if not _testenv:
-            self.greptups = {key: os.environ[key].split('=') for key in os.environ if
-                             self.grepfunc(key)}
-            self.debug.append(os.environ)
-            # readability, greptups as the environment variables: (key,value) passed by 'PMAP' environment variables
-            # saved the environment variables TODO JSON vs. STRING vs. FLOAT
-        else: # supply _testenv dictionary for internal testing
-            self.greptups = {key: _testenv[key].split('=') for key in _testenv if
-                             self.grepfunc(key)}
+        self.greptups = {key: self.env[key].split('=') for key in self.env if
+                         self.grepfunc(key)}
+        self.debug.append(os.environ)
+        # readability, greptups as the environment variables: (key,value) passed by 'PMAP' environment variables
+        # saved the environment variables TODO JSON vs. STRING vs. FLOAT
         self.mappings = {
             val[0].strip(): self._convert(key.split(grepstr)[0], val[1].strip())
             for key, val in self.greptups.items()
         }
+        self.signalfile = self.mappings['SGLFILE']
+        self.writefile = self.mappings['OUTFILE']
 
     def get_debug(self):
         return self.debug
