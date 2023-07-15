@@ -7,11 +7,10 @@ from .template import sge_template
 
 
 #TODO logger support
-class dispatcher(object):
-# dispatcher calls some runner python script
+class Dispatcher(object):
+# Dispatcher calls some runner python script
     #cmdstr = "python runner.py"
     #cmdstr = "mpiexec -n {} nrniv -python -mpi {}".format( 1, 'runner.py' )
-    watch_file = None
     grepstr = 'PMAP'
     id = None
     env = {}
@@ -42,7 +41,7 @@ class dispatcher(object):
         self.stderr = self.proc.stderr
         return self.stdout, self.stderr
 
-    def shrun(self, template=sge_template, **kwargs):
+    def shrun(self, sh="qsub", template=sge_template, **kwargs):
         """
         instead of directly calling run, create and submit a shell script based on a custom template and 
         kwargs
@@ -51,32 +50,26 @@ class dispatcher(object):
         kwargs: keyword arguments for template, must include unique {name}
             name: name for .sh, .run, .err files
         """
-        self.env
-        create_script(env=self.env, filename="{}.{}.sh".format(kwargs['name'], self.id), template=template, **kwargs)
-
-        self.watch_file = subprocess.run()
-        self.run()
+        filestr = kwargs['name'] = "{}_{}".format(kwargs['name'], self.id)
+        self.watchfile = "{}.sgl".format(filestr)
+        self.readfile  = "{}.out".format(filestr)
+        shellfile = "{}.sh".format(filestr)
+        create_script(env=self.env, filename=shellfile, template=template, **kwargs)
+        cmd = "{} {}".format(sh, shellfile).split()
+        self.proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, \
+            stderr=subprocess.PIPE)
+        self.stdout = self.proc.stdout
+        self.stderr = self.proc.stderr
         return self.stdout, self.stderr
     
-    def check_run(self):
+    def check_shrun(self):
         # if file exists, return data, otherwise return None
-         
+        if os.path.exists(self.watchfile):
+            with open(self.readfile, 'r') as fptr:
+                return fptr.read()
+        return False         
 
-class hpc_dispatcher(dispatcher):
-# HPC using submission engine, currently written for SGE
-
-    def __init__(self, cmdstr=None, env={}, watch_file=None):
-        super().__init__(cmdstr=cmdstr, env=env)
-        self.watch_file 
-"""
-    def gather_data(self):
-        import json
-        filename = "{}_data.json".format(self.filename)
-        self.data = json.load( open(filename) )
-        return self.data
-"""
-
-class runner(object):
+class Runner(object):
     grepstr = 'PMAP' # unique delimiter to select environment variables to map
     # the datatype is can be defined before the grepstr
     # e.g. FLOATPMAP or STRINGPMAP
@@ -128,7 +121,7 @@ class runner(object):
 
 
 
-class netpyne_runner(runner):
+class Netpyne_Runner(Runner):
     """
     # runner for netpyne
     # see class runner
