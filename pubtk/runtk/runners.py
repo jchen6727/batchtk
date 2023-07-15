@@ -101,8 +101,8 @@ class Runner(object):
             val[0].strip(): self._convert(key.split(grepstr)[0], val[1].strip())
             for key, val in self.greptups.items()
         }
-        self.signalfile = self.mappings['SGLFILE']
-        self.writefile = self.mappings['OUTFILE']
+        self.signalfile = self.env['SGLFILE']
+        self.writefile = self.env['OUTFILE']
 
     def get_debug(self):
         return self.debug
@@ -123,7 +123,7 @@ class Runner(object):
 
 
 
-class Netpyne_Runner(Runner):
+class NetpyneRunner(Runner):
     """
     # runner for netpyne
     # see class runner
@@ -145,5 +145,11 @@ class Netpyne_Runner(Runner):
     def simulate(self):
         self.sim.simulate()
 
+    def write(self, data):
+        fptr = open(self.writefile, 'w')
+        fptr.write(data)
+        fptr.close()        
+
     def save(self):
         self.sim.saveData()
+
