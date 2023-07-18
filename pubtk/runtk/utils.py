@@ -28,7 +28,8 @@ def create_script(env, filename, template, **kwargs):
     # create an environment string to be inserted into script
     # environment string will be handled via export commands, e.g.:
     # export VAR0="VAL0"
-    envstr = '\nexport '.join(['{}="{}"'.format(key, val) for key, val in env.items()])
-    shstr = template.format(envstr=envstr, **kwargs)
+    envstr = '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in env.items()])
+    shstr = template.format(env=envstr, **kwargs)
     fptr.write(shstr)
+    fptr.close()
 

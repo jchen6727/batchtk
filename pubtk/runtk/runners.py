@@ -12,24 +12,22 @@ class Dispatcher(object):
     #cmdstr = "python runner.py"
     #cmdstr = "mpiexec -n {} nrniv -python -mpi {}".format( 1, 'runner.py' )
     grepstr = 'PMAP'
-    id = None
     env = {}
-    def __init__(self, cmdstr=None, grepstr=None, env={}):
+    def __init__(self, cwd="", cmdstr=None, env={}):
+        if cwd:
+            self.calldir = cwd + '/'
         if cmdstr:
             self.cmdstr = cmdstr
-        if grepstr:
-            self.grepstr = grepstr
         if env:
             self.env = env
-        self.id = hashlib.md5(self.env.encode()).hexdigest()
+        self.id = hashlib.md5(str(self.env).encode()).hexdigest()
         self.cmdarr = self.cmdstr.split()
         # need to copy environ or else cannot find necessary paths.
         self.__osenv = os.environ.copy()
         self.__osenv.update(env)
-
-        if self.savekey:
-            filevar = env[self.savekey].split('=')[-1].strip()
-            self.filename = "{}".format(filevar)
+        #if self.savekey:
+        #    filevar = env[self.savekey].split('=')[-1].strip()
+        #    self.filename = "{}".format(filevar)
 
     def get_command(self):
         return self.cmdstr
@@ -50,11 +48,12 @@ class Dispatcher(object):
         kwargs: keyword arguments for template, must include unique {name}
             name: name for .sh, .run, .err files
         """
+        kwargs['cwd'] = self.calldir
         filestr = kwargs['name'] = "{}_{}".format(kwargs['name'], self.id)
-        self.watchfile = "{}.sgl".format(filestr)
-        self.readfile  = "{}.out".format(filestr)
-        shellfile = "{}.sh".format(filestr)
-        create_script(env=self.env, filename=shellfile, template=template, **kwargs)
+        self.watchfile = "{}{}.sgl".format(self.calldir, filestr)
+        self.readfile  = "{}{}.out".format(self.calldir, filestr)
+        shellfile = "{}{}.sh".format(self.calldir, filestr)
+        create_script(env=self.env, command=self.cmdstr, filename=shellfile, template=template, **kwargs)
         cmd = "{} {}".format(sh, shellfile).split()
         self.proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)
@@ -65,8 +64,11 @@ class Dispatcher(object):
     def check_shrun(self):
         # if file exists, return data, otherwise return None
         if os.path.exists(self.watchfile):
-            with open(self.readfile, 'r') as fptr:
-                return fptr.read()
+            fptr = open(self.readfile, 'r')
+            data = fptr.read()
+            fptr.close()
+            os.remove(self.watchfile)
+            return data
         return False         
 
 class Runner(object):
@@ -80,6 +82,7 @@ class Runner(object):
     }
     mappings = {}# self.mappings keys are the variables to map, self.maps[key] are values supported by _supports
     debug = []# list of debug statements: self.debug.append(statement)
+    signalfile = writefile = None
     def __init__(
         self,
         grepstr='PMAP',
