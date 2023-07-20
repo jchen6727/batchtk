@@ -5,23 +5,29 @@ import hashlib
 from .utils import convert, set_map, create_script
 from .template import sge_template
 
-#TODO logger support
 class Dispatcher(object):
-# Dispatcher calls some runner python script
-    #cmdstr = "python runner.py"
-    #cmdstr = "mpiexec -n {} nrniv -python -mpi {}".format( 1, 'runner.py' )
-    grepstr = 'PMAP' # use grepstr PMAP for subprocess to identify necessary environment
-    env = {}
-    id = "" # dispatcher id, all workers refer back to dispatcher
-    def __init__(self, cwd="", cmdstr=None, env={}):
-        if cwd:
-            self.calldir = cwd + '/'
+    """
+    base class for Dispatcher
+    handles submitting the script to a Runner/Worker object and retrieving outputs
+    """ 
+    grepstr = 'PMAP' # the string ID for subprocess to identify necessary environment
+    env = {} # environment 
+    id = "" # dispatcher id, for instance the ADDR or CWD of the dispatcher
+    uid = "" # unique id of dispatcher / worker pair.
+    def __init__(self, id="", cmdstr=None, env={}):
+        """
+        initializes dispatcher
+        id: string to identify dispatcher by the created runner
+        cmdstr: the command to be run by the created runner
+        env: any environmental variables to be inherited by the created runner 
+        """
+        if id:
+            self.id = id
         if cmdstr:
             self.cmdstr = cmdstr
         if env:
             self.env = env
-        self.id = hashlib.md5(str(self.env).encode()).hexdigest()
-        self.cmdarr = self.cmdstr.split()
+        self.uid = hashlib.md5(str(self.env).encode()).hexdigest()
         # need to copy environ or else cannot find necessary paths.
         self.__osenv = os.environ.copy()
         self.__osenv.update(env)
@@ -30,78 +36,30 @@ class Dispatcher(object):
         return self.cmdstr
 
     def run(self):
-        self.proc = subprocess.run(self.cmdarr, env=self.__osenv, text=True, stdout=subprocess.PIPE, \
+        self.proc = subprocess.run(self.cmdstr.split(), env=self.__osenv, text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)
         self.stdout = self.proc.stdout
         self.stderr = self.proc.stderr
         return self.stdout, self.stderr
-
-    def shrun(self, sh="qsub", template=sge_template, **kwargs):
-        """
-        instead of directly calling run, create and submit a shell script based on a custom template and 
-        kwargs
-
-        template: template of the script to be formatted
-        kwargs: keyword arguments for template, must include unique {name}
-            name: name for .sh, .run, .err files
-        """
-        kwargs['cwd'] = self.calldir
-        filestr = kwargs['name'] = "{}_{}".format(kwargs['name'], self.id)
-        self.watchfile = "{}{}.sgl".format(self.calldir, filestr)
-        self.readfile  = "{}{}.out".format(self.calldir, filestr)
-        self.shellfile = "{}{}.sh".format(self.calldir, filestr)
-        create_script(env=self.env, command=self.cmdstr, filename=self.shellfile, template=template, **kwargs)
-        cmd = "{} {}".format(sh, self.shellfile).split()
-        self.proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, \
-            stderr=subprocess.PIPE)
-        self.stdout = self.proc.stdout
-        self.stderr = self.proc.stderr
-        return self.stdout, self.stderr
-    
-    def check_shrun(self):
-        # if file exists, return data, otherwise return None
-        if os.path.exists(self.watchfile):
-            fptr = open(self.readfile, 'r')
-            data = fptr.read()
-            fptr.close()
-            return data
-        return False
-
-    def clean(self, args='rsw'):
-        if os.path.exists(self.readfile) and 'r' in args:
-            os.remove(self.readfile)
-        if os.path.exists(self.shellfile) and 's' in args:
-            os.remove(self.shellfile)
-        if os.path.exists(self.watchfile) and 'w' in args:
-            os.remove(self.watchfile)
 
 class SFS_Dispatcher(Dispatcher):
-# Dispatcher using a Shared File System to communicate with Workers
-    grepstr = 'PMAP' # use grepstr PMAP for subprocess to identify necessary environment
-    env = {}
-    id = "" # dispatcher id, all workers refer back to dispatcher
+    """
+    Dispatcher utilizing shared file system
+    handles submitting the script to a Runner/Worker object 
+    """ 
+    grepstr = 'PMAP' # the string ID for subprocess to identify necessary environment
+    env = {} # environment 
+    id = "" # dispatcher id, for instance the ADDR or CWD of the dispatcher
+    uid = "" # unique id of dispatcher / worker pair.
     def __init__(self, cwd="", cmdstr=None, env={}):
-        if cwd:
-            self.calldir = cwd + '/'
-        if cmdstr:
-            self.cmdstr = cmdstr
-        if env:
-            self.env = env
-        self.id = hashlib.md5(str(self.env).encode()).hexdigest()
-        self.cmdarr = self.cmdstr.split()
-        # need to copy environ or else cannot find necessary paths.
-        self.__osenv = os.environ.copy()
-        self.__osenv.update(env)
-
-    def get_command(self):
-        return self.cmdstr
-
-    def run(self):
-        self.proc = subprocess.run(self.cmdarr, env=self.__osenv, text=True, stdout=subprocess.PIPE, \
-            stderr=subprocess.PIPE)
-        self.stdout = self.proc.stdout
-        self.stderr = self.proc.stderr
-        return self.stdout, self.stderr
+        """
+        initializes dispatcher
+        id: string to identify dispatcher by the created runner
+        cmdstr: the command to be run by the created runner
+        env: any environmental variables to be inherited by the created runner 
+        """
+        super().__init__(id= cwd + '/', cmdstr=cmdstr, env=env)
+        self.cwd=self.id
 
     def shrun(self, sh="qsub", template=sge_template, **kwargs):
         """
@@ -112,20 +70,19 @@ class SFS_Dispatcher(Dispatcher):
         kwargs: keyword arguments for template, must include unique {name}
             name: name for .sh, .run, .err files
         """
-        kwargs['cwd'] = self.calldir
-        filestr = kwargs['name'] = "{}_{}".format(kwargs['name'], self.id)
-        self.watchfile = "{}{}.sgl".format(self.calldir, filestr)
-        self.readfile  = "{}{}.out".format(self.calldir, filestr)
-        self.shellfile = "{}{}.sh".format(self.calldir, filestr)
+        kwargs['cwd'] = self.cwd
+        filestr = kwargs['name'] = "{}_{}".format(kwargs['name'], self.uid)
+        self.watchfile = "{}{}.sgl".format(self.cwd, filestr)
+        self.readfile  = "{}{}.out".format(self.cwd, filestr)
+        self.bashfile = "{}{}.sh".format(self.cwd, filestr)
         create_script(env=self.env, command=self.cmdstr, filename=self.shellfile, template=template, **kwargs)
-        cmd = "{} {}".format(sh, self.shellfile).split()
-        self.proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, \
+        self.proc = subprocess.run([sh, self.bashfile], text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)
         self.stdout = self.proc.stdout
         self.stderr = self.proc.stderr
         return self.stdout, self.stderr
     
-    def check_shrun(self):
+    def get_shrun(self):
         # if file exists, return data, otherwise return None
         if os.path.exists(self.watchfile):
             fptr = open(self.readfile, 'r')
@@ -137,8 +94,8 @@ class SFS_Dispatcher(Dispatcher):
     def clean(self, args='rsw'):
         if os.path.exists(self.readfile) and 'r' in args:
             os.remove(self.readfile)
-        if os.path.exists(self.shellfile) and 's' in args:
-            os.remove(self.shellfile)
+        if os.path.exists(self.bashfile) and 's' in args:
+            os.remove(self.bashfile)
         if os.path.exists(self.watchfile) and 'w' in args:
             os.remove(self.watchfile)
 
@@ -196,9 +153,6 @@ class Runner(object):
     def _convert(self, _type, val):
         return convert(self, _type, val)
 
-
-
-
 class NetpyneRunner(Runner):
     """
     # runner for netpyne
@@ -229,3 +183,6 @@ class NetpyneRunner(Runner):
     def save(self):
         self.sim.saveData()
 
+
+
+#TODO logger support?
