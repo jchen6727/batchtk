@@ -12,5 +12,4 @@ export OUTFILE="{name}.out"
 export SGLFILE="{name}.sgl"
 {env}
 {pre}{command}{post}
-touch {name}.sgl
 """
