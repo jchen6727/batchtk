@@ -1,1 +1,2 @@
-from dispatchers import *
+from .dispatchers import *
+from .runners import Runner, NetpyneRunner
