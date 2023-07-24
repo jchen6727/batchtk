@@ -74,9 +74,9 @@ class SFS_Dispatcher(Dispatcher):
         filestr = kwargs['name'] = "{}_{}".format(kwargs['name'], self.uid)
         self.watchfile = "{}{}.sgl".format(self.cwd, filestr)
         self.readfile  = "{}{}.out".format(self.cwd, filestr)
-        self.bashfile = "{}{}.sh".format(self.cwd, filestr)
+        self.shellfile = "{}{}.sh".format(self.cwd, filestr)
         create_script(env=self.env, command=self.cmdstr, filename=self.shellfile, template=template, **kwargs)
-        self.proc = subprocess.run([sh, self.bashfile], text=True, stdout=subprocess.PIPE, \
+        self.proc = subprocess.run([sh, self.shellfile], text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)
         self.stdout = self.proc.stdout
         self.stderr = self.proc.stderr
@@ -94,8 +94,8 @@ class SFS_Dispatcher(Dispatcher):
     def clean(self, args='rsw'):
         if os.path.exists(self.readfile) and 'r' in args:
             os.remove(self.readfile)
-        if os.path.exists(self.bashfile) and 's' in args:
-            os.remove(self.bashfile)
+        if os.path.exists(self.shellfile) and 's' in args:
+            os.remove(self.shellfile)
         if os.path.exists(self.watchfile) and 'w' in args:
             os.remove(self.watchfile)
 
@@ -142,7 +142,6 @@ class Runner(object):
 
     def get_mappings(self):
         return self.mappings
-
 
     def __getitem__(self, k):
         try:
