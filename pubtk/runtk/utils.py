@@ -1,3 +1,12 @@
+def gs_item(self: object, item: str, val: object):
+    #try __getitem__, if fails, use __setitem__
+    try:
+        return self.__getitem__(val)
+    except:
+        self.__setitem__(val, dict())
+        return self.__getitem__(val)
+
+
 def convert(self: object, _type: str, val: object):
     if _type in self._supports:
         return self._supports[_type](val)
@@ -15,6 +24,13 @@ def set_map(self, assign_path, value):
     for gi in assigns[1:-1]:
         crawler = crawler.__getitem__(gi)
     crawler.__setitem__(assigns[-1], value)
+
+def set_map_f(self, assign_path, value, force=False):
+    assigns = assign_path.split('.')
+    crawler = gs_item(self, assigns[0])
+    for gi in assigns[1:-1]:
+        crawler = gs_item(self, gi)
+    pass
 
 def create_script(env, filename, template, **kwargs):
     """

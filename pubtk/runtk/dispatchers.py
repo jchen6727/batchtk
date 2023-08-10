@@ -1,6 +1,5 @@
 import os
 import subprocess
-import json
 import hashlib
 from .utils import convert, set_map, create_script
 from .template import sge_template
@@ -99,89 +98,3 @@ class SFS_Dispatcher(Dispatcher):
         if os.path.exists(self.watchfile) and 'w' in args:
             os.remove(self.watchfile)
 
-
-class Runner(object):
-    grepstr = 'PMAP' # unique delimiter to select environment variables to map
-    # the datatype is can be defined before the grepstr
-    # e.g. FLOATPMAP or STRINGPMAP
-    _supports = { # Python > 3.6, dictionaries keep keys in order they were created, 'FLOAT' -> 'JSON' -> 'STRING'
-        'FLOAT': float,
-        'JSON': json.loads, #NB TODO? JSON is loaded in reverse order
-        'STRING': staticmethod(lambda val: val),
-    }
-    mappings = {}# self.mappings keys are the variables to map, self.maps[key] are values supported by _supports
-    debug = []# list of debug statements: self.debug.append(statement)
-    signalfile = None
-    writefile = None
-    def __init__(
-        self,
-        grepstr='PMAP',
-        _testenv={}
-    ):
-        if not _testenv:
-            self.env = os.environ
-        else:
-            self.env = _testenv
-        #self.debug.append("grepstr = {}".format(grepstr))
-        self.grepstr = grepstr
-        self.grepfunc = staticmethod(lambda key: grepstr in key )
-        self.greptups = {key: self.env[key].split('=') for key in self.env if
-                         self.grepfunc(key)}
-        self.debug.append(os.environ)
-        # readability, greptups as the environment variables: (key,value) passed by 'PMAP' environment variables
-        # saved the environment variables TODO JSON vs. STRING vs. FLOAT
-        self.mappings = {
-            val[0].strip(): self._convert(key.split(grepstr)[0], val[1].strip())
-            for key, val in self.greptups.items()
-        }
-        self.signalfile = self.env['SGLFILE']
-        self.writefile = self.env['OUTFILE']
-
-    def get_debug(self):
-        return self.debug
-
-    def get_mappings(self):
-        return self.mappings
-
-    def __getitem__(self, k):
-        try:
-            return object.__getattribute__(self, k)
-        except:
-            raise KeyError(k)
-
-    def _convert(self, _type, val):
-        return convert(self, _type, val)
-
-class NetpyneRunner(Runner):
-    """
-    # runner for netpyne
-    # see class runner
-    mappings <-
-    """
-    sim = object()
-    netParams = object()
-    cfg = object()
-    def __init__(self):
-        super().__init__(grepstr='NETM')
-
-    def set_mappings(self):
-        for assign_path, value in self.mappings.items():
-            set_map(self, assign_path, value)
-
-    def create(self):
-        self.sim.create(self.netParams, self.cfg)
-
-    def simulate(self):
-        self.sim.simulate()
-
-    def write(self, data):
-        fptr = open(self.writefile, 'w')
-        fptr.write(data)
-        fptr.close()        
-
-    def save(self):
-        self.sim.saveData()
-
-
-
-#TODO logger support?

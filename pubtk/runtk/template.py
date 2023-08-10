@@ -13,3 +13,13 @@ export SGLFILE="{name}.sgl"
 {env}
 {pre}{command}{post}
 """
+
+### basic export environment
+sh_template = \
+"""\
+#!/bin/sh
+{header}
+{env}
+{command}
+{footer}
+"""
