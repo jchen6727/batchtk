@@ -4,15 +4,33 @@ import hashlib
 from .utils import convert, set_map, create_script
 from .template import sge_template
 
+class Group(object):
+    obj_list = [] # each dispatcher object added to this list
+    count = 0 # persistent count
+    def __init__(self, obj):
+        self.obj = obj
+
+    def new(self, **kwargs):
+        kwargs['id'] = self.count
+        _obj = self.obj( **kwargs )
+        self.obj_list.append(_obj)
+        self.count = self.count + 1
+        return _obj
+
+    def __getitem__(self, i):
+        return self.obj_list[i]
+
 class Dispatcher(object):
     """
     base class for Dispatcher
     handles submitting the script to a Runner/Worker object and retrieving outputs
     """ 
-    grepstr = 'PMAP' # the string ID for subprocess to identify necessary environment
-    env = {} # environment 
+    grepstr = 'PMAP' # the string ID for subprocess to identify necessary environment variables
+    env = {} # string to store environment variables
+    name = "" # dispatcher name, used to generate labels
     id = "" # dispatcher id, for instance the ADDR or CWD of the dispatcher
     uid = "" # unique id of dispatcher / worker pair.
+    path = "" # location of dispatcher (path of dispatcher)
     def __init__(self, id="", cmdstr=None, env={}):
         """
         initializes dispatcher
@@ -26,7 +44,8 @@ class Dispatcher(object):
             self.cmdstr = cmdstr
         if env:
             self.env = env
-        self.uid = hashlib.md5(str(self.env).encode()).hexdigest()
+        ustr = str(self.id) + str(self.cmdstr) + str(self.env)
+        self.uid = hashlib.md5(ustr.encode()).hexdigest()
         # need to copy environ or else cannot find necessary paths.
         self.__osenv = os.environ.copy()
         self.__osenv.update(env)
@@ -100,4 +119,3 @@ class SFS_Dispatcher(Dispatcher):
             os.remove(self.watchfile)
         if os.path.exists(self.runfile) and 'o' in args:
             os.remove(self.runfile)
-

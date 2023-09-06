@@ -39,6 +39,8 @@ class Runner(object):
             self.signalfile = self.env['SGLFILE']
         if 'OUTFILE' in self.env:
             self.writefile = self.env['OUTFILE']
+        if 'HOSTIP' in self.env:
+            self.hostip = self.env['HOSTIP']
 
     def get_debug(self):
         return self.debug
@@ -69,7 +71,6 @@ class NetpyneRunner(Runner):
     # see class runner
     mappings <-
     """
-    sim = object()
     netParams = object()
     cfg = object()
     def __init__(self, netParams=None, cfg=None):
@@ -97,16 +98,3 @@ class NetpyneRunner(Runner):
         for assign_path, value in self.mappings.items():
             if filter in assign_path:
                 set_map(self, assign_path, value)
-
-    def create_params(self):
-        pass
-
-    def create(self):
-        self.sim.create(self.netParams, self.cfg)
-
-    def simulate(self):
-        self.sim.simulate()
-
-    def save(self):
-        self.sim.saveData()
-
