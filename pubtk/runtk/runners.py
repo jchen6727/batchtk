@@ -21,10 +21,8 @@ class Runner(object):
         grepstr='PMAP',
         _testenv={}
     ):
-        if not _testenv:
-            self.env = os.environ
-        else:
-            self.env = _testenv
+        self.env = os.environ
+        self.env.update(_testenv)
         #self.debug.append("grepstr = {}".format(grepstr))
         self.grepstr = grepstr
         self.grepfunc = staticmethod(lambda key: grepstr in key )
@@ -74,23 +72,26 @@ class NetpyneRunner(Runner):
     sim = object()
     netParams = object()
     cfg = object()
-    def __init__(self, netParams=None, cfg=None, sim=None):
+    def __init__(self, netParams=None, cfg=None):
         super().__init__(grepstr='NETM')
-        if sim:
-            self.sim = sim
-        else:
-            from netpyne import sim
-            self.sim = sim
-        if netParams:
-            self.netParams = netParams
+        self.netParams = netParams
+        self.cfg = cfg
+
+    def get_netParams(self):
+        if self.netParams:
+            return self.netParams
         else:
             from netpyne import specs
             self.netParams = specs.NetParams()
-        if cfg:
-            self.cfg = cfg
+            return self.netParams
+
+    def get_cfg(self):
+        if self.cfg:
+            self.cfg = self.cfg
         else:
             from netpyne import specs
             self.cfg = specs.SimConfig()
+            return self.cfg
 
     def set_mappings(self, filter=''):
         for assign_path, value in self.mappings.items():

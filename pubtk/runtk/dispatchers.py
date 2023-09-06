@@ -74,6 +74,7 @@ class SFS_Dispatcher(Dispatcher):
         self.watchfile = "{}{}.sgl".format(self.cwd, filestr)
         self.readfile  = "{}{}.out".format(self.cwd, filestr)
         self.shellfile = "{}{}.sh".format(self.cwd, filestr)
+        self.runfile   = "{}{}.run".format(self.cwd, filestr)
         create_script(env=self.env, command=self.cmdstr, filename=self.shellfile, template=template, **kwargs)
         self.proc = subprocess.run([sh, self.shellfile], text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)
@@ -90,11 +91,13 @@ class SFS_Dispatcher(Dispatcher):
             return data
         return False
 
-    def clean(self, args='rsw'):
+    def clean(self, args='rswo'):
         if os.path.exists(self.readfile) and 'r' in args:
             os.remove(self.readfile)
         if os.path.exists(self.shellfile) and 's' in args:
             os.remove(self.shellfile)
         if os.path.exists(self.watchfile) and 'w' in args:
             os.remove(self.watchfile)
+        if os.path.exists(self.runfile) and 'o' in args:
+            os.remove(self.runfile)
 
