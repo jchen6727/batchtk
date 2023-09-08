@@ -16,7 +16,7 @@ SAVESTR = "output/optuna"
 cwd = os.getcwd()
 cmd_args = {
     'mpiexec': shutil.which('mpiexec'), 'cores': 4, 'nrniv': shutil.which('nrniv'),
-    'python': shutil.which('python'), 'script': cwd + '/runner.py'
+    'python': shutil.which('python'), 'script': cwd + '/init.py'
 }
 
 initial_params = { # weights from cfg, AMPA, GABA, NMDA
@@ -34,8 +34,8 @@ tune_range = tune.quniform(
 search_space = { k : tune_range for k in initial_params }
 
 # multicore command strings (mpiexec and shell)
-MPI_CMDSTR = "{mpiexec} -n {cores} {nrniv} -python -mpi -nobanner -nogui {script}".format(**cmd_args)
-SH_CMDSTR = "time mpiexec -hosts $(hostname) -n $NSLOTS nrniv -python -mpi -nobanner -nogui runner.py"
+MPI_CMDSTR = "time {mpiexec} -hosts $(hostname) -n {cores} {nrniv} -python -mpi -nobanner -nogui {script}".format(**cmd_args)
+SH_CMDSTR = "time mpiexec -hosts $(hostname) -n $NSLOTS nrniv -python -mpi -nobanner -nogui init.py"
 
 TARGET = pandas.Series(
     {'PYR': 3.34,
@@ -48,7 +48,8 @@ ray.init(
     runtime_env={"working_dir": ".", # needed for import statements
                  "excludes": ["*.csv",
                               "*.run",
-                              "*." 
+                              "*.out",
+                              "*.sgl",
                               "ray/",
                               "output/"]}, # limit the files copied
     # _temp_dir=os.getcwd() + '/ray/tmp', # keep logs in same folder (keeping resources in same folder as "working_dir")
@@ -65,7 +66,16 @@ def sge_objective(config):
     data = utils.sge_run(config=config, cwd=cwd, cmdstr=SH_CMDSTR, cores=5)
     sdata = pandas.read_json(data, typ='series', dtype=float)
     loss = utils.mse(sdata, TARGET)
-    session.report(dict(PYR=sdata['PYR'], BC=sdata['BC'], OLM=sdata['OLM'], loss=loss))
+    report = dict(PYR=sdata['PYR'], BC=sdata['BC'], OLM=sdata['OLM'], loss=loss)
+    session.report(report)
+
+def db_objective(config):
+    data = utils.sge_run(config=config, cwd=cwd, cmdstr=SH_CMDSTR, cores=5)
+    report = dict(loss=0)
+    session.report(report)
+
+
+
 
 optuna_algo = ConcurrencyLimiter(searcher=OptunaSearch(), max_concurrent=1, batch= True)
 

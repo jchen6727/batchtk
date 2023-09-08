@@ -2,14 +2,14 @@
 sge_template = \
 """\
 #!/bin/bash
-#$ -N {name}
+#$ -N {label}
 #$ -pe smp {cores}
 #$ -l h_vmem={vmem}
-#$ -o {cwd}{name}.run
+#$ -o {cwd}{label}.run
 cd {cwd}
 source ~/.bashrc
-export OUTFILE="{name}.out"
-export SGLFILE="{name}.sgl"
+export OUTFILE="{label}.out"
+export SGLFILE="{label}.sgl"
 {env}
 {pre}{command}{post}
 """

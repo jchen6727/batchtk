@@ -46,6 +46,16 @@ def run(config, cmdstr):
     sdata = pandas.Series(json.loads(data)).astype(float)
     return sdata
 
+def template_run(grepstr, config, sh, cmdstr, cwd, template, **kwargs):
+    env = {"{}{}".format(grepstr, i):
+           "{}={}".format(key, config[key]) for i, key in enumerate(config.keys())}
+    dispatcher = SFS_Dispatcher(cmdstr = cmdstr, cwd = cwd, env=env)
+    stdouts, stderr = dispatcher.shrun(sh=sh,
+                                       template=template,
+                                       label=grepstr,
+                                       **kwargs)
+    data = dispatcher.get_shrun()
+    return data
 def sge_run(config, cmdstr, cwd, cores, wait_interval= 5):
     # run on sge
     # create shell script, submit shell script, watch  for output file, return output when complete.
@@ -54,7 +64,7 @@ def sge_run(config, cmdstr, cwd, cores, wait_interval= 5):
     dispatcher = SFS_Dispatcher(cmdstr=cmdstr, cwd=cwd, env= netm_env)
     stdouts, stderr = dispatcher.shrun(sh="qsub", 
                                    template=sge_template,
-                                   name="ca3",
+                                   label="ca3",
                                    cores=cores, #not the same as numprocs (which reserves 1 less per SGE), this is -pe smp
                                    vmem="32G",
                                    pre="",

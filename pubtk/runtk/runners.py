@@ -88,7 +88,7 @@ class NetpyneRunner(Runner):
 
     def get_cfg(self):
         if self.cfg:
-            self.cfg = self.cfg
+            return self.cfg
         else:
             from netpyne import specs
             self.cfg = specs.SimConfig()

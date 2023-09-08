@@ -4,22 +4,6 @@ import hashlib
 from .utils import convert, set_map, create_script
 from .template import sge_template
 
-class Group(object):
-    obj_list = [] # each dispatcher object added to this list
-    count = 0 # persistent count
-    def __init__(self, obj):
-        self.obj = obj
-
-    def new(self, **kwargs):
-        kwargs['id'] = self.count
-        _obj = self.obj( **kwargs )
-        self.obj_list.append(_obj)
-        self.count = self.count + 1
-        return _obj
-
-    def __getitem__(self, i):
-        return self.obj_list[i]
-
 class Dispatcher(object):
     """
     base class for Dispatcher
@@ -27,10 +11,10 @@ class Dispatcher(object):
     """ 
     grepstr = 'PMAP' # the string ID for subprocess to identify necessary environment variables
     env = {} # string to store environment variables
-    name = "" # dispatcher name, used to generate labels
-    id = "" # dispatcher id, for instance the ADDR or CWD of the dispatcher
+    #name = "" # dispatcher name, used to generate labels
+    id = "" # dispatcher id, for instance the IP or CWD of the dispatcher
     uid = "" # unique id of dispatcher / worker pair.
-    path = "" # location of dispatcher (path of dispatcher)
+    #path = "" # location of dispatcher (path of dispatcher)
     def __init__(self, id="", cmdstr=None, env={}):
         """
         initializes dispatcher
@@ -77,8 +61,25 @@ class SFS_Dispatcher(Dispatcher):
         env: any environmental variables to be inherited by the created runner 
         """
         super().__init__(id= cwd + '/', cmdstr=cmdstr, env=env)
-        self.cwd=self.id
+        self.path=self.cwd=self.id
 
+    def shcreate(self, template=sge_template, **kwargs):
+        """
+        instead of directly calling run, create and submit a shell script based on a custom template and 
+        kwargs
+
+        template: template of the script to be formatted
+        kwargs: keyword arguments for template, must include unique {name}
+            name: name for .sh, .run, .err files
+        """
+        kwargs['path']=kwargs['cwd'] = self.cwd
+        filestr = kwargs['label'] = "{}_{}".format(kwargs['label'], self.uid)
+        self.watchfile = "{}{}.sgl".format(self.cwd, filestr) # the signal file (only to represent completion of job)
+        self.readfile  = "{}{}.out".format(self.cwd, filestr) # the read file containing the actual results
+        self.shellfile = "{}{}.sh".format(self.cwd, filestr)  # the shellfile that will be submitted
+        self.runfile   = "{}{}.run".format(self.cwd, filestr) # the runfile created by the job
+        create_script(env=self.env, command=self.cmdstr, filename=self.shellfile, template=template, **kwargs)
+        
     def shrun(self, sh="qsub", template=sge_template, **kwargs):
         """
         instead of directly calling run, create and submit a shell script based on a custom template and 
@@ -88,8 +89,8 @@ class SFS_Dispatcher(Dispatcher):
         kwargs: keyword arguments for template, must include unique {name}
             name: name for .sh, .run, .err files
         """
-        kwargs['cwd'] = self.cwd
-        filestr = kwargs['name'] = "{}_{}".format(kwargs['name'], self.uid)
+        kwargs['path']=kwargs['cwd'] = self.cwd
+        filestr = kwargs['label'] = "{}_{}".format(kwargs['label'], self.uid)
         self.watchfile = "{}{}.sgl".format(self.cwd, filestr)
         self.readfile  = "{}{}.out".format(self.cwd, filestr)
         self.shellfile = "{}{}.sh".format(self.cwd, filestr)
