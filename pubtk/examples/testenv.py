@@ -18,7 +18,7 @@ template = """\
 #$ -N {label}
 #$ -pe smp 5
 #$ -l h_vmem=32G
-#$ -o {cwd}{label}.run
+#$ -o {cwd}/{label}.run
 cd {cwd}
 source ~/.bashrc
 export OUTFILE="{label}.out"

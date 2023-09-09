@@ -60,7 +60,7 @@ class SFS_Dispatcher(Dispatcher):
         cmdstr: the command to be run by the created runner
         env: any environmental variables to be inherited by the created runner 
         """
-        super().__init__(id= cwd + '/', cmdstr=cmdstr, env=env)
+        super().__init__(id= cwd, cmdstr=cmdstr, env=env)
         self.path=self.cwd=self.id
 
     def shcreate(self, template=sge_template, **kwargs):
@@ -74,10 +74,10 @@ class SFS_Dispatcher(Dispatcher):
         """
         kwargs['path']=kwargs['cwd'] = self.cwd
         filestr = kwargs['label'] = "{}_{}".format(kwargs['label'], self.uid)
-        self.watchfile = "{}{}.sgl".format(self.cwd, filestr) # the signal file (only to represent completion of job)
-        self.readfile  = "{}{}.out".format(self.cwd, filestr) # the read file containing the actual results
-        self.shellfile = "{}{}.sh".format(self.cwd, filestr)  # the shellfile that will be submitted
-        self.runfile   = "{}{}.run".format(self.cwd, filestr) # the runfile created by the job
+        self.watchfile = "{}/{}.sgl".format(self.cwd, filestr) # the signal file (only to represent completion of job)
+        self.readfile  = "{}/{}.out".format(self.cwd, filestr) # the read file containing the actual results
+        self.shellfile = "{}/{}.sh".format(self.cwd, filestr)  # the shellfile that will be submitted
+        self.runfile   = "{}/{}.run".format(self.cwd, filestr) # the runfile created by the job
         create_script(env=self.env, command=self.cmdstr, filename=self.shellfile, template=template, **kwargs)
         
     def shrun(self, sh="qsub", template=sge_template, **kwargs):
@@ -91,10 +91,10 @@ class SFS_Dispatcher(Dispatcher):
         """
         kwargs['path']=kwargs['cwd'] = self.cwd
         filestr = kwargs['label'] = "{}_{}".format(kwargs['label'], self.uid)
-        self.watchfile = "{}{}.sgl".format(self.cwd, filestr)
-        self.readfile  = "{}{}.out".format(self.cwd, filestr)
-        self.shellfile = "{}{}.sh".format(self.cwd, filestr)
-        self.runfile   = "{}{}.run".format(self.cwd, filestr)
+        self.watchfile = "{}/{}.sgl".format(self.cwd, filestr)
+        self.readfile  = "{}/{}.out".format(self.cwd, filestr)
+        self.shellfile = "{}/{}.sh".format(self.cwd, filestr)
+        self.runfile   = "{}/{}.run".format(self.cwd, filestr)
         create_script(env=self.env, command=self.cmdstr, filename=self.shellfile, template=template, **kwargs)
         self.proc = subprocess.run([sh, self.shellfile], text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)

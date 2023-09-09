@@ -1,4 +1,18 @@
-### Template for SGE ###
+### Templates for SGE ###
+
+class Submit(object):
+    script_tmpl = ''
+    submit_tmpl = ''
+    def __init__(submit_tmpl, script_tmpl):
+        self.script_tmpl = script_tmpl
+        self.submit_tmpl = submit_tmpl
+    def create(self, **kwargs):
+        self.script_tmpl.format(**kwargs)
+        self.submit_tmpl.format(**kwargs)
+        return {'submit': self.submit_tmpl, 'script': script_str}
+
+class SGE(object):
+    
 sge_template = \
 """\
 #!/bin/bash
