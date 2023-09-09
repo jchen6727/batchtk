@@ -14,11 +14,11 @@ netm_env = {"NETM{}".format(i):
             "{}={}".format(key, config[key]) for i, key in enumerate(config.keys())}
 
 template = """\
-#!/bin/sh
+#!/bin/bash
 #$ -N {label}
 #$ -pe smp 5
 #$ -l h_vmem=32G
-#$ -o {cwd}/{label}.run
+#$ -o {cwd}{label}.run
 cd {cwd}
 source ~/.bashrc
 export OUTFILE="{label}.out"
