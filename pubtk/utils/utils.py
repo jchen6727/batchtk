@@ -12,3 +12,8 @@ def read_pkl(read_path: str):
     robject = pickle.load(fptr)
     return robject
 
+def path_open(file: str, mode: str):
+    if '/' in file:
+        os.makedirs(file.rsplit('/', 1)[0], exist_ok=True)
+    fptr = open(file, mode)
+    return fptr

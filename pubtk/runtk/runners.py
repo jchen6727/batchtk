@@ -21,26 +21,34 @@ class Runner(object):
         grepstr='PMAP',
         _testenv={}
     ):
-        self.env = os.environ
+        self.env = os.environ.copy()
         self.env.update(_testenv)
         #self.debug.append("grepstr = {}".format(grepstr))
         self.grepstr = grepstr
         self.grepfunc = staticmethod(lambda key: grepstr in key )
         self.greptups = {key: self.env[key].split('=') for key in self.env if
                          self.grepfunc(key)}
-        self.debug.append(os.environ)
+        self.debug.append(self.env)
         # readability, greptups as the environment variables: (key,value) passed by 'PMAP' environment variables
         # saved the environment variables TODO JSON vs. STRING vs. FLOAT
         self.mappings = {
             val[0].strip(): self._convert(key.split(grepstr)[0], val[1].strip())
             for key, val in self.greptups.items()
         }
-        if 'SGLFILE' in self.env:
-            self.signalfile = self.env['SGLFILE']
-        if 'OUTFILE' in self.env:
-            self.writefile = self.env['OUTFILE']
-        if 'HOSTIP' in self.env:
-            self.hostip = self.env['HOSTIP']
+        # export JSONPMAP0="cfg.settings={...}" for instance would map the {...} to cfg.settings
+
+    def __getattr__(self, k):
+        aliases = {
+            'signalfile': 'SGLFILE',
+            'writefile': 'OUTFILE',
+            'jobid': 'JOBID',
+        }
+        if k in self.env:
+            return self.env[k]
+        elif k in aliases:
+            return self.env[aliases[k]]
+        else:
+            raise KeyError(k)
 
     def get_debug(self):
         return self.debug

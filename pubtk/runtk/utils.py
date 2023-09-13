@@ -69,3 +69,7 @@ class Group(object):
 
     def __getitem__(self, i):
         return self.obj_list[i]
+
+
+class Alias(object):
+
