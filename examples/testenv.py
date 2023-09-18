@@ -1,17 +1,15 @@
-from pubtk.runtk.utils import create_script
-from pubtk.runtk.dispatchers import SFS_Dispatcher
+from pubtk.runtk.dispatchers import SH_Dispatcher
+from pubtk.runtk.submit import Submit
 import json
 import os
 
-config = {
-    'netParams.connParams.PYR->BC_AMPA.weight': 1,
-    'cfg.NMDA': 2
-    }
-          #'cfg.value': 2, 
-          #'cfg.dict': json.dumps(dict(one=1, two=2))}
+cwd = os.getcwd()
 
-netm_env = {"NETM{}".format(i): 
-            "{}={}".format(key, config[key]) for i, key in enumerate(config.keys())}
+config = {
+    'cfg.AMPA': 1,
+    'cfg.NMDA': 1,
+    'cfg.GABA': 1,
+    }
 
 template = """\
 #!/bin/bash
@@ -27,6 +25,10 @@ export SGLFILE="{label}.sgl"
 time mpiexec -np $NSLOTS -hosts $(hostname) nrniv -python -mpi init.py
 """
 
-dispatcher = SFS_Dispatcher(cmdstr = 'a', cwd = os.getcwd(), env = netm_env)
+sge = Submit(submit_template = "qsub {cwd}/{label}.sh", script_template = template)
 
-dispatcher.shcreate(template, label='ca3')
+dispatcher = SH_Dispatcher(cwd = cwd, submit = sge)
+
+dispatcher.add_dict(value_type="FLOAT", dictionary=config)
+
+dispatcher.create_job()

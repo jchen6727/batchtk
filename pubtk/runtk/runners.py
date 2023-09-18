@@ -4,7 +4,7 @@ from .utils import convert, set_map, create_script
 from .template import sge_template
 
 class Runner(object):
-    grepstr = 'PMAP' # unique delimiter to select environment variables to map
+    grepstr = 'PUBTK' # unique delimiter to select environment variables to map
     # the datatype is can be defined before the grepstr
     # e.g. FLOATPMAP or STRINGPMAP
     _supports = { # Python > 3.6, dictionaries keep keys in order they were created, 'FLOAT' -> 'JSON' -> 'STRING'
@@ -37,18 +37,6 @@ class Runner(object):
         }
         # export JSONPMAP0="cfg.settings={...}" for instance would map the {...} to cfg.settings
 
-    def __getattr__(self, k):
-        aliases = {
-            'signalfile': 'SGLFILE',
-            'writefile': 'OUTFILE',
-            'jobid': 'JOBID',
-        }
-        if k in self.env:
-            return self.env[k]
-        elif k in aliases:
-            return self.env[aliases[k]]
-        else:
-            raise KeyError(k)
 
     def get_debug(self):
         return self.debug
@@ -63,7 +51,20 @@ class Runner(object):
 
     def signal(self):
         open(self.signalfile, 'w').close()
-                
+
+    def __getattr__(self, k):
+        aliases = {
+            'signalfile': 'SGLFILE',
+            'writefile': 'OUTFILE',
+            'jobid': 'JOBID',
+        }
+        if k in self.env:
+            return self.env[k]
+        elif k in aliases:
+            return self.env[aliases[k]]
+        else:
+            raise KeyError(k)
+
     def __getitem__(self, k):
         try:
             return object.__getattribute__(self, k)
@@ -82,7 +83,7 @@ class NetpyneRunner(Runner):
     netParams = object()
     cfg = object()
     def __init__(self, netParams=None, cfg=None):
-        super().__init__(grepstr='NETM')
+        super().__init__(grepstr='PUBTK')
         self.netParams = netParams
         self.cfg = cfg
 

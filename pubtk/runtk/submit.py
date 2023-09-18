@@ -1,7 +1,6 @@
 ### Submit class ###
 import subprocess
 
-
 def create_env(env):
     envstr = '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in env.items()])
     return envstr
@@ -14,14 +13,8 @@ class Submit(object):
         self.job = dict()
         self.script_path = str()
         self.job_script = str()
-
-    def format_job(self, **kwargs):
-        submit = self.submit_template.format(**kwargs)
-        script = self.script_template.format(**kwargs)
-        self.job = {'submit': submit, 'script': script}
-        self.script_path = "{cwd}/{label}".format(**kwargs)
-        self.label = kwargs['label']
-        return self.job
+        self.handles = dict()
+        self.env = dict()
 
     def create_job(self, **kwargs):
         self.format_job(**kwargs)
@@ -30,17 +23,36 @@ class Submit(object):
         fptr.write(self.job['script'])
         fptr.close()
 
+    def format_job(self, **kwargs):
+        submit = self.submit_template.format(**kwargs)
+        script = self.__format__(**kwargs)
+        self.job = {'submit': submit, 'script': script}
+        self.script_path = "{cwd}/{label}".format(**kwargs)
+        self.label = kwargs['label']
+        return self.job
+
     def submit_job(self):
         subprocess.Popen(self.job['submit'].split(), )
         self.proc = subprocess.run(self.job['submit'].split(' '), text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)
         return 1
 
-    def __format__(self, **kwargs):
+    def __format__(self, env={}, **kwargs):
+        env.update(self.env)
+        self.env = env
+        env.update(self.handles)
+        if env:
+            kwargs['env'] = '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in env.items()])
+        else:
+            kwargs['env'] = ''
         return self.script_template.format(**kwargs)
 
     def format(self, **kwargs):
         return self.__format__(**kwargs)
+
+    def create_handles(self, **kwargs):
+        self.handles.update(kwargs)
+        return self.handles
 
 class SGESubmit(Submit):
     Submit.key_args.update({'{command}', '{cores}', '{vmem}'})
@@ -58,7 +70,7 @@ class SGESubmit(Submit):
         export JOBID=$JOB_ID
         {env}
         {command}
-        """
+         """
     def __init__(self):
         super().__init__(submit_template = "qsub {label}.sh", script_template = self.sge_template)
 
@@ -74,4 +86,5 @@ class SGESubmit(Submit):
         self.job_id = self.proc.stdout.split(' ')[2]
         return self.job_id
 
-
+    def set_handles(self):
+        pass

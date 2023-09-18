@@ -80,13 +80,6 @@ def sge_run(config, cmdstr, cwd, cores, wait_interval= 5):
     dispatcher.clean(args='rswo')
     return data #, stdouts, stderr
 
-def dbrun(config, cmdstr): 
-    # debug optimization run 
-    netm_env = {"NETM{}".format(i):
-                    "{}={}".format(key, config[key]) for i, key in enumerate(config.keys())}
-    runner = Dispatcher(cmdstr= cmdstr, env= netm_env)
-    stdout, stderr = runner.run()
-    return stdout, stderr
 
 def dbobjective(config, cmdstr):
     # debug objective of a remote process
@@ -109,12 +102,6 @@ def write_pkl(wobject: object, write_path: str):
 def read_pkl(read_path: str):
     fptr = open(read_path, 'rb')
     robject = pickle.load(fptr)
+    fptr.close()
     return robject
 
-def get_freq(spike_data: str):
-    freq_data = {}
-    for datm in spike_data:
-        pop = datm.split('\n')[0]
-        freq = datm.split(' ')[-2]
-        freq_data[pop] = freq
-    return freq_data

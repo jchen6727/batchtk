@@ -71,5 +71,21 @@ class Group(object):
         return self.obj_list[i]
 
 
-class Alias(object):
+class Aliases(object):
+    def __init__(self, aliases={}, **kwargs):
+        self.aliases = aliases
+        self.aliases.update(kwargs)
+    def __getattr__(self, k):
+        if k in self.env:
+            return self.env[k]
+        elif k in self.aliases:
+            return self.env[self.aliases[k]]
+        else:
+            raise KeyError(k)
+
+    def __getitem__(self, k):
+        try:
+            return object.__getattribute__(self, k)
+        except:
+            raise KeyError(k)
 
