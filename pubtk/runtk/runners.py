@@ -73,6 +73,8 @@ class Runner(object):
     def _convert(self, _type, val):
         return convert(self, _type, val)
 
+class AFRunner(Runner):
+    pass
 class NetpyneRunner(Runner):
     """
     # runner for netpyne
