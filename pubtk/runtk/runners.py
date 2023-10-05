@@ -14,8 +14,6 @@ class Runner(object):
     }
     mappings = {}# self.mappings keys are the variables to map, self.maps[key] are values supported by _supports
     debug = []# list of debug statements: self.debug.append(statement)
-    signalfile = None
-    writefile = None
     def __init__(
         self,
         grepstr='PMAP',
@@ -35,7 +33,8 @@ class Runner(object):
             val[0].strip(): self._convert(key.split(grepstr)[0], val[1].strip())
             for key, val in self.greptups.items()
         }
-        # export JSONPMAP0="cfg.settings={...}" for instance would map the {...} to cfg.settings
+        # export JSONPMAP0="cfg.settings={...}" for instance would map the {...} as a json to cfg.settings
+
 
 
     def get_debug(self):

@@ -1,6 +1,5 @@
 from pubtk.runtk.dispatchers import SH_Dispatcher
 from pubtk.runtk.submit import Submit
-import json
 import os
 
 cwd = os.getcwd()

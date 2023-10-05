@@ -1,0 +1,126 @@
+#!/bin/sh
+#$ -N test
+#$ -pe smp 5
+#$ -l h_vmem=32G
+#$ -o test.run
+#$ -cwd
+cat test.sh
+tree.
+├── boptsrch.py
+├── ca3_b1591a42f94648ac14b4908ce1e1a5f1.run
+├── ca3_b1591a42f94648ac14b4908ce1e1a5f1.sh
+├── ca3.py
+├── cfg.py
+├── gridsrch.py
+├── init.py
+├── mod
+│   ├── aux_fun.inc
+│   ├── CA1ih.mod
+│   ├── CA1ika.mod
+│   ├── CA1ikdr.mod
+│   ├── CA1ina.mod
+│   ├── caolmw.mod
+│   ├── icaolmw.mod
+│   ├── iholmw.mod
+│   ├── kcaolmw.mod
+│   ├── kdrbwb.mod
+│   ├── MyExp2SynBB.mod
+│   ├── MyExp2SynNMDABB.mod
+│   ├── nafbwb.mod
+│   └── x86_64
+│       ├── CA1ih.c
+│       ├── CA1ih.o
+│       ├── CA1ika.c
+│       ├── CA1ika.o
+│       ├── CA1ikdr.c
+│       ├── CA1ikdr.o
+│       ├── CA1ina.c
+│       ├── CA1ina.o
+│       ├── caolmw.c
+│       ├── caolmw.o
+│       ├── icaolmw.c
+│       ├── icaolmw.o
+│       ├── iholmw.c
+│       ├── iholmw.o
+│       ├── kcaolmw.c
+│       ├── kcaolmw.o
+│       ├── kdrbwb.c
+│       ├── kdrbwb.o
+│       ├── libnrnmech.so
+│       ├── makemod2c_inc
+│       ├── mod_func.cpp
+│       ├── mod_func.o
+│       ├── MyExp2SynBB.c
+│       ├── MyExp2SynBB.o
+│       ├── MyExp2SynNMDABB.c
+│       ├── MyExp2SynNMDABB.o
+│       ├── nafbwb.c
+│       ├── nafbwb.o
+│       ├── special
+│       └── special.nrn
+├── netParams.py
+├── optuna_srch.py
+├── output
+│   └── optuna
+├── __pycache__
+│   ├── cfg.cpython-310.pyc
+│   ├── netParams.cpython-310.pyc
+│   └── utils.cpython-310.pyc
+├── ray_ses
+│   └── optuna
+│       ├── experiment_state-2023-09-07_15-16-34.json
+│       ├── experiment_state-2023-09-07_15-28-19.json
+│       ├── searcher-state-2023-09-07_15-16-34.pkl
+│       ├── searcher-state-2023-09-07_15-28-19.pkl
+│       ├── search_gen_state-2023-09-07_15-16-34.json
+│       ├── search_gen_state-2023-09-07_15-28-19.json
+│       ├── sge_objective_85d0188c_1_BC-_BC_GABA=0.0638,BC-_PYR_GABA=0.0894,OLM-_PYR_GABA=0.0491,PYR-_BC_AMPA=0.0851,PYR-_BC_NMDA=0.0366,PYR-__2023-09-07_15-28-24
+│       │   ├── events.out.tfevents.1694114904.grid
+│       │   ├── params.json
+│       │   ├── params.pkl
+│       │   └── result.json
+│       ├── sge_objective_e13491b2_1_BC-_BC_GABA=0.0845,BC-_PYR_GABA=0.0940,OLM-_PYR_GABA=0.0431,PYR-_BC_AMPA=0.0718,PYR-_BC_NMDA=0.0610,PYR-__2023-09-07_15-16-39
+│       │   ├── events.out.tfevents.1694114199.grid
+│       │   ├── params.json
+│       │   ├── params.pkl
+│       │   └── result.json
+│       ├── trainable.pkl
+│       └── tuner.pkl
+├── sge.sh
+├── testenv.py
+├── test.run
+├── test.sh
+├── utils.py
+└── x86_64
+    ├── CA1ih.c
+    ├── CA1ih.o
+    ├── CA1ika.c
+    ├── CA1ika.o
+    ├── CA1ikdr.c
+    ├── CA1ikdr.o
+    ├── CA1ina.c
+    ├── CA1ina.o
+    ├── caolmw.c
+    ├── caolmw.o
+    ├── icaolmw.c
+    ├── icaolmw.o
+    ├── iholmw.c
+    ├── iholmw.o
+    ├── kcaolmw.c
+    ├── kcaolmw.o
+    ├── kdrbwb.c
+    ├── kdrbwb.o
+    ├── libnrnmech.so
+    ├── makemod2c_inc
+    ├── mod_func.cpp
+    ├── mod_func.o
+    ├── MyExp2SynBB.c
+    ├── MyExp2SynBB.o
+    ├── MyExp2SynNMDABB.c
+    ├── MyExp2SynNMDABB.o
+    ├── nafbwb.c
+    ├── nafbwb.o
+    ├── special
+    └── special.nrn
+
+9 directories, 107 files

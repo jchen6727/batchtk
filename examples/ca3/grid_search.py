@@ -1,15 +1,17 @@
 import ray
 import pandas
+import json
 import os
-
 import numpy
 from ray import tune
 from ray import air
 from ray.air import session
 from ray.tune.search.basic_variant import BasicVariantGenerator
 
-from pubtk.runtk.dispatchers import SH_Dispatcher
+from pubtk.runtk.dispatchers import SFS_Dispatcher
 from pubtk.runtk.submit import Submit
+
+import time
 
 template = """\
 #!/bin/bash
@@ -25,38 +27,45 @@ export SGLFILE="{label}.sgl"
 time mpiexec -np $NSLOTS -hosts $(hostname) nrniv -python -mpi init.py
 """
 
-CONCURRENCY = 4
+CONCURRENCY = 3
 SAVESTR = 'grid.csv'
 
 cwd = os.getcwd()
 
-grid = {'cfg.AMPA': tune.grid_search([0.75, 1.25]),
-        'cfg.GABA': tune.grid_search([0.75, 1.25]),
-        'cfg.NMDA': tune.grid_search([0.75, 1.25]),
+grid = {'cfg.AMPA': tune.grid_search([0.5, 1.00, 1.5]),
+        'cfg.GABA': tune.grid_search([0.5, 1.00, 1.5]),
+        'cfg.NMDA': tune.grid_search([0.5, 1.00, 1.5]),
         }
 
 ray.init(
     runtime_env={"working_dir": ".", # needed for import statements
-                 "excludes": ["*.csv",
+                 "excludes": [
+                              "*.csv",
+                              "*.out",
                               "*.run",
-                              "*." 
-                              "ray/",
-                              "output/"]}, # limit the files copied
-    # _temp_dir=os.getcwd() + '/ray/tmp', # keep logs in same folder (keeping resources in same folder as "working_dir")
-    # OSError: AF_UNIX path length cannot exceed 107 bytes
+                              "*.sh",
+                              "*.sgl",
+                              ]}
 )
 
 TARGET = pandas.Series(
-    {'PYR': 3.34,
-     'BC': 19.7,
-     'OLM': 3.47})
-
+    {'PYR': 3.33875,
+     'BC' : 19.725,
+     'OLM': 3.47,}
+)
 def sge_run(config):
     sge = Submit(submit_template = "qsub {cwd}/{label}.sh", script_template = template)
-    dispatcher = SH_Dispatcher(cwd = cwd, env = {}, submit = sge)
+    dispatcher = SFS_Dispatcher(cwd = cwd, env = {}, submit = sge)
     dispatcher.add_dict(value_type="FLOAT", dictionary = config)
-    dispatcher.create_job(prefix='batch')
-    session.report({'loss': 0})
+    dispatcher.run()
+    data = dispatcher.get_run()
+    while not data:
+        data = dispatcher.get_run()
+        time.sleep(5)
+    dispatcher.clean(args='sw')
+    data = pandas.read_json(data, typ='series', dtype=float)
+    loss = numpy.square( TARGET - data[ ['PYR', 'BC', 'OLM'] ] ).mean()
+    session.report({'loss': loss, 'PYR': data['PYR'], 'BC': data['BC'], 'OLM': data['OLM']})
 
 algo = BasicVariantGenerator(max_concurrent=CONCURRENCY)
 
@@ -72,7 +81,7 @@ tuner = tune.Tuner(
         metric="loss"
     ),
     run_config=air.RunConfig(
-        local_dir="./ray_ses",
+        local_dir="../ray_ses",
         name="grid",
     ),
     param_space=grid,

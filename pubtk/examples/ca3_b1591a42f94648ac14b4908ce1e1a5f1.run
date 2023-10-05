@@ -1,0 +1,412 @@
+numprocs=4
+NEURON -- VERSION 8.2.2 HEAD (93d41fafd) 2022-12-15
+Duke, Yale, and the BlueBrain Project -- Copyright 1984-2022
+See http://neuron.yale.edu/neuron/credits
+
+Additional mechanisms from files
+ "mod/CA1ih.mod" "mod/CA1ika.mod" "mod/CA1ikdr.mod" "mod/CA1ina.mod" "mod/caolmw.mod" "mod/icaolmw.mod" "mod/iholmw.mod" "mod/kcaolmw.mod" "mod/kdrbwb.mod" "mod/MyExp2SynBB.mod" "mod/MyExp2SynNMDABB.mod" "mod/nafbwb.mod"
+  Number of cells on node 1: 300 
+  Number of connections on node 1: 27500 
+  Number of synaptic contacts on node 1: 38000 
+  Number of stims on node 1: 1550 
+  Number of cells on node 2: 300 
+  Number of connections on node 2: 27500 
+  Number of synaptic contacts on node 2: 38000 
+  Number of stims on node 2: 1550 
+  Number of cells on node 3: 300 
+  Number of connections on node 3: 27500 
+  Number of synaptic contacts on node 3: 38000 
+  Number of stims on node 3: 1550 
+
+Start time:  2023-09-08 22:08:25.589853
+
+Creating network of 3 cell populations on 4 hosts...
+  Number of cells on node 0: 300 
+  Done; cell creation time = 0.13 s.
+Making connections...
+  Number of connections on node 0: 27500 
+  Number of synaptic contacts on node 0: 38000 
+  Done; cell connection time = 5.11 s.
+Adding stims...
+  Number of stims on node 0: 1550 
+  Done; cell stims creation time = 0.17 s.
+0.0s
+
+Running simulation using NEURON for 10.0 ms...
+  Done; run time = 0.28 s; real-time ratio: 0.04.
+
+Gathering data...
+  Done; gather time = 0.13 s.
+
+Analyzing...
+  Cells: 1200
+  Connections: 0 (0.00 per cell)
+  Spikes: 295 (24.58 Hz)
+  Simulated time: 0.0 s; 4 workers
+  Run time: 0.28 s
+===mappings===
+{'netParams.connParams.PYR->BC_AMPA.weight': 1.0, 'cfg.NMDA': 2.0}
+===weights===
+{'PYR->BC_NMDA': 0.00276, 'PYR->OLM_NMDA': 0.0014, 'PYR->PYR_NMDA': 8e-06, 'PYR->BC_AMPA': 1.0, 'PYR->OLM_AMPA': 0.00036, 'PYR->PYR_AMPA': 2e-05, 'BC->BC_GABA': 0.0045, 'BC->PYR_GABA': 0.00072, 'OLM->PYR_GABA': 0.072}
+===rate===
+{PYR: 13.0, BC: 95.5, OLM: 0.0}
+writing to ca3_b1591a42f94648ac14b4908ce1e1a5f1.out
+
+real	0m25.563s
+user	0m41.585s
+sys	0m11.506s
+numprocs=4
+NEURON -- VERSION 8.2.2 HEAD (93d41fafd) 2022-12-15
+Duke, Yale, and the BlueBrain Project -- Copyright 1984-2022
+See http://neuron.yale.edu/neuron/credits
+
+Additional mechanisms from files
+ "mod/CA1ih.mod" "mod/CA1ika.mod" "mod/CA1ikdr.mod" "mod/CA1ina.mod" "mod/caolmw.mod" "mod/icaolmw.mod" "mod/iholmw.mod" "mod/kcaolmw.mod" "mod/kdrbwb.mod" "mod/MyExp2SynBB.mod" "mod/MyExp2SynNMDABB.mod" "mod/nafbwb.mod"
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+
+real	0m4.036s
+user	0m2.978s
+sys	0m2.456s
+numprocs=4
+NEURON -- VERSION 8.2.2 HEAD (93d41fafd) 2022-12-15
+Duke, Yale, and the BlueBrain Project -- Copyright 1984-2022
+See http://neuron.yale.edu/neuron/credits
+
+Additional mechanisms from files
+ "mod/CA1ih.mod" "mod/CA1ika.mod" "mod/CA1ikdr.mod" "mod/CA1ina.mod" "mod/caolmw.mod" "mod/icaolmw.mod" "mod/iholmw.mod" "mod/kcaolmw.mod" "mod/kdrbwb.mod" "mod/MyExp2SynBB.mod" "mod/MyExp2SynNMDABB.mod" "mod/nafbwb.mod"
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+
+real	0m3.933s
+user	0m2.882s
+sys	0m2.422s
+numprocs=4
+NEURON -- VERSION 8.2.2 HEAD (93d41fafd) 2022-12-15
+Duke, Yale, and the BlueBrain Project -- Copyright 1984-2022
+See http://neuron.yale.edu/neuron/credits
+
+Additional mechanisms from files
+ "mod/CA1ih.mod" "mod/CA1ika.mod" "mod/CA1ikdr.mod" "mod/CA1ina.mod" "mod/caolmw.mod" "mod/icaolmw.mod" "mod/iholmw.mod" "mod/kcaolmw.mod" "mod/kdrbwb.mod" "mod/MyExp2SynBB.mod" "mod/MyExp2SynNMDABB.mod" "mod/nafbwb.mod"
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+
+real	0m1.509s
+user	0m1.922s
+sys	0m1.225s
+numprocs=4
+NEURON -- VERSION 8.2.2 HEAD (93d41fafd) 2022-12-15
+Duke, Yale, and the BlueBrain Project -- Copyright 1984-2022
+See http://neuron.yale.edu/neuron/credits
+
+Additional mechanisms from files
+ "mod/CA1ih.mod" "mod/CA1ika.mod" "mod/CA1ikdr.mod" "mod/CA1ina.mod" "mod/caolmw.mod" "mod/icaolmw.mod" "mod/iholmw.mod" "mod/kcaolmw.mod" "mod/kdrbwb.mod" "mod/MyExp2SynBB.mod" "mod/MyExp2SynNMDABB.mod" "mod/nafbwb.mod"
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+
+real	0m3.817s
+user	0m2.775s
+sys	0m2.313s
+numprocs=4
+NEURON -- VERSION 8.2.2 HEAD (93d41fafd) 2022-12-15
+Duke, Yale, and the BlueBrain Project -- Copyright 1984-2022
+See http://neuron.yale.edu/neuron/credits
+
+Additional mechanisms from files
+ "mod/CA1ih.mod" "mod/CA1ika.mod" "mod/CA1ikdr.mod" "mod/CA1ina.mod" "mod/caolmw.mod" "mod/icaolmw.mod" "mod/iholmw.mod" "mod/kcaolmw.mod" "mod/kdrbwb.mod" "mod/MyExp2SynBB.mod" "mod/MyExp2SynNMDABB.mod" "mod/nafbwb.mod"
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+Traceback (most recent call last):
+  File "init.py", line 1, in <module>
+    from netParams import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/netParams.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from cfg import ca3
+  File "/ddn/jchen/dev/pubtk/pubtk/examples/cfg.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from pubtk.runtk import NetpyneRunner
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/__init__.py", line 1, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .dispatchers import *
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/dispatchers.py", line 5, in <module>
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+    from .template import sge_template
+  File "/ddn/jchen/dev/pubtk/pubtk/runtk/template.py", line 16
+    sge_template = \
+    ^
+IndentationError: expected an indented block after class definition on line 14
+
+real	0m3.717s
+user	0m2.863s
+sys	0m2.283s
