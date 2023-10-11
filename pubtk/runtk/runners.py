@@ -3,6 +3,7 @@ import json
 from .utils import convert, set_map, create_script
 from .template import sge_template
 import socket
+import time
 
 class Runner(object):
     """
@@ -106,6 +107,7 @@ class HPCRunner(Runner):
                 break
             except:
                 pass
+
     def write(self, data):
         fptr = open(self.writefile, 'w')
         fptr.write(data)
