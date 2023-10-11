@@ -63,8 +63,6 @@ TARGET = pandas.Series(
      'OLM': 3.47,}
 )
 
-
-
 def sge_run(config):
     sge = Submit(submit_template = "qsub {cwd}/{label}.sh", script_template = template)
     dispatcher = SFS_Dispatcher(cwd = cwd, env = {}, submit = sge)

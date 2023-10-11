@@ -2,65 +2,69 @@ import os
 import json
 from .utils import convert, set_map, create_script
 from .template import sge_template
+import socket
 
 class Runner(object):
-    grepstr = 'PUBTK' # unique delimiter to select environment variables to map
-    # the datatype is can be defined before the grepstr
-    # e.g. FLOATPMAP or STRINGPMAP
-    _supports = { # Python > 3.6, dictionaries keep keys in order they were created, 'FLOAT' -> 'JSON' -> 'STRING'
-        'FLOAT': float,
-        'JSON': json.loads, #NB TODO? JSON is loaded in reverse order
-        'STRING': staticmethod(lambda val: val),
-    }
-    mappings = {}# self.mappings keys are the variables to map, self.maps[key] are values supported by _supports
-    debug = []# list of debug statements: self.debug.append(statement)
+    """
+    Handles parsing and injection of environmental variables into python script.
+    """
     def __init__(
         self,
-        grepstr='PMAP',
-        _testenv={}
+        grepstr='PUBTK',
+        env = None,
+        aliases = None,
+        supports = None,
+        **kwargs
     ):
+        """
+        Parameters
+        ----------
+        grepstr - the string identifier to select relevant environment variables
+        env - any additional variables to be used by the created runner
+        aliases - dictionary of attribute aliases: e.g. {'alias': 'attribute'}
+        supports - dictionary of supported types and deserialization functions,
+                   the Runner supports 'FLOAT', 'JSON', 'STRING' by default,
+                   the user supplied argument can supplant these deserialization
+                   functions
+        **kwargs - unused placeholder
+        """
         self.env = os.environ.copy()
-        self.env.update(_testenv)
+        if env:
+            self.env.update(env)
+        self.aliases = {}
+        if aliases:
+            self.aliases.update(aliases)
+        self.supports = {'FLOAT': float,
+                         'JSON': json.loads,
+                         'STRING': staticmethod(lambda val: val),
+                         }
+        if supports:
+            self.supports.update(supports)
         #self.debug.append("grepstr = {}".format(grepstr))
         self.grepstr = grepstr
         self.grepfunc = staticmethod(lambda key: grepstr in key )
         self.greptups = {key: self.env[key].split('=') for key in self.env if
                          self.grepfunc(key)}
-        self.debug.append(self.env)
+        self.debug = [self.env]
         # readability, greptups as the environment variables: (key,value) passed by 'PMAP' environment variables
         # saved the environment variables TODO JSON vs. STRING vs. FLOAT
         self.mappings = {
-            val[0].strip(): self._convert(key.split(grepstr)[0], val[1].strip())
+            val[0].strip(): self.convert(key.split(grepstr)[0], val[1].strip())
             for key, val in self.greptups.items()
         }
         # export JSONPMAP0="cfg.settings={...}" for instance would map the {...} as a json to cfg.settings
-
-
 
     def get_debug(self):
         return self.debug
 
     def get_mappings(self):
         return self.mappings
-    
-    def write(self, data):
-        fptr = open(self.writefile, 'w')
-        fptr.write(data)
-        fptr.close()
-
-    def signal(self):
-        open(self.signalfile, 'w').close()
 
     def __getattr__(self, k):
-        aliases = {
-            'signalfile': 'SGLFILE',
-            'writefile': 'OUTFILE',
-            'jobid': 'JOBID',
-        }
         if k in self.env:
             return self.env[k]
-        elif k in aliases:
-            return self.env[aliases[k]]
+        elif k in self.aliases:
+            return self.env[self.aliases[k]]
         else:
             raise KeyError(k)
 
@@ -70,12 +74,68 @@ class Runner(object):
         except:
             raise KeyError(k)
 
-    def _convert(self, _type, val):
-        return convert(self, _type, val)
+    def convert(self, _type: str, val: object):
+        if _type in self.supports:
+            return self.supports[_type](val)
+        if _type == '':
+            for _type in self.supports:
+                try:
+                    return self.supports[_type](val)
+                except:
+                    pass
+        raise KeyError(_type)
 
-class AFRunner(Runner):
-    pass
-class NetpyneRunner(Runner):
+class HPCRunner(Runner):
+    def __init__(self, **kwargs):
+        aliases = {'signalfile': 'SGLFILE',
+                   'writefile': 'OUTFILE',
+                   'socketfile': 'SOCFILE',
+                   'jobid': 'JOBID'
+                   }
+        if 'aliases' in kwargs:
+            kwargs['aliases'].update(aliases)
+        else:
+            kwargs['aliases'] = aliases
+        super().__init__(**kwargs)
+
+    def connect(self):
+        self.client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        while True:
+            try:
+                self.client.connect(self.socketfile)
+                break
+            except:
+                pass
+    def write(self, data):
+        fptr = open(self.writefile, 'w')
+        fptr.write(data)
+        fptr.close()
+
+    def signal(self):
+        open(self.signalfile, 'w').close()
+
+    def send(self, data):
+        """
+        # send data to socket
+        # data: data to send
+        # size: size of data to send
+        """
+        self.client.sendall(data.encode())
+
+    def recv(self, size=1024):
+        """
+        # receive data from socket
+        # size: size of data to receive
+        """
+        return self.client.recv(size).decode()
+
+    def close(self):
+        """
+        # close socket connection
+        """
+        self.client.close()
+
+class NetpyneRunner(HPCRunner):
     """
     # runner for netpyne
     # see class runner
@@ -84,7 +144,14 @@ class NetpyneRunner(Runner):
     netParams = object()
     cfg = object()
     def __init__(self, netParams=None, cfg=None):
-        super().__init__(grepstr='PUBTK')
+        super().__init__(grepstr='PUBTK',
+                         aliases={
+                             'signalfile': 'SGLFILE',
+                             'writefile': 'OUTFILE',
+                             'socketfile': 'SOCFILE',
+                             'jobid': 'JOBID',
+                         }
+                         )
         self.netParams = netParams
         self.cfg = cfg
 

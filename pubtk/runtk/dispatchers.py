@@ -4,6 +4,8 @@ import hashlib
 from .utils import convert, set_map, create_script
 from .template import sge_template
 from .submit import Submit
+import socket
+
 class Dispatcher(object):
     """
     base class for Dispatcher
@@ -18,8 +20,8 @@ class Dispatcher(object):
     gid ->
         a generated ID string that is unique to a Dispatcher <-> Runner pair.
     """ 
-
-    def __init__(self, env={}, grepstr='PUBTK', **kwargs):
+    obj_count = 0 # persistent count N.B. may be shared between objects.
+    def __init__(self, env=None, grepstr='PUBTK', **kwargs):
         """
         Parameters
         ----------
@@ -30,11 +32,16 @@ class Dispatcher(object):
 
         initializes gid, the value will be created upon subprocess call.
         """
-        self.env = env
+        self.env = {}
+        if env:
+            self.env.update(env)
         self.grepstr = grepstr
         self.gid = ''
+        Dispatcher.obj_count = Dispatcher.obj_count + 1
+        self.sid = id(self)
 
-    def add_dict(self, value_type='', dictionary={}, **kwargs):
+
+    def add_dict(self, dictionary, value_type='', **kwargs):
         """
         Parameters
         ----------
@@ -110,16 +117,21 @@ class SH_Dispatcher(Dispatcher):
     """
     Shell based Dispatcher generating shell script to submit jobs
     """
-    def __init__(self, cwd="", env={}, submit=Submit(), **kwargs):
+    def __init__(self, cwd="", submit=None, **kwargs):
         """
         initializes dispatcher
-        id: string to identify dispatcher by the created runner
+        cwd: current working directory
         env: any environmental variables to be inherited by the created runner
-        submit: Submit object (see pubtk.runk.submit)
+        in **kwargs:
+            id: string to identify dispatcher by the created runner
+            submit: Submit object (see pubtk.runk.submit)
         """
-        super().__init__(env=env, **kwargs)
+        super().__init__(**kwargs)
         self.cwd = cwd
-        self.submit = submit
+        if submit:
+            self.submit = submit
+        else:
+            self.submit = Submit()
         self.jobid = -1
         #self.label = self.gid
 
@@ -129,10 +141,10 @@ class SH_Dispatcher(Dispatcher):
                                cwd=self.cwd,
                                env=self.env,
                                **kwargs)
-
+    """
     def submit_job(self):
         self.jobid = self.submit.submit_job()
-
+    """
     def run(self, **kwargs):
         self.create_job(**kwargs)
         self.jobid = self.submit.submit_job()
@@ -142,12 +154,15 @@ class SFS_Dispatcher(SH_Dispatcher):
     Shared File System Dispatcher utilizing file operations to submit jobs and collect results
     handles submitting the script to a Runner/Worker object
     """
-    def run(self, **kwargs):
-        super().run(**kwargs)
+
+    def create_job(self, **kwargs):
+        super().create_job(**kwargs)
         self.watchfile = "{}/{}.sgl".format(self.cwd, self.gid)  # the signal file (only to represent completion of job)
         self.readfile = "{}/{}.out".format(self.cwd, self.gid)  # the read file containing the actual results
         self.shellfile = "{}/{}.sh".format(self.cwd, self.gid)  # the shellfile that will be submitted
         self.runfile = "{}/{}.run".format(self.cwd, self.gid)  # the runfile created by the job
+    def run(self, **kwargs):
+        super().run(**kwargs)
 
     def get_run(self):
         # if file exists, return data, otherwise return None
@@ -169,9 +184,55 @@ class SFS_Dispatcher(SH_Dispatcher):
             os.remove(self.runfile)
 
 
-class AFU_Dispatcher(Dispatcher):
+class AFU_Dispatcher(SH_Dispatcher):
     """
     AF UNIX Dispatcher utilizing sockets (still requires shared file system)
     handles submitting the script to a Runner/Worker object
     """
-    pass
+    def create_job(self, **kwargs):
+        super().create_job()
+        self.socketfile = "{}/{}.s".format(self.cwd, self.gid)  # the socket file
+        try:
+            os.unlink(self.socketfile)
+        except OSError:
+            if os.path.exists(self.socketfile):
+                raise
+
+        self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.server.bind(self.socketfile)
+        self.server.listen(1)
+
+        self.shellfile = "{}/{}.sh".format(self.cwd, self.gid)  # the shellfile that will be submitted
+        self.runfile = "{}/{}.run".format(self.cwd, self.gid)  # the runfile created by the job
+
+    def run(self, **kwargs):
+        self.create_job(**kwargs)
+        self.jobid = self.submit.submit_job()
+
+    def accept(self):
+        """
+        accept incoming connection from client
+        this function is blocking
+        """
+        self.connection, client_address = self.server.accept()  # actual blocking statement
+        return self.connection, client_address
+
+    def recv(self, size=1024):
+        """
+
+        Returns
+        -------
+
+        """
+        return self.connection.recv(size).decode()
+
+    def send(self, data):
+        self.connection.sendall(data.encode())
+    def clean(self, args='so'):
+        self.connection.close()
+        os.unlink(self.socketfile)
+        if os.path.exists(self.shellfile) and 's' in args:
+            os.remove(self.shellfile)
+        if os.path.exists(self.runfile) and 'o' in args:
+            os.remove(self.runfile)
+
