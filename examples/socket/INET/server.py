@@ -2,6 +2,18 @@ from pubtk.runtk.dispatchers import INET_Dispatcher
 from pubtk.runtk.submit import Submit
 import os
 
+
+template = """\
+#!/bin/zsh
+source ~/.zshrc
+conda activate netpyne
+cd {cwd}
+export SOCIP="{ip}"
+export SOCPORT="{port}"
+{env}
+python client.py
+"""
+
 template = """\
 #!/bin/bash
 #$ -N job{label}
@@ -15,25 +27,12 @@ export SOCPORT="{port}"
 {env}
 python client.py
 """
-template = """\
-#!/bin/zsh
-source ~/.zshrc
-conda activate netpyne
-cd {cwd}
-export SOCIP="{ip}"
-export SOCPORT="{port}"
-{env}
-python client.py
-"""
-
-
-import os
 
 cwd = os.getcwd()
 
 env = {'foo': 'bar'}
 
-shrun = Submit(submit_template = "zsh {cwd}/{label}.sh", script_template = template)
+shrun = Submit(submit_template = "qsub {cwd}/{label}.sh", script_template = template)
 dispatcher = INET_Dispatcher(cwd = cwd, env = env, submit = shrun)
 dispatcher.create_job()
 dispatcher.submit_job()
