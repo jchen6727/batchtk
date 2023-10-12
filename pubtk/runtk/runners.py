@@ -91,6 +91,8 @@ class HPCRunner(Runner):
         aliases = {'signalfile': 'SGLFILE',
                    'writefile': 'OUTFILE',
                    'socketfile': 'SOCFILE',
+                   'socketip': 'SOCIP',
+                   'socketport': 'SOCPORT',
                    'jobid': 'JOBID'
                    }
         if 'aliases' in kwargs:
@@ -99,14 +101,25 @@ class HPCRunner(Runner):
             kwargs['aliases'] = aliases
         super().__init__(**kwargs)
 
-    def connect(self):
-        self.client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        while True:
-            try:
-                self.client.connect(self.socketfile)
-                break
-            except:
-                pass
+    def connect(self, socket_type='INET'):
+        if socket_type == 'INET':
+            self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            while True:
+                try:
+                    self.client.connect((self.socketip, int(self.socketport)))
+                    break
+                except:
+                    pass
+        elif socket_type == 'UNIX':
+            self.client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            while True:
+                try:
+                    self.client.connect(self.socketfile)
+                    break
+                except:
+                    pass
+        else:
+            raise ValueError(type)
 
     def write(self, data):
         fptr = open(self.writefile, 'w')

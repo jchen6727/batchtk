@@ -32,6 +32,7 @@ cwd = os.getcwd()
 
 env = {'foo': 'bar'}
 
+
 def run(env):
     shrun = Submit(submit_template = "bash {cwd}/{label}.sh", script_template = template)
     dispatcher = AFU_Dispatcher(cwd = cwd, env = env, submit = shrun)

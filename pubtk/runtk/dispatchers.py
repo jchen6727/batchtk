@@ -141,10 +141,10 @@ class SH_Dispatcher(Dispatcher):
                                cwd=self.cwd,
                                env=self.env,
                                **kwargs)
-    """
+
     def submit_job(self):
         self.jobid = self.submit.submit_job()
-    """
+
     def run(self, **kwargs):
         self.create_job(**kwargs)
         self.jobid = self.submit.submit_job()
@@ -184,9 +184,9 @@ class SFS_Dispatcher(SH_Dispatcher):
             os.remove(self.runfile)
 
 
-class AFU_Dispatcher(SH_Dispatcher):
+class UNIX_Dispatcher(SH_Dispatcher):
     """
-    AF UNIX Dispatcher utilizing sockets (still requires shared file system)
+    AF UNIX Dispatcher utilizing sockets (requires socket forwarding)
     handles submitting the script to a Runner/Worker object
     """
     def create_job(self, **kwargs):
@@ -236,3 +236,61 @@ class AFU_Dispatcher(SH_Dispatcher):
         if os.path.exists(self.runfile) and 'o' in args:
             os.remove(self.runfile)
 
+class INET_Dispatcher(SH_Dispatcher):
+    """
+    AF INET Dispatcher utilizing sockets
+    handles submitting the script to a Runner/Worker object
+    """
+    def create_job(self, ports = (60000, 65535), **kwargs):
+        super().init_run(**kwargs)
+        host = socket.gethostname()
+        ip = socket.gethostbyname(host)
+        self.ip = ip
+        port = ports[0]
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        while True:
+            try:
+                server.bind((ip, port))
+                break
+            except:
+                port = port + 1
+                if port == ports[1]:
+                    raise
+        self.port = port
+        self.server = server
+        self.server.listen(1)
+        self.shellfile = "{}/{}.sh".format(self.cwd, self.gid)  # the shellfile that will be submitted
+        self.runfile = "{}/{}.run".format(self.cwd, self.gid)  # the runfile created by the job
+        self.submit.create_job(label=self.gid, cwd=self.cwd, env=self.env, ip=self.ip, port=self.port, **kwargs)
+
+    def submit_job(self):
+        self.jobid = self.submit.submit_job()
+    def run(self, **kwargs):
+        self.create_job(**kwargs)
+        self.jobid = self.submit.submit_job()
+
+    def accept(self):
+        """
+        accept incoming connection from client
+        this function is blocking
+        """
+        self.connection, client_address = self.server.accept()  # actual blocking statement
+        return self.connection, client_address
+
+    def recv(self, size=1024):
+        """
+
+        Returns
+        -------
+
+        """
+        return self.connection.recv(size).decode()
+
+    def send(self, data):
+        self.connection.sendall(data.encode())
+    def clean(self, args='so'):
+        self.connection.close()
+        if os.path.exists(self.shellfile) and 's' in args:
+            os.remove(self.shellfile)
+        if os.path.exists(self.runfile) and 'o' in args:
+            os.remove(self.runfile)
