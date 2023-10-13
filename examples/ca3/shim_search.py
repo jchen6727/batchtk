@@ -14,7 +14,9 @@ from pubtk.runtk.dispatchers import SFS_Dispatcher
 from pubtk.runtk.submit import Submit
 
 import time
-ALGO = "cfo"
+ALGORITHM = "cfo"
+
+CONCURRENCY = 1
 
 NTRIALS = 250
 
@@ -82,16 +84,12 @@ def sge_run(config):
 
 ray.init(
     runtime_env={"working_dir": ".", # needed for import statements
-                 "excludes": [
-                              "*.csv",
-                              "*.out",
-                              "*.run",
-                              "*.sh",
-                              "*.sgl",
+                 "excludes": ["*.csv", "*.out", "*.run",
+                              "*.sh", "*.sgl",
                               ]}
 )
 
-algo = ConcurrencyLimiter(searcher=searcher, max_concurrent=1, batch= True)
+algo = ConcurrencyLimiter(searcher=searcher, max_concurrent=CONCURRENCY, batch= True)
 
 print("====={} search=====")
 print(param_space)
@@ -106,7 +104,7 @@ tuner = tune.Tuner(
     ),
     run_config=air.RunConfig(
         local_dir="../ray_ses",
-        name=ALGO,
+        name=ALGORITHM,
     ),
     param_space=param_space,
 )

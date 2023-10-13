@@ -39,13 +39,8 @@ grid = {'cfg.AMPA': tune.grid_search([0.5, 1.00, 1.5]),
 
 ray.init(
     runtime_env={"working_dir": ".", # needed for import statements
-                 "excludes": [
-                              "*.csv",
-                              "*.out",
-                              "*.run",
-                              "*.sh",
-                              "*.sgl",
-                              ]}
+                 "excludes": ["*.csv", "*.out", "*.run",
+                              "*.sh" , "*.sgl", ]}
 )
 
 TARGET = pandas.Series(

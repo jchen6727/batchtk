@@ -52,27 +52,9 @@ def handle_inputs(kwargs, aliases_list):
             for alias in aliases:
                 kwargs[alias] = item
     return kwargs
-        
-
-class Group(object):
-    obj_list = [] # each dispatcher object added to this list
-    count = 0 # persistent count
-    def __init__(self, obj):
-        self.obj = obj
-
-    def new(self, **kwargs):
-        kwargs['id'] = self.count
-        _obj = self.obj( **kwargs )
-        self.obj_list.append(_obj)
-        self.count = self.count + 1
-        return _obj
-
-    def __getitem__(self, i):
-        return self.obj_list[i]
-
 
 class Aliases(object):
-    def __init__(self, aliases={}, **kwargs):
+    def __init__(self, aliases, **kwargs):
         self.aliases = aliases
         self.aliases.update(kwargs)
     def __getattr__(self, k):
