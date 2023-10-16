@@ -8,14 +8,14 @@ from ray import air
 from ray.air import session
 from ray.tune.search.basic_variant import BasicVariantGenerator
 
-from pubtk.runtk.dispatchers import SFS_Dispatcher
+from pubtk.runtk.dispatchers import INET_Dispatcher
 from pubtk.runtk.submit import SGESubmitINET
 
 import time
 
 sge = SGESubmitINET()
 
-sge.update_submit_template(
+sge.update_template(
     command = "time mpiexec -np $NSLOTS -hosts $(hostname) nrniv -python -mpi init.py",
     cores = "5",
     vmem = "32G"
@@ -43,18 +43,23 @@ TARGET = pandas.Series(
      'OLM': 3.47,}
 )
 def sge_run(config):
-    sge = Submit(submit_template = "qsub {cwd}/{label}.sh", script_template = template)
-    dispatcher = SFS_Dispatcher(cwd = cwd, env = {}, submit = sge)
+    dispatcher = INET_Dispatcher(cwd = cwd, env = {}, submit = sge)
     dispatcher.add_dict(value_type="FLOAT", dictionary = config)
     dispatcher.run()
-    data = dispatcher.get_run()
-    while not data:
-        data = dispatcher.get_run()
-        time.sleep(5)
-    dispatcher.clean(args='sw')
-    data = pandas.read_json(data, typ='series', dtype=float)
-    loss = numpy.square( TARGET - data[ ['PYR', 'BC', 'OLM'] ] ).mean()
-    session.report({'loss': loss, 'PYR': data['PYR'], 'BC': data['BC'], 'OLM': data['OLM']})
+    dispatcher.accept()
+    try:
+        while True:
+            data = dispatcher.recv(1024)
+            if not data:
+                break
+            print('Received data:', data.decode())
+    finally:
+        dispatcher.clean(args='k')
+    #data = pandas.read_json(data, typ='series', dtype=float)
+    #loss = numpy.square( TARGET - data[ ['PYR', 'BC', 'OLM'] ] ).mean()
+    loss = 0
+    session.report({'loss': loss, 'data': data})
+    #session.report({'loss': loss, 'PYR': data['PYR'], 'BC': data['BC'], 'OLM': data['OLM']})
 
 algo = BasicVariantGenerator(max_concurrent=CONCURRENCY)
 

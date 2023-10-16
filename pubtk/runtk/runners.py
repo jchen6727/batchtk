@@ -1,7 +1,6 @@
 import os
 import json
 from .utils import convert, set_map, create_script
-from .template import sge_template
 import socket
 import time
 

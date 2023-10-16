@@ -27,3 +27,12 @@ if sim.rank == 0:
         print("writing to {}".format(ca3.writefile))
         ca3.write(out_json)
         ca3.signal()
+    if ca3.socketfile:
+        print("sending to {}".format(ca3.socketfile))
+        ca3.send(out_json)
+        ca3.close()
+    if ca3.socketip:
+        print("sending to {}:{}".format(ca3.socketip,
+                                        ca3.socketport))
+        ca3.send(out_json)
+        ca3.close()

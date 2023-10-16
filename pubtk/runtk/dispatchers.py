@@ -1,8 +1,6 @@
 import os
 import subprocess
 import hashlib
-from .utils import convert, set_map, create_script
-from .template import sge_template
 from .submit import Submit
 import socket
 
