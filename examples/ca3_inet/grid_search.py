@@ -21,7 +21,7 @@ sge.update_template(
     vmem = "32G"
 )
 
-CONCURRENCY = 3
+CONCURRENCY = 9
 SAVESTR = 'grid.csv'
 
 cwd = os.getcwd()
@@ -47,20 +47,15 @@ def sge_run(config):
     dispatcher.add_dict(value_type="FLOAT", dictionary = config)
     dispatcher.run()
     dispatcher.accept()
-    try:
-        while True:
-            data = dispatcher.recv(1024)
-            if not data:
-                break
-            print('Received data:', data.decode())
-    finally:
-        dispatcher.clean(args='k')
-    #data = pandas.read_json(data, typ='series', dtype=float)
-    #loss = numpy.square( TARGET - data[ ['PYR', 'BC', 'OLM'] ] ).mean()
-    loss = 0
-    session.report({'loss': loss, 'data': data})
-    #session.report({'loss': loss, 'PYR': data['PYR'], 'BC': data['BC'], 'OLM': data['OLM']})
-
+    data = dispatcher.recv(1024)
+    dispatcher.clean(args='k')
+    data = pandas.read_json(data, typ='series', dtype=float)
+    loss = numpy.square( TARGET - data[ ['PYR', 'BC', 'OLM'] ] ).mean()
+    #session.report({'loss': 0, 'data': data})
+    session.report({'loss': loss, 'port': dispatcher.port, 
+                    'PYR': data['PYR'], 'BC': data['BC'], 'OLM': data['OLM'], 
+                    'AMPA': data['cfg.AMPA'], 'GABA': data['cfg.GABA'], 'NMDA': data['cfg.NMDA']})
+    
 algo = BasicVariantGenerator(max_concurrent=CONCURRENCY)
 
 print("=====grid search=====")

@@ -4,7 +4,7 @@ ca3 = NetpyneRunner()
 
 cfg = ca3.get_cfg()
 
-cfg.duration = 1000
+cfg.duration = 100
 cfg.dt = 0.1
 cfg.hparams = {'v_init': -65.0}
 cfg.verbose = False

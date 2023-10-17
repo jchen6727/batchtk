@@ -73,7 +73,7 @@ class SGESubmit(Submit):
     template = \
         """\
 #!/bin/bash
-#$ -N {label}
+#$ -N j{label}
 #$ -pe smp {cores}
 #$ -l h_vmem={vmem}
 #$ -o {cwd}/{label}.run
@@ -106,7 +106,7 @@ class SGESubmitSFS(SGESubmit):
     template = \
         """\
 #!/bin/bash
-#$ -N {label}
+#$ -N j{label}
 #$ -pe smp {cores}
 #$ -l h_vmem={vmem}
 #$ -o {cwd}/{label}.run
@@ -124,7 +124,7 @@ class SGESubmitINET(SGESubmit):
     template = \
         """\
 #!/bin/bash
-#$ -N {label}
+#$ -N j{label}
 #$ -pe smp {cores}
 #$ -l h_vmem={vmem}
 #$ -o {cwd}/{label}.run
