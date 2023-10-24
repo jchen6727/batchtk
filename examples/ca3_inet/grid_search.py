@@ -46,14 +46,21 @@ def sge_run(config):
     dispatcher = INET_Dispatcher(cwd = cwd, env = {}, submit = sge)
     dispatcher.add_dict(value_type="FLOAT", dictionary = config)
     dispatcher.run()
+    tid = tune.get_trial_id()
+    tno = int(tid.split('_')[-1])
     dispatcher.accept()
     data = dispatcher.recv(1024)
     dispatcher.clean(args='k')
     data = pandas.read_json(data, typ='series', dtype=float)
     loss = numpy.square( TARGET - data[ ['PYR', 'BC', 'OLM'] ] ).mean()
+    strc = str(config)
+    curr = os.getcwd().split('/')[-1]
     #session.report({'loss': 0, 'data': data})
-    session.report({'loss': loss, 'port': dispatcher.port, 
-                    'PYR': data['PYR'], 'BC': data['BC'], 'OLM': data['OLM'], 
+    #session.report({'loss': loss, 'port': dispatcher.port, 'cwd': os.getcwd(), 'pid': os.getpid(),
+    #                'PYR': data['PYR'], 'BC': data['BC'], 'OLM': data['OLM'], 
+    #                'AMPA': data['cfg.AMPA'], 'GABA': data['cfg.GABA'], 'NMDA': data['cfg.NMDA']})
+    session.report({'loss': loss, 'port': dispatcher.port, 'cwd': curr, 'pid': os.getpid(),
+                    'strc': strc, 'id': tid, 'tno': tno,
                     'AMPA': data['cfg.AMPA'], 'GABA': data['cfg.GABA'], 'NMDA': data['cfg.NMDA']})
     
 algo = BasicVariantGenerator(max_concurrent=CONCURRENCY)
