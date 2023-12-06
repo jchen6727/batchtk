@@ -23,7 +23,6 @@ if sim.rank == 0:
     print("===rate===")
     print(rates)
     out_json = json.dumps({**inputs, **weights, **rates})
-    if ca3.writefile:
-        print("writing to {}".format(ca3.writefile))
-        ca3.write(out_json)
-        ca3.signal()
+    print("writing to {}".format(ca3.writefile))
+    ca3.write(out_json)
+    ca3.signal()

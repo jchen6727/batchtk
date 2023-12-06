@@ -4,6 +4,7 @@ import hashlib
 from .submit import Submit
 import socket
 
+
 class Dispatcher(object):
     """
     base class for Dispatcher
@@ -14,29 +15,33 @@ class Dispatcher(object):
         dictionary of values to be exported to the simulation environment, either within the subprocess call,
         or to an environment script
     grepstr ->
-        the string value that allows the Runner class to identify relevant values
+        the string value that generates labels for relevant values (filename and environment dictionary)
     gid ->
         a generated ID string that is unique to a Dispatcher <-> Runner pair.
     """ 
     obj_count = 0 # persistent count N.B. may be shared between objects.
-    def __init__(self, env=None, grepstr='PUBTK', **kwargs):
+
+    def __init__(self, env=None, grepstr='RUN', gid = False, **kwargs):
         """
         Parameters
         ----------
         initializes dispatcher
         env - any environmental variables to be inherited by the created runner
         grepstr - the string ID for subprocess to identify necessary environment variables
-        **kwargs is an unused placeholder
+        **kwargs are placed into a __dict__ item that can be accessed by __getattr__
+        id, str_id, int_id are special keyword arguments that can be supplied for FS and port handling.
 
-        initializes gid, the value will be created upon subprocess call.
+        initializes gid, will set if the argument is supplied, otherwise the value will be
+        created upon subprocess call.
         """
         self.env = {}
+        self.__dict__ = kwargs
         if env:
             self.env.update(env)
         self.grepstr = grepstr
-        self.gid = ''
+        self.gid = gid
+
         Dispatcher.obj_count = Dispatcher.obj_count + 1
-        self.sid = id(self)
 
 
     def add_dict(self, dictionary, value_type='', **kwargs):
@@ -84,16 +89,36 @@ class Dispatcher(object):
         ----------
         **kwargs - of note, **kwargs here is used if necessary to help generate self.gid
 
-        generates alphanumeric for self.gid based on self.env and **kwargs
+        handles any global tasks prior to running the subprocess
+            if self.gid = False, generates alphanumeric for self.gid based on self.env and **kwargs
         """
-        gstr = str(self.env) + str(kwargs)
-        self.gid = hashlib.md5(gstr.encode()).hexdigest()
+        if not self.gid:
+            gstr = str(self.env) + str(kwargs)
+            self.gid = hashlib.md5(gstr.encode()).hexdigest()
+        self.label = "{}_{}".format(self.grepstr.lower(), self.gid)
+
+    def __getattr__(self, k):
+        # only called if __getattribute__ fails
+        return self.__dict__[k]
+
+    def save_json(self, filename):
+        """
+        Parameters
+        ----------
+        filename - filename to save json to
+
+        saves the environment dictionary to a json file
+        """
+        import json
+        with open(filename, 'w') as fptr:
+            json.dump(self.env, fptr)
+            fptr.close()
 
 class NOF_Dispatcher(Dispatcher):
     """
     No File Dispatcher, everything is run without generation of shell scripts.
     """
-    def __init__(self, cmdstr='', env={}, **kwargs):
+    def __init__(self, cmdstr='', env=None, **kwargs):
         """
         Parameters
         ----------
@@ -155,10 +180,11 @@ class SFS_Dispatcher(SH_Dispatcher):
 
     def create_job(self, **kwargs):
         super().create_job(**kwargs)
-        self.watchfile = "{}/{}.sgl".format(self.cwd, self.gid)  # the signal file (only to represent completion of job)
-        self.readfile = "{}/{}.out".format(self.cwd, self.gid)  # the read file containing the actual results
-        self.shellfile = "{}/{}.sh".format(self.cwd, self.gid)  # the shellfile that will be submitted
-        self.runfile = "{}/{}.run".format(self.cwd, self.gid)  # the runfile created by the job
+        self.watchfile = "{}/{}.sgl".format(self.cwd, self.label)  # the signal file (only to represent completion of job)
+        self.readfile = "{}/{}.out".format(self.cwd, self.label)  # the read file containing the actual results
+        self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
+        self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
+
     def run(self, **kwargs):
         super().run(**kwargs)
 
@@ -172,6 +198,8 @@ class SFS_Dispatcher(SH_Dispatcher):
         return False
 
     def clean(self, args='rswo'):
+        if args == 'all':
+            args = 'rswo'
         if os.path.exists(self.readfile) and 'r' in args:
             os.remove(self.readfile)
         if os.path.exists(self.shellfile) and 's' in args:
@@ -189,7 +217,7 @@ class UNIX_Dispatcher(SH_Dispatcher):
     """
     def create_job(self, **kwargs):
         super().create_job()
-        self.socketfile = "{}/{}.s".format(self.cwd, self.gid)  # the socket file
+        self.socketfile = "{}/{}.s".format(self.cwd, self.label)  # the socket file
         try:
             os.unlink(self.socketfile)
         except OSError:
@@ -200,8 +228,9 @@ class UNIX_Dispatcher(SH_Dispatcher):
         self.server.bind(self.socketfile)
         self.server.listen(1)
 
-        self.shellfile = "{}/{}.sh".format(self.cwd, self.gid)  # the shellfile that will be submitted
-        self.runfile = "{}/{}.run".format(self.cwd, self.gid)  # the runfile created by the job
+        self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
+        self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
+        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, socketfile=self.socketfile, **kwargs)
 
     def run(self, **kwargs):
         self.create_job(**kwargs)
@@ -229,6 +258,8 @@ class UNIX_Dispatcher(SH_Dispatcher):
     def clean(self, args='so'):
         self.connection.close()
         os.unlink(self.socketfile)
+        if args == 'all':
+            args = 'so'
         if os.path.exists(self.shellfile) and 's' in args:
             os.remove(self.shellfile)
         if os.path.exists(self.runfile) and 'o' in args:
@@ -239,27 +270,17 @@ class INET_Dispatcher(SH_Dispatcher):
     AF INET Dispatcher utilizing sockets
     handles submitting the script to a Runner/Worker object
     """
-    def create_job(self, ports = (60000, 65535), **kwargs):
+    def create_job(self, **kwargs):
         super().init_run(**kwargs)
-        host = socket.gethostname()
-        ip = socket.gethostbyname(host)
-        self.ip = ip
-        port = ports[0]
+        host = socket.gethostname() #string, can be provided to bind.
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        while True:
-            try:
-                server.bind((ip, port))
-                break
-            except:
-                port = port + 1
-                if port == ports[1]:
-                    raise
-        self.port = port
+        server.bind((host, 0)) # let OS determine the port
+        self.sockname = server.getsockname()
         self.server = server
-        self.server.listen(1)
-        self.shellfile = "{}/{}.sh".format(self.cwd, self.gid)  # the shellfile that will be submitted
-        self.runfile = "{}/{}.run".format(self.cwd, self.gid)  # the runfile created by the job
-        self.submit.create_job(label=self.gid, cwd=self.cwd, env=self.env, ip=self.ip, port=self.port, **kwargs)
+        self.server.listen(1) # one server <-> one client
+        self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
+        self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
+        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, ip=self.ip, port=self.port, **kwargs)
 
     def submit_job(self):
         self.jobid = self.submit.submit_job()
@@ -287,6 +308,8 @@ class INET_Dispatcher(SH_Dispatcher):
     def send(self, data):
         self.connection.sendall(data.encode())
     def clean(self, args='so'):
+        if args == 'all':
+            args = 'so'
         self.connection.close()
         if os.path.exists(self.shellfile) and 's' in args:
             os.remove(self.shellfile)

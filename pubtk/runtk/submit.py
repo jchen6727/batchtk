@@ -119,19 +119,34 @@ export JOBID=$JOB_ID
 {command}
 """
 
-class SGESubmitINET(SGESubmit):
-    key_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', 'ip', 'port'}
+class SGESubmitSOCK(SGESubmit):
+    key_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', 'socname'}
     template = \
         """\
 #!/bin/bash
-#$ -N j{label}
+#$ -N job{label}
 #$ -pe smp {cores}
 #$ -l h_vmem={vmem}
 #$ -o {cwd}/{label}.run
 cd {cwd}
 source ~/.bashrc
-export SOCIP="{ip}"
-export SOCPORT="{port}"
+export SOCNAME="{socname}"
+{env}
+{command}
+"""
+
+class SGESubmitINET(SGESubmit):
+    key_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', 'sockname'}
+    template = \
+        """\
+#!/bin/bash
+#$ -N {label}
+#$ -pe smp {cores}
+#$ -l h_vmem={vmem}
+#$ -o {cwd}/{label}.run
+cd {cwd}
+source ~/.bashrc
+export SOCNAME="{sockname}"
 {env}
 {command}
 """

@@ -1,3 +1,57 @@
+class AttrObject(object):
+    """
+    # object that can be accessed via attributes
+    # e.g.:
+    # obj = AttrObject()
+    # obj.a = 1
+    # obj.b = 2
+    # obj.c = 3
+    # obj['a'] = 1
+    # obj['b'] = 2
+    # obj['c'] = 3
+    # obj['a'] == obj.a
+    # obj['b'] == obj.b
+    # obj['c'] == obj.c
+    """
+    def __init__(self, aliases = None, **kwargs):
+        if aliases:
+            self.aliases = aliases
+        else:
+            self.aliases = {}
+        self.__dict__.update(kwargs)
+        self.__name__ = 'AttrObject'
+        self.__origin__ = 'AttrObject'
+
+    def __getitem__(self, k):
+        return self.__dict__[k]
+
+    def __setitem__(self, k, v):
+        self.__dict__[k] = v
+
+    def __setattr__(self, k, v):
+        self.__dict__[k] = v
+
+    def __getattr__(self, k): # __getattr__ only called when __getattribute__ fails
+        # implied that __getattribute__ is called first
+        if k in self.__dict__:
+            return self.__dict__[k]
+        elif k in self.aliases:
+            return self.__dict__[self.aliases[k]]
+        else:
+            raise KeyError(k)
+
+    def __repr__(self):
+        aliases = self.__dict__.pop('aliases', None)
+        rstr = """\
+aliases:
+{}
+========================================
+attributes:
+{}
+""".format(aliases, self.__dict__)
+        self.__dict__['aliases'] = aliases
+        return rstr
+
 def convert(self: object, _type: str, val: object):
     if _type in self._supports:
         return self._supports[_type](val)

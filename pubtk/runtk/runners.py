@@ -10,7 +10,7 @@ class Runner(object):
     """
     def __init__(
         self,
-        grepstr='PUBTK',
+        grepstr='RUN',
         env = None,
         aliases = None,
         supports = None,
@@ -89,36 +89,40 @@ class HPCRunner(Runner):
     def __init__(self, **kwargs):
         aliases = {'signalfile': 'SGLFILE',
                    'writefile': 'OUTFILE',
-                   'socketfile': 'SOCFILE',
-                   'socketip': 'SOCIP',
-                   'socketport': 'SOCPORT',
-                   'jobid': 'JOBID'
+                   'socketfile': 'SOCFILE', #all SOC deprecated for SOCNAME
+                   'socketip': 'SOCIP', #all SOC deprecated for SOCNAME
+                   'socketport': 'SOCPORT', #all SOC deprecated for SOCNAME
+                   'jobid': 'JOBID',
+                   'socketname': 'SOCNAME',
                    }
         if 'aliases' in kwargs:
             kwargs['aliases'].update(aliases)
         else:
             kwargs['aliases'] = aliases
         super().__init__(**kwargs)
+        self.address = None
+        self.client = None
 
-    def connect(self, socket_type='INET'):
-        if socket_type == 'INET':
-            self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            while True:
-                try:
-                    self.client.connect((self.socketip, int(self.socketport)))
-                    break
-                except:
-                    pass
-        elif socket_type == 'UNIX':
-            self.client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            while True:
-                try:
-                    self.client.connect(self.socketfile)
-                    break
-                except:
-                    pass
-        else:
-            raise ValueError(type)
+    def connect(self, socket_type=socket.AF_INET): #AF_INET == 2
+        match socket_type:
+            case socket.AF_INET:
+                self.address = tuple( # create a tuple of ip, port
+                    val.strip(' ()"\'') for val in self.socketname.split(',')
+                )
+            case socket.AF_UNIX:
+                self.address = self.socketname # just a filename
+            case _:
+                raise ValueError(socket_type)
+        self.client = socket.socket(socket_type, socket.SOCK_STREAM)
+        self.client.connect(self.address)
+        while True:
+            try:
+                self.client.connect(self.address)
+                break
+            except:
+                pass
+            time.sleep(1)
+        return self.address
 
     def write(self, data):
         fptr = open(self.writefile, 'w')
@@ -158,7 +162,7 @@ class NetpyneRunner(HPCRunner):
     netParams = object()
     cfg = object()
     def __init__(self, netParams=None, cfg=None):
-        super().__init__(grepstr='PUBTK',
+        super().__init__(grepstr='RUN',
                          aliases={
                              'signalfile': 'SGLFILE',
                              'writefile': 'OUTFILE',
