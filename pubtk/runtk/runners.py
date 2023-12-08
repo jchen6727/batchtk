@@ -11,9 +11,9 @@ class Runner(object):
     def __init__(
         self,
         grepstr='RUN',
-        env = None,
-        aliases = None,
-        supports = None,
+        env = False,
+        aliases = False,
+        supports = False,
         **kwargs
     ):
         """
@@ -29,17 +29,15 @@ class Runner(object):
         **kwargs - unused placeholder
         """
         self.env = os.environ.copy()
-        if env:
-            self.env.update(env)
+        env and self.env.update(env) # update the self.env if (env) evaluates to True
         self.aliases = {}
-        if aliases:
-            self.aliases.update(aliases)
+        aliases and self.aliases.update(aliases)
         self.supports = {'FLOAT': float,
                          'JSON': json.loads,
                          'STRING': staticmethod(lambda val: val),
                          }
-        if supports:
-            self.supports.update(supports)
+        supports and self.supports.update(supports)
+
         #self.debug.append("grepstr = {}".format(grepstr))
         self.grepstr = grepstr
         self.grepfunc = staticmethod(lambda key: grepstr in key )

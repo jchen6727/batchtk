@@ -1,7 +1,7 @@
 import os
 import subprocess
 import hashlib
-from .submit import Submit
+from pubtk.runtk.submit import Submit
 import socket
 
 
@@ -21,7 +21,7 @@ class Dispatcher(object):
     """ 
     obj_count = 0 # persistent count N.B. may be shared between objects.
 
-    def __init__(self, env=None, grepstr='RUN', gid = False, **kwargs):
+    def __init__(self, env=False, grepstr='RUN', gid = False, **kwargs):
         """
         Parameters
         ----------
@@ -34,10 +34,9 @@ class Dispatcher(object):
         initializes gid, will set if the argument is supplied, otherwise the value will be
         created upon subprocess call.
         """
-        self.env = {}
-        self.__dict__ = kwargs
-        if env:
-            self.env.update(env)
+
+        self.__dict__ = kwargs # the __dict__ has to come first or else env won't work...?
+        self.env = env or {} # if env is False, then set to empty dictionary
         self.grepstr = grepstr
         self.gid = gid
 
@@ -140,7 +139,7 @@ class SH_Dispatcher(Dispatcher):
     """
     Shell based Dispatcher generating shell script to submit jobs
     """
-    def __init__(self, cwd="", submit=None, **kwargs):
+    def __init__(self, cwd="", submit=False, **kwargs):
         """
         initializes dispatcher
         cwd: current working directory
@@ -151,10 +150,7 @@ class SH_Dispatcher(Dispatcher):
         """
         super().__init__(**kwargs)
         self.cwd = cwd
-        if submit:
-            self.submit = submit
-        else:
-            self.submit = Submit()
+        self.submit = submit or Submit()
         self.jobid = -1
         #self.label = self.gid
 
@@ -189,12 +185,12 @@ class SFS_Dispatcher(SH_Dispatcher):
         super().run(**kwargs)
 
     def get_run(self):
-        # if file exists, return data, otherwise return None
+        # if file exists, return data, otherwise return False
         if os.path.exists(self.watchfile):
             fptr = open(self.readfile, 'r')
             data = fptr.read()
             fptr.close()
-            return data
+            return data # what if data itself is False equivalence
         return False
 
     def clean(self, args='rswo'):
