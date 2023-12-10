@@ -276,7 +276,7 @@ class INET_Dispatcher(SH_Dispatcher):
         self.server.listen(1) # one server <-> one client
         self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
         self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
-        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, ip=self.ip, port=self.port, **kwargs)
+        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, sockname=self.sockname, **kwargs)
 
     def submit_job(self):
         self.jobid = self.submit.submit_job()
