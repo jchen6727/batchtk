@@ -1,6 +1,7 @@
 import os
 import json
-from .utils import convert, set_map, create_script
+from pubtk.runtk.utils import convert, set_map, create_script
+from pubtk import runtk
 import socket
 import time
 
@@ -10,7 +11,7 @@ class Runner(object):
     """
     def __init__(
         self,
-        grepstr='RUN',
+        grepstr=runtk.GREPSTR,
         env = False,
         aliases = False,
         supports = False,
@@ -43,7 +44,8 @@ class Runner(object):
         self.grepfunc = staticmethod(lambda key: grepstr in key )
         self.greptups = {key: self.env[key].split('=') for key in self.env if
                          self.grepfunc(key)}
-        self.debug = [self.env]
+        self.debug = [self.greptups, self.env]
+        print(self.debug)
         # readability, greptups as the environment variables: (key,value) passed by 'PMAP' environment variables
         # saved the environment variables TODO JSON vs. STRING vs. FLOAT
         self.mappings = {
@@ -160,7 +162,7 @@ class NetpyneRunner(HPCRunner):
     netParams = object()
     cfg = object()
     def __init__(self, netParams=None, cfg=None):
-        super().__init__(grepstr='RUN',
+        super().__init__(grepstr=runtk.GREPSTR,
                          aliases={
                              'signalfile': 'SGLFILE',
                              'writefile': 'OUTFILE',

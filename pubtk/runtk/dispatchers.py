@@ -1,6 +1,7 @@
 import os
 import subprocess
 import hashlib
+from pubtk import runtk
 from pubtk.runtk.submit import Submit
 import socket
 
@@ -21,7 +22,7 @@ class Dispatcher(object):
     """ 
     obj_count = 0 # persistent count N.B. may be shared between objects.
 
-    def __init__(self, env=False, grepstr='RUN', gid = False, **kwargs):
+    def __init__(self, env=False, grepstr=runtk.GREPSTR, gid = False, **kwargs):
         """
         Parameters
         ----------
