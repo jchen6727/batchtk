@@ -97,6 +97,7 @@ class Dispatcher(object):
             self.gid = hashlib.md5(gstr.encode()).hexdigest()
         self.label = "{}_{}".format(self.grepstr.lower(), self.gid)
 
+
     def __getattr__(self, k):
         # only called if __getattribute__ fails
         return self.__dict__[k]
@@ -157,7 +158,7 @@ class SH_Dispatcher(Dispatcher):
 
     def create_job(self, **kwargs):
         super().init_run()
-        self.submit.create_job(label=self.gid,
+        self.submit.create_job(label=self.label,
                                cwd=self.cwd,
                                env=self.env,
                                **kwargs)

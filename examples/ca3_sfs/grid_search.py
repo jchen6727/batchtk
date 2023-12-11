@@ -9,23 +9,17 @@ from ray.air import session
 from ray.tune.search.basic_variant import BasicVariantGenerator
 
 from pubtk.runtk.dispatchers import SFS_Dispatcher
-from pubtk.runtk.submit import Submit
+from pubtk.runtk.submit import SGESubmitSFS
 
 import time
 
-template = """\
-#!/bin/bash
-#$ -N job{label}
-#$ -pe smp 5
-#$ -l h_vmem=32G
-#$ -o {cwd}/{label}.run
-cd {cwd}
-source ~/.bashrc
-export OUTFILE="{label}.out"
-export SGLFILE="{label}.sgl"
-{env}
-time mpiexec -np $NSLOTS -hosts $(hostname) nrniv -python -mpi init.py
-"""
+submit = SGESubmitSFS()
+
+submit.update_template(
+    command = "time mpiexec -np $NSLOTS -hosts $(hostname) nrniv -python -mpi init.py",
+    cores = "5",
+    vmem = "32G"
+)
 
 CONCURRENCY = 3
 SAVESTR = 'grid.csv'
@@ -49,8 +43,8 @@ TARGET = pandas.Series(
      'OLM': 3.47,}
 )
 def sge_run(config):
-    sge = Submit(submit_template = "qsub {cwd}/{label}.sh", script_template = template)
-    dispatcher = SFS_Dispatcher(cwd = cwd, env = {}, submit = sge)
+    gid = tune.get_trial_id()
+    dispatcher = SFS_Dispatcher(cwd = cwd, env = {}, submit = submit, gid = gid)
     dispatcher.add_dict(value_type="FLOAT", dictionary = config)
     dispatcher.run()
     data = dispatcher.get_run()
