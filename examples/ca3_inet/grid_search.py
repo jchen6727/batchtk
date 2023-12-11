@@ -29,6 +29,7 @@ cwd = os.getcwd()
 grid = {'cfg.AMPA': tune.grid_search([0.5, 1.00, 1.5]),
         'cfg.GABA': tune.grid_search([0.5, 1.00, 1.5]),
         'cfg.NMDA': tune.grid_search([0.5, 1.00, 1.5]),
+        'cfg.duration': tune.grid_search([100]), # shorten trials.
         }
 
 ray.init(
@@ -47,10 +48,11 @@ def sge_run(config):
     dispatcher.add_dict(value_type="FLOAT", dictionary = config)
     dispatcher.run()
     tid = tune.get_trial_id()
-    tno = int(tid.split('_')[-1])
+    tname = tune.get_trial_name()
+    tno = int(tid.split('_')[-1]) #integer value for the trial
     dispatcher.accept()
     data = dispatcher.recv(1024)
-    dispatcher.clean(args='k')
+    dispatcher.clean()
     data = pandas.read_json(data, typ='series', dtype=float)
     loss = numpy.square( TARGET - data[ ['PYR', 'BC', 'OLM'] ] ).mean()
     strc = str(config)
@@ -88,4 +90,3 @@ results = tuner.fit()
 resultsdf = results.get_dataframe()
 
 resultsdf.to_csv(SAVESTR)
-
