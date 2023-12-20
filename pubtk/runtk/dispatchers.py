@@ -40,10 +40,10 @@ class Dispatcher(object):
         self.env = env or {} # if env is False, then set to empty dictionary
         self.grepstr = grepstr
         self.gid = gid
-
         Dispatcher.obj_count = Dispatcher.obj_count + 1
 
-
+    def add_json(self):
+        pass
     def add_dict(self, dictionary, value_type='', **kwargs):
         """
         Parameters
@@ -96,7 +96,7 @@ class Dispatcher(object):
             gstr = str(self.env) + str(kwargs)
             self.gid = hashlib.md5(gstr.encode()).hexdigest()
         self.label = "{}_{}".format(self.grepstr.lower(), self.gid)
-
+        # convert dictionary to proper elements
 
     def __getattr__(self, k):
         # only called if __getattribute__ fails

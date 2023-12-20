@@ -1,3 +1,5 @@
+#https://realpython.com/lessons/decoding-custom-types-json/
+
 class AttrObject(object):
     """
     # object that can be accessed via attributes

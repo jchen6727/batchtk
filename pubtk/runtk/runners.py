@@ -46,7 +46,7 @@ class Runner(object):
                          self.grepfunc(key)}
         self.debug = [self.greptups, self.env]
         print(self.debug)
-        # readability, greptups as the environment variables: (key,value) passed by 'PMAP' environment variables
+        # readability, greptups as the environment variables: (key,value) passed by runtk.GREPSTR environment variables
         # saved the environment variables TODO JSON vs. STRING vs. FLOAT
         self.mappings = {
             val[0].strip(): self.convert(key.split(grepstr)[0], val[1].strip())
@@ -161,14 +161,15 @@ class NetpyneRunner(HPCRunner):
     """
     netParams = object()
     cfg = object()
-    def __init__(self, netParams=None, cfg=None):
+    def __init__(self, netParams=None, cfg=None, **kwargs):
         super().__init__(grepstr=runtk.GREPSTR,
                          aliases={
                              'signalfile': 'SGLFILE',
                              'writefile': 'OUTFILE',
                              'socketfile': 'SOCFILE',
                              'jobid': 'JOBID',
-                         }
+                         },
+                         **kwargs
                          )
         self.netParams = netParams
         self.cfg = cfg
