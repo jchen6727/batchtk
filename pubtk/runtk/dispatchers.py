@@ -279,6 +279,7 @@ class INET_Dispatcher(SH_Dispatcher):
         self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
         self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
         self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, sockname=self.sockname, **kwargs)
+        self.connection = False
 
     def submit_job(self):
         self.jobid = self.submit.submit_job()
@@ -308,7 +309,8 @@ class INET_Dispatcher(SH_Dispatcher):
     def clean(self, args='so'):
         if args == 'all':
             args = 'so'
-        self.connection.close()
+        if self.connection:
+            self.connection.close()
         if os.path.exists(self.shellfile) and 's' in args:
             os.remove(self.shellfile)
         if os.path.exists(self.runfile) and 'o' in args:

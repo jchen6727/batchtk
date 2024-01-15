@@ -1,16 +1,43 @@
 ### Submit class ###
 import subprocess
+from collections import namedtuple
 
-def create_env(env):
-    envstr = '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in env.items()])
-    return envstr
+
+def create_exportstr(env):
+    exportstr = '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in env.items()])
+    return exportstr
+
+class Template(str):
+    def __init__(self, template, key_args = False):
+        self.template = template
+        if key_args:
+            self.kwargs = {key: "{" + key + "}" for key in key_args}
+        else:
+            self.kwargs = {key: "{" + key + "}" for key in self.get_args()}
+
+    def get_args(self):
+        import re
+        return re.findall(r'{(.*?)}', self.template)
+
+    def __format__(self, **kwargs):
+        mkwargs = self.kwargs | kwargs
+        return self.template.format(mkwargs)
+
+    def format(self, **kwargs):
+        return self.template.format(**kwargs)
+
+    def update(self, **kwargs):
+        self.template = self.format(**kwargs)
+
+    def __repr__(self):
+        return self.template
 
 class Submit(object):
     key_args = {'label', 'cwd', 'env'}
 
     def __init__(self, submit_template = str(), script_template = str()):
-        self.submit_template = submit_template
-        self.script_template = script_template
+        self.submit_template = Template(template = submit_template, key_args = self.key_args)
+        self.script_template = Template(template = script_template, key_args = self.key_args)
         self.job = dict()
         self.script_path = str()
         self.job_script = str()
@@ -26,19 +53,21 @@ class Submit(object):
         fptr.close()
 
     def format_job(self, **kwargs):
+        job = namedtuple('job', 'submit script path label')
         mkwargs = self.kwargs | kwargs
         submit = self.submit_template.format(**mkwargs)
         script = self.__format__(**mkwargs)
-        self.job = {'submit': submit, 'script': script}
-        self.script_path = "{cwd}/{label}".format(**mkwargs)
-        self.label = mkwargs['label']
-        return self.job
+        path = "{cwd}/{label}.sh".format(**mkwargs)
+        label = mkwargs['label']
+        return job(submit, script, path, label)
 
     def __repr__(self):
         self.format_job()
-        reprstr = """\
+        reprstr = \
+            """\
 submit:
-\t{submit}
+----------------------------------------------
+{submit}
 script: 
 ----------------------------------------------
 {script}----------------------------------------------
@@ -51,18 +80,30 @@ script:
             stderr=subprocess.PIPE)
         return 1
 
-    def update_template(self, **kwargs):
-        self.script_template = self.__format__(**kwargs)
+    def update_submit(self, **kwargs):
+        self.submit_template = self.format(self.submit_template, **kwargs)
+    def update_script(self, **kwargs):
+        if 'env' in kwargs:
+            kwargs['env'] = create_exportstr(kwargs['env'])
+        self.script_template = self.format(self.script_template, **kwargs)
 
-    def __format__(self, **kwargs):
+    def update(self, **kwargs):
+        self.update_submit(**kwargs)
+        self.update_script(**kwargs)
+
+    def __format__(self, template = False, **kwargs): #dunder method, (self, spec)
+        template = template or self.script_template
         mkwargs = self.kwargs | kwargs
-        if isinstance(mkwargs['env'], dict):
-            env = mkwargs['env']
-            mkwargs['env'] = '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in env.items()])
-        return self.script_template.format(**mkwargs)
+        return template.format(**mkwargs)
 
-    def format(self, **kwargs):
-        return self.__format__(**kwargs)
+    def format_template(self, template, **kwargs):
+        mkwargs = self.kwargs | kwargs
+        return template.format(**mkwargs)
+
+    def format_submit(self, **kwargs):
+    def format_script(self, template, **kwargs):
+        mkwargs = self.kwargs | kwargs
+        return template.format(self.script_template, **mkwargs)
 
     def create_handles(self, **kwargs):
         self.handles.update(kwargs)
@@ -130,7 +171,7 @@ class SGESubmitSOCK(SGESubmit):
 #$ -o {cwd}/{label}.run
 cd {cwd}
 source ~/.bashrc
-export SOCNAME="{socname}"
+export SOCNAME="{sockname}"
 {env}
 {command}
 """

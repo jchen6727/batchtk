@@ -11,39 +11,33 @@ from ray.air import session
 from ray.tune.search import create_searcher, ConcurrencyLimiter, SEARCH_ALG_IMPORT
 
 from pubtk.runtk.dispatchers import SFS_Dispatcher
-from pubtk.runtk.submit import Submit
+from pubtk.runtk.submit import SGESubmitSFS
 
 import time
 ALGORITHM = "cfo"
+
+submit = SGESubmitSFS()
+
+submit.update_template(
+    command = "time mpiexec -np $NSLOTS -hosts $(hostname) nrniv -python -mpi init.py",
+    cores = "5",
+    vmem = "32G"
+)
 
 CONCURRENCY = 1
 
 NTRIALS = 250
 
-SAVESTR = "{}{}.csv".format(ALGO, NTRIALS)
+SAVESTR = "{}{}.csv".format(ALGORITHM, NTRIALS)
 
-if ALGO not in SEARCH_ALG_IMPORT.keys():
+if ALGORITHM not in SEARCH_ALG_IMPORT.keys():
     print("script requires an algorithm from the following options: ")
     print(SEARCH_ALG_IMPORT.keys())
     raise KeyError
 
-searcher = create_searcher(ALGO)
+searcher = create_searcher(ALGORITHM)
 
 cwd = os.getcwd()
-
-template = """\
-#!/bin/bash
-#$ -N job{label}
-#$ -pe smp 5
-#$ -l h_vmem=32G
-#$ -o {cwd}/{label}.run
-cd {cwd}
-source ~/.bashrc
-export OUTFILE="{label}.out"
-export SGLFILE="{label}.sgl"
-{env}
-time mpiexec -np $NSLOTS -hosts $(hostname) nrniv -python -mpi init.py
-"""
 
 tune_range = tune.quniform(
     1e-6,
