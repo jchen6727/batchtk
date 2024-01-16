@@ -39,10 +39,10 @@ class TestDispatcherSGEINET:
     def test_add_command(self, setup):
         print()
         dispatcher = setup
-        dispatcher.submit.update_template(command='python test_runner.py')
-        dispatcher.submit.update_
+        dispatcher.submit.update_job(command='python test_runner.py')
+        print(dispatcher.submit.script_template.get_args())
         print(dispatcher.submit)
-        assert "python test_runner.py" in dispatcher.submit.job['script']
+        assert "python test_runner.py" in dispatcher.submit.job.script
 
     def test_init(self, setup):
         dispatcher = setup

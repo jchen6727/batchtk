@@ -2,13 +2,25 @@
 import subprocess
 from collections import namedtuple
 
-
+serializers = {
+    'sh': lambda x: '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in x.items()])
+}
 def create_exportstr(env):
     exportstr = '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in env.items()])
     return exportstr
 
-class Template(str):
-    def __init__(self, template, key_args = False):
+
+class Template(object):
+
+    def __new__(cls, template, key_args = None, **kwargs):
+        if isinstance(template, Template):
+            return template
+        else:
+            return super().__new__(cls)
+
+    def __init__(self, template, key_args = None):
+        if isinstance(template, Template): # passthrough if already a Template
+            return
         self.template = template
         if key_args:
             self.kwargs = {key: "{" + key + "}" for key in key_args}
@@ -19,59 +31,84 @@ class Template(str):
         import re
         return re.findall(r'{(.*?)}', self.template)
 
-    def __format__(self, **kwargs):
-        mkwargs = self.kwargs | kwargs
-        return self.template.format(mkwargs)
+#    def __format__(self, **kwargs):
+#        mkwargs = self.kwargs | kwargs
+#        return self.template.format(mkwargs)
 
     def format(self, **kwargs):
-        return self.template.format(**kwargs)
+        mkwargs = self.kwargs | kwargs
+        try:
+            return self.template.format(**mkwargs)
+        except KeyError as e:
+            mkwargs = mkwargs | {key: "{" + key + "}" for key in self.get_args()}
+            return self.template.format(**mkwargs)
 
     def update(self, **kwargs):
         self.template = self.format(**kwargs)
+        return self.template
 
     def __repr__(self):
         return self.template
 
+    def __call__(self):
+        return self.template
+
+
 class Submit(object):
     key_args = {'label', 'cwd', 'env'}
 
-    def __init__(self, submit_template = str(), script_template = str()):
-        self.submit_template = Template(template = submit_template, key_args = self.key_args)
-        self.script_template = Template(template = script_template, key_args = self.key_args)
-        self.job = dict()
+    def __init__(self, submit_template, script_template):
+        self.submit_template = Template(submit_template)
+        self.script_template = Template(script_template)
+        self.path_template = Template("{cwd}/{label}.sh", {'cwd', 'label'})
+        self.kwargs = self.submit_template.kwargs | self.script_template.kwargs | self.path_template.kwargs
+        self.job = None
+        self.submit = None
+        self.script = None
+        self.path = None
         self.script_path = str()
         self.job_script = str()
         self.handles = dict()
         self.env = dict()
-        self.kwargs = {key: "{" + key + "}" for key in self.key_args}
 
     def create_job(self, **kwargs):
-        self.format_job(**kwargs)
-        self.job_script = "{}.sh".format(self.script_path)
-        fptr = open(self.job_script, 'w')
-        fptr.write(self.job['script'])
+        self.update_job(**kwargs)
+        fptr = open(self.path, 'w')
+        fptr.write(self.script)
         fptr.close()
 
     def format_job(self, **kwargs):
         job = namedtuple('job', 'submit script path label')
-        mkwargs = self.kwargs | kwargs
-        submit = self.submit_template.format(**mkwargs)
-        script = self.__format__(**mkwargs)
-        path = "{cwd}/{label}.sh".format(**mkwargs)
-        label = mkwargs['label']
+        submit = self.submit_template.format(**kwargs)
+        script = self.script_template.format(**kwargs)
+        path = self.path_template.format(**kwargs)
+        if 'label' in kwargs:
+            label = kwargs['label']
+        else:
+            label = '{label}'
         return job(submit, script, path, label)
 
+    def update_job(self, **kwargs):
+        job = namedtuple('job', 'submit script path label')
+        self.update_templates(**kwargs)
+        if 'label' in kwargs:
+            self.label = kwargs['label']
+        else:
+            self.label = '{label}'
+        self.job = job(self.submit, self.script, self.path, self.label)
+
     def __repr__(self):
-        self.format_job()
+        job = self.format_job()
         reprstr = \
             """\
 submit:
 ----------------------------------------------
 {submit}
-script: 
+script:
 ----------------------------------------------
-{script}----------------------------------------------
-""".format(**self.job)
+{script}
+----------------------------------------------
+""".format(**job._asdict())
         return reprstr
 
     def submit_job(self):
@@ -81,37 +118,36 @@ script:
         return 1
 
     def update_submit(self, **kwargs):
-        self.submit_template = self.format(self.submit_template, **kwargs)
+        self.submit_template.update(**kwargs)
+        self.submit = self.submit_template()
+
     def update_script(self, **kwargs):
         if 'env' in kwargs:
             kwargs['env'] = create_exportstr(kwargs['env'])
-        self.script_template = self.format(self.script_template, **kwargs)
+        self.script_template.update(**kwargs)
+        self.script = self.script_template()
 
-    def update(self, **kwargs):
+    def update_path(self, **kwargs):
+        self.path_template.update(**kwargs)
+        self.path = self.path_template()
+
+    def update_templates(self, **kwargs):
         self.update_submit(**kwargs)
         self.update_script(**kwargs)
+        self.update_path(**kwargs)
 
     def __format__(self, template = False, **kwargs): #dunder method, (self, spec)
         template = template or self.script_template
         mkwargs = self.kwargs | kwargs
         return template.format(**mkwargs)
 
-    def format_template(self, template, **kwargs):
-        mkwargs = self.kwargs | kwargs
-        return template.format(**mkwargs)
-
-    def format_submit(self, **kwargs):
-    def format_script(self, template, **kwargs):
-        mkwargs = self.kwargs | kwargs
-        return template.format(self.script_template, **mkwargs)
-
     def create_handles(self, **kwargs):
         self.handles.update(kwargs)
         return self.handles
 
 class SGESubmit(Submit):
-    key_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', }
-    template = \
+    script_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', }
+    script_template = \
         """\
 #!/bin/bash
 #$ -N j{label}
@@ -125,14 +161,9 @@ export JOBID=$JOB_ID
 {command}
 """
     def __init__(self):
-        super().__init__(submit_template = "qsub {cwd}/{label}.sh", script_template = self.template)
-
-    def create_job(self, **kwargs):
-        self.format_job(**kwargs)
-        self.job_script = "{}.sh".format(self.script_path)
-        fptr = open(self.job_script, 'w')
-        fptr.write(self.job['script'])
-        fptr.close()
+        super().__init__(
+            submit_template = Template(template="qsub {cwd}/{label}.sh", key_args={'cwd', 'label'}),
+            script_template = Template(self.script_template, key_args=self.script_args))
 
     def submit_job(self):
         super().submit_job()
@@ -143,8 +174,8 @@ export JOBID=$JOB_ID
         pass
 
 class SGESubmitSFS(SGESubmit):
-    key_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', }
-    template = \
+    script_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', }
+    script_template = \
         """\
 #!/bin/bash
 #$ -N j{label}
@@ -161,8 +192,8 @@ export JOBID=$JOB_ID
 """
 
 class SGESubmitSOCK(SGESubmit):
-    key_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', 'socname'}
-    template = \
+    script_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', 'socname'}
+    script_template = \
         """\
 #!/bin/bash
 #$ -N job{label}
@@ -177,8 +208,8 @@ export SOCNAME="{sockname}"
 """
 
 class SGESubmitINET(SGESubmit):
-    key_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', 'sockname'}
-    template = \
+    script_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', 'sockname'}
+    script_template = \
         """\
 #!/bin/bash
 #$ -N {label}
