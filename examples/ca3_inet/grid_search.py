@@ -29,7 +29,8 @@ cwd = os.getcwd()
 grid = {'cfg.AMPA': tune.grid_search([0.5, 1.00, 1.5]),
         'cfg.GABA': tune.grid_search([0.5, 1.00, 1.5]),
         'cfg.NMDA': tune.grid_search([0.5, 1.00, 1.5]),
-        'cfg.duration': tune.grid_search([100]), # shorten trials.
+        'cfg.duration': tune.grid_search([100]), # shorten trials
+        'cfg.send': tune.grid_search(['INET']), # messages use INET
         }
 
 ray.init(
@@ -44,24 +45,23 @@ TARGET = pandas.Series(
      'OLM': 3.47,}
 )
 def sge_run(config):
-    dispatcher = INET_Dispatcher(cwd = cwd, env = {}, submit = sge)
-    dispatcher.add_dict(value_type="FLOAT", dictionary = config)
-    dispatcher.run()
-    tid = tune.get_trial_id()
-    tname = tune.get_trial_name()
+    tid, tname = tune.get_trial_id(), tune.get_trial_name()
     tno = int(tid.split('_')[-1]) #integer value for the trial
+    dispatcher = INET_Dispatcher(cwd = cwd, env = {}, submit = sge, gid = 'ca3_{}'.format(tno))
+    dispatcher.add_dict(dictionary = config)
+    dispatcher.run()
     dispatcher.accept()
     data = dispatcher.recv(1024)
     dispatcher.clean()
     data = pandas.read_json(data, typ='series', dtype=float)
     loss = numpy.square( TARGET - data[ ['PYR', 'BC', 'OLM'] ] ).mean()
     strc = str(config)
-    curr = os.getcwd().split('/')[-1]
+    #curr = os.getcwd().split('/')[-1]
     #session.report({'loss': 0, 'data': data})
-    #session.report({'loss': loss, 'port': dispatcher.port, 'cwd': os.getcwd(), 'pid': os.getpid(),
+    #session.report({'loss': loss, 'port': dispatcher.port, 'cwd': curr, 'pid': os.getpid(),
     #                'PYR': data['PYR'], 'BC': data['BC'], 'OLM': data['OLM'], 
     #                'AMPA': data['cfg.AMPA'], 'GABA': data['cfg.GABA'], 'NMDA': data['cfg.NMDA']})
-    session.report({'loss': loss, 'port': dispatcher.port, 'cwd': curr, 'pid': os.getpid(),
+    session.report({'loss': loss, 'port': dispatcher.port, 'pid': os.getpid(),
                     'strc': strc, 'id': tid, 'tno': tno,
                     'AMPA': data['cfg.AMPA'], 'GABA': data['cfg.GABA'], 'NMDA': data['cfg.NMDA']})
     

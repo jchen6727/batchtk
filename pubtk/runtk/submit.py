@@ -2,14 +2,6 @@
 import subprocess
 from collections import namedtuple
 
-serializers = {
-    'sh': lambda x: '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in x.items()])
-}
-def create_exportstr(env):
-    exportstr = '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in env.items()])
-    return exportstr
-
-
 class Template(object):
 
     def __new__(cls, template, key_args = None, **kwargs):
@@ -45,13 +37,21 @@ class Template(object):
 
     def update(self, **kwargs):
         self.template = self.format(**kwargs)
-        return self.template
 
     def __repr__(self):
         return self.template
 
     def __call__(self):
         return self.template
+
+
+serializers = {
+    'sh': lambda x: '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in x.items()])
+}
+def serialize(args, var ='env', serializer ='sh'):
+    if var in args and serializer in serializers:
+        args[var] = serializers[serializer](args[var])
+    return args # not necessary to return
 
 
 class Submit(object):
@@ -61,41 +61,36 @@ class Submit(object):
         self.submit_template = Template(submit_template)
         self.script_template = Template(script_template)
         self.path_template = Template("{cwd}/{label}.sh", {'cwd', 'label'})
+        self.templates = {self.submit_template, self.script_template, self.path_template}
         self.kwargs = self.submit_template.kwargs | self.script_template.kwargs | self.path_template.kwargs
         self.job = None
         self.submit = None
         self.script = None
         self.path = None
-        self.script_path = str()
-        self.job_script = str()
-        self.handles = dict()
-        self.env = dict()
+        self.handles = None
 
     def create_job(self, **kwargs):
-        self.update_job(**kwargs)
+        kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
+        job = self.format_job(**kwargs) # doesn't update the templates
+        self.job = job
+        self.submit = job.submit
+        self.script = job.script
+        self.path = job.path
         fptr = open(self.path, 'w')
         fptr.write(self.script)
         fptr.close()
 
     def format_job(self, **kwargs):
-        job = namedtuple('job', 'submit script path label')
+        job = namedtuple('job', 'submit script path')
         submit = self.submit_template.format(**kwargs)
         script = self.script_template.format(**kwargs)
         path = self.path_template.format(**kwargs)
-        if 'label' in kwargs:
-            label = kwargs['label']
-        else:
-            label = '{label}'
-        return job(submit, script, path, label)
+        return job(submit, script, path)
 
-    def update_job(self, **kwargs):
-        job = namedtuple('job', 'submit script path label')
-        self.update_templates(**kwargs)
-        if 'label' in kwargs:
-            self.label = kwargs['label']
-        else:
-            self.label = '{label}'
-        self.job = job(self.submit, self.script, self.path, self.label)
+    def update_templates(self, **kwargs):
+        kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
+        for template in self.templates:
+            template.update(**kwargs)
 
     def __repr__(self):
         job = self.format_job()
@@ -115,26 +110,8 @@ script:
         subprocess.Popen(self.job['submit'].split(), )
         self.proc = subprocess.run(self.job['submit'].split(' '), text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)
-        return 1
+        return self.proc
 
-    def update_submit(self, **kwargs):
-        self.submit_template.update(**kwargs)
-        self.submit = self.submit_template()
-
-    def update_script(self, **kwargs):
-        if 'env' in kwargs:
-            kwargs['env'] = create_exportstr(kwargs['env'])
-        self.script_template.update(**kwargs)
-        self.script = self.script_template()
-
-    def update_path(self, **kwargs):
-        self.path_template.update(**kwargs)
-        self.path = self.path_template()
-
-    def update_templates(self, **kwargs):
-        self.update_submit(**kwargs)
-        self.update_script(**kwargs)
-        self.update_path(**kwargs)
 
     def __format__(self, template = False, **kwargs): #dunder method, (self, spec)
         template = template or self.script_template
@@ -166,8 +143,8 @@ export JOBID=$JOB_ID
             script_template = Template(self.script_template, key_args=self.script_args))
 
     def submit_job(self):
-        super().submit_job()
-        self.job_id = self.proc.stdout.split(' ')[2]
+        proc = super().submit_job()
+        self.job_id = proc.stdout.split(' ')[2]
         return self.job_id
 
     def set_handles(self):

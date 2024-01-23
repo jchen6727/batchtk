@@ -6,6 +6,22 @@ from pubtk.runtk.submit import Submit
 import socket
 
 
+def format_env(dictionary, index=0, value_type=None):
+    """
+    Parameters
+    ----------
+    dictionary - the dictionary of variable_path: values to add to the environment
+    value_type - the type of the values added in the dictionary
+
+    handles any global tasks prior to running the subprocess
+        if self.gid = False, generates alphanumeric for self.gid based on self.env and **kwargs
+    """
+    cl = len(dictionary)
+    get_type = staticmethod(lambda x: type(x).__name__)
+    return {"{}{}{}".format(value_type or get_type(value).upper(), runtk.GREPSTR, cl + i):
+                  "{}={}".format(key, value) for i, (key, value) in enumerate(dictionary.items())}
+
+    # convert dictionary to proper elements
 class Dispatcher(object):
     """
     base class for Dispatcher
@@ -44,7 +60,7 @@ class Dispatcher(object):
 
     def add_json(self):
         pass
-    def add_dict(self, dictionary, value_type='', **kwargs):
+    def update_env(self, dictionary, value_type=None, format = True, **kwargs):
         """
         Parameters
         ----------
@@ -58,30 +74,27 @@ class Dispatcher(object):
         the formatted entries added to the environment:
             {<value_type><self.grepstr><unique_id>: <variable_path><value>}
         """
-        cl = len(self.env)
-        update = {"{}{}{}".format(value_type, self.grepstr, cl + i):
-                      "{}={}".format(key, value) for i, (key, value) in enumerate(dictionary.items())}
-        self.env.update(update)
-        return update
+        if format:
+            self.env.update(self.format_env(dictionary, value_type=value_type))
+        else:
+            self.env.update(dictionary)
 
-    def add_val(self, value_type='', variable_path='', value='', **kwargs):
+    def format_env(self, dictionary, value_type=None):
         """
         Parameters
         ----------
-        value_type - the type of the value <val>
-        variable_path - the path of the variable to map the value <val>
-        value - the value
+        dictionary - the dictionary of variable_path: values to add to the environment
+        value_type - the type of the values added in the dictionary
 
-        adds an environment entry (self.env) specifying value -> variable_path
-        Returns
-        -------
-        the entry added to the environment:
-            {<value_type><self.grepstr><unique_id>: <variable_path><value>}
+        handles any global tasks prior to running the subprocess
+            if self.gid = False, generates alphanumeric for self.gid based on self.env and **kwargs
         """
-        key = "{}{}{}".format(value_type, self.grepstr, len(self.env))
-        item = "{}={}".format(variable_path, value)
-        self.env[key] = item
-        return {key: item}
+        cl = len(self.env)
+        get_type = staticmethod(lambda x: type(x).__name__)
+        return {"{}{}{}".format(value_type or get_type(value).upper(), self.grepstr, cl + i):
+                      "{}={}".format(key, value) for i, (key, value) in enumerate(dictionary.items())}
+
+        # convert dictionary to proper elements
 
     def init_run(self, **kwargs):
         """
@@ -213,6 +226,10 @@ class UNIX_Dispatcher(SH_Dispatcher):
     AF UNIX Dispatcher utilizing sockets (requires socket forwarding)
     handles submitting the script to a Runner/Worker object
     """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.socket = False
+
     def create_job(self, **kwargs):
         super().create_job()
         self.socketfile = "{}/{}.s".format(self.cwd, self.label)  # the socket file
@@ -268,18 +285,22 @@ class INET_Dispatcher(SH_Dispatcher):
     AF INET Dispatcher utilizing sockets
     handles submitting the script to a Runner/Worker object
     """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.socket = None
+
     def create_job(self, **kwargs):
         super().init_run(**kwargs)
         host = socket.gethostname() #string, can be provided to bind.
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.bind((host, 0)) # let OS determine the port
-        self.sockname = server.getsockname()
-        self.server = server
-        self.server.listen(1) # one server <-> one client
+        _socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        _socket.bind((host, 0)) # let OS determine the port
+        self.sockname = _socket.getsockname()
+        self.socket = _socket
+        self.socket.listen(1) # one server <-> one client
         self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
         self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
         self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, sockname=self.sockname, **kwargs)
-        self.connection = False
+        self.connection = None
 
     def submit_job(self):
         self.jobid = self.submit.submit_job()
@@ -289,11 +310,11 @@ class INET_Dispatcher(SH_Dispatcher):
 
     def accept(self):
         """
-        accept incoming connection from client
+        accept incoming connection from runner
         this function is blocking
         """
-        self.connection, client_address = self.server.accept()  # actual blocking statement
-        return self.connection, client_address
+        self.connection, peer_address = self.socket.accept()  # actual blocking statement
+        return self.connection, peer_address
 
     def recv(self, size=1024):
         """
@@ -309,8 +330,8 @@ class INET_Dispatcher(SH_Dispatcher):
     def clean(self, args='so'):
         if args == 'all':
             args = 'so'
-        if self.connection:
-            self.connection.close()
+        if self.socket:
+            self.socket.close()
         if os.path.exists(self.shellfile) and 's' in args:
             os.remove(self.shellfile)
         if os.path.exists(self.runfile) and 'o' in args:

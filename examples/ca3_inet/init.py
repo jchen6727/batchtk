@@ -5,7 +5,6 @@ import json
 cfg = ca3.get_cfg()
 netParams = ca3.get_netParams()
 
-cfg.duration = 1000
 sim.create(netParams, cfg)
 sim.simulate()
 sim.pc.barrier()
@@ -23,24 +22,9 @@ if sim.rank == 0:
     print("===rate===")
     print(rates)
     out_json = json.dumps({**inputs, **weights, **rates})
-    try:
-        print("writing to {}".format(ca3.writefile))
-        ca3.write(out_json)
-        ca3.signal()
-    except:
-        pass
-    try:
-        print("sending to {}".format(ca3.socketfile))
+    if cfg.send == 'INET':
+        print("sending to host {}:{}".format(ca3.socketfile))
         ca3.connect()
         ca3.send(out_json)
         ca3.close()
-    except:
-        pass
-    try:
-        print("sending to {}:{}".format(ca3.socketip,
-                                        ca3.socketport))
-        ca3.connect()
-        ca3.send(out_json)
-        ca3.close()
-    except:
-        pass
+    else:

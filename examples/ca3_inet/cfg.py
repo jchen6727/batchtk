@@ -31,4 +31,5 @@ cfg.AMPA = 1
 cfg.GABA = 1
 cfg.NMDA = 1
 
+cfg.batch = False
 ca3.set_mappings('cfg')

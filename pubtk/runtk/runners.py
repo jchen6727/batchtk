@@ -33,9 +33,12 @@ class Runner(object):
         env and self.env.update(env) # update the self.env if (env) evaluates to True
         self.aliases = {}
         aliases and self.aliases.update(aliases)
-        self.supports = {'FLOAT': float,
+        self.supports = {
+                         'INT': int,
+                         'FLOAT': float,
                          'JSON': json.loads,
-                         'STRING': staticmethod(lambda val: val),
+                         'DICT': json.loads,
+                         'STR': staticmethod(lambda val: val),
                          }
         supports and self.supports.update(supports)
 
@@ -44,8 +47,8 @@ class Runner(object):
         self.grepfunc = staticmethod(lambda key: grepstr in key )
         self.greptups = {key: self.env[key].split('=') for key in self.env if
                          self.grepfunc(key)}
-        self.debug = [self.greptups, self.env]
-        print(self.debug)
+        #self.debug = [self.greptups, self.env]
+        #print(self.debug)
         # readability, greptups as the environment variables: (key,value) passed by runtk.GREPSTR environment variables
         # saved the environment variables TODO JSON vs. STRING vs. FLOAT
         self.mappings = {
@@ -100,29 +103,23 @@ class HPCRunner(Runner):
         else:
             kwargs['aliases'] = aliases
         super().__init__(**kwargs)
-        self.address = None
-        self.client = None
+        self.host_socket = None
+        self.socket = None
 
-    def connect(self, socket_type=socket.AF_INET): #AF_INET == 2
+    def connect(self, socket_type=socket.AF_INET, timeout=1): #AF_INET == 2
+        #timeout = None (blocking), 0 (non-blocking), >0 (timeout in seconds)
         match socket_type:
             case socket.AF_INET:
-                self.address = tuple( # create a tuple of ip, port
-                    val.strip(' ()"\'') for val in self.socketname.split(',')
-                )
+                ip, port = self.socketname.split(',')
+                self.host_socket = (ip.strip(' (\''), int(port.strip(')')))
             case socket.AF_UNIX:
-                self.address = self.socketname # just a filename
+                self.host_socket = self.socketname # just a filename
             case _:
                 raise ValueError(socket_type)
-        self.client = socket.socket(socket_type, socket.SOCK_STREAM)
-        self.client.connect(self.address)
-        while True:
-            try:
-                self.client.connect(self.address)
-                break
-            except:
-                pass
-            time.sleep(1)
-        return self.address
+        self.socket = socket.socket(socket_type, socket.SOCK_STREAM)
+        self.socket.settimeout(timeout)
+        self.socket.connect(self.host_socket)
+        return self.host_socket
 
     def write(self, data):
         fptr = open(self.writefile, 'w')
@@ -138,20 +135,20 @@ class HPCRunner(Runner):
         # data: data to send
         # size: size of data to send
         """
-        self.client.sendall(data.encode())
+        self.socket.sendall(data.encode())
 
     def recv(self, size=1024):
         """
         # receive data from socket
         # size: size of data to receive
         """
-        return self.client.recv(size).decode()
+        return self.socket.recv(size).decode()
 
     def close(self):
         """
         # close socket connection
         """
-        self.client.close()
+        self.socket.close()
 
 class NetpyneRunner(HPCRunner):
     """
