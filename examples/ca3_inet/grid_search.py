@@ -15,7 +15,7 @@ import time
 
 sge = SGESubmitINET()
 
-sge.update_template(
+sge.update_templates(
     command = "time mpiexec -np $NSLOTS -hosts $(hostname) nrniv -python -mpi init.py",
     cores = "5",
     vmem = "32G"
@@ -48,11 +48,15 @@ def sge_run(config):
     tid, tname = tune.get_trial_id(), tune.get_trial_name()
     tno = int(tid.split('_')[-1]) #integer value for the trial
     dispatcher = INET_Dispatcher(cwd = cwd, env = {}, submit = sge, gid = 'ca3_{}'.format(tno))
-    dispatcher.add_dict(dictionary = config)
-    dispatcher.run()
-    dispatcher.accept()
-    data = dispatcher.recv(1024)
-    dispatcher.clean()
+    dispatcher.update_env(dictionary = config)
+    try:
+        dispatcher.run()
+        dispatcher.accept()
+        data = dispatcher.recv(1024)
+        dispatcher.clean()
+    except Exception as e:
+        dispatcher.clean()
+        raise(e)
     data = pandas.read_json(data, typ='series', dtype=float)
     loss = numpy.square( TARGET - data[ ['PYR', 'BC', 'OLM'] ] ).mean()
     strc = str(config)
@@ -61,7 +65,7 @@ def sge_run(config):
     #session.report({'loss': loss, 'port': dispatcher.port, 'cwd': curr, 'pid': os.getpid(),
     #                'PYR': data['PYR'], 'BC': data['BC'], 'OLM': data['OLM'], 
     #                'AMPA': data['cfg.AMPA'], 'GABA': data['cfg.GABA'], 'NMDA': data['cfg.NMDA']})
-    session.report({'loss': loss, 'port': dispatcher.port, 'pid': os.getpid(),
+    session.report({'loss': loss, 'port': dispatcher.sockname, 'pid': os.getpid(),
                     'strc': strc, 'id': tid, 'tno': tno,
                     'AMPA': data['cfg.AMPA'], 'GABA': data['cfg.GABA'], 'NMDA': data['cfg.NMDA']})
     

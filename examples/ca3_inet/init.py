@@ -23,8 +23,9 @@ if sim.rank == 0:
     print(rates)
     out_json = json.dumps({**inputs, **weights, **rates})
     if cfg.send == 'INET':
-        print("sending to host {}:{}".format(ca3.socketfile))
+        print("sending to host {}".format(ca3.socketname))
         ca3.connect()
         ca3.send(out_json)
         ca3.close()
     else:
+        print(out_json)

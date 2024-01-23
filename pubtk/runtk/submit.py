@@ -4,7 +4,7 @@ from collections import namedtuple
 
 class Template(object):
 
-    def __new__(cls, template, key_args = None, **kwargs):
+    def __new__(cls, template = None, key_args = None, **kwargs):
         if isinstance(template, Template):
             return template
         else:
@@ -43,7 +43,6 @@ class Template(object):
 
     def __call__(self):
         return self.template
-
 
 serializers = {
     'sh': lambda x: '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in x.items()])
@@ -107,8 +106,7 @@ script:
         return reprstr
 
     def submit_job(self):
-        subprocess.Popen(self.job['submit'].split(), )
-        self.proc = subprocess.run(self.job['submit'].split(' '), text=True, stdout=subprocess.PIPE, \
+        self.proc = subprocess.run(self.job.submit.split(' '), text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)
         return self.proc
 
