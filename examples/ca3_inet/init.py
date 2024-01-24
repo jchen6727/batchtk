@@ -13,7 +13,7 @@ if sim.rank == 0:
     inputs = ca3.get_mappings()
     weights = { param: sim.net.params.connParams[param]['weight'] for param in sim.net.params.connParams}
     rates = sim.analysis.popAvgRates(show=False)
-    print("===debug===")
+    print("===debug (env)===")
     print(ca3.env)
     print("===mappings===")
     print(inputs)
