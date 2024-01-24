@@ -11,30 +11,33 @@ from pubtk.runtk.submit import SGESubmitINET
 job = {
     ('sge', 'inet'): (INET_Dispatcher, SGESubmitINET),
 }
-def ray_grid_search(submit, label, params, concurrency, batch_dir, config):
+def ray_grid_search(job_type, label, params, concurrency, batch_dir, config):
     ray.init(
         runtime_env={"working_dir": ".", # needed for import statements
                      "excludes": ["*.csv", "*.out", "*.run",
                                   "*.sh" , "*.sgl", ]}
     )
     algo = BasicVariantGenerator(max_concurrent=concurrency)
-    submit = job[submit][1]()
+    Dispatcher, submit = job[job_type][0], job[job_type][1]()
     submit.update_templates(
         **config
     )
+    cwd = os.getcwd()
     def run(config):
         tid = tune.get_trial_id()
         tid = int(tid.split('_')[-1]) #integer value for the trial
-        dispatcher = job[submit][0](cwd = os.getcwd(), submit = submit, gid = '{}_{}'.format(label, tid))
-        config['cfg.filename'] = '{}_{}'.format(label, tid)
+        config['cfg.filename'] = '{}/{}_{}'.format(batch_dir, label, tid)
+        config['cfg.send'] = 'INET'
+        dispatcher = Dispatcher(cwd = cwd, submit = submit, gid = '{}_{}'.format(label, tid))
+        
         dispatcher.update_env(dictionary = config)
         try:
             dispatcher.run()
             dispatcher.accept()
             data = dispatcher.recv(1024)
-            dispatcher.clean()
+            dispatcher.clean('')
         except Exception as e:
-            dispatcher.clean()
+            dispatcher.clean('')
             raise(e)
         data = pandas.read_json(data, typ='series', dtype=float)
         session.report({'loss': 0, 'data': data})

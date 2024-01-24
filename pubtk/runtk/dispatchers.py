@@ -304,6 +304,7 @@ class INET_Dispatcher(SH_Dispatcher):
 
     def submit_job(self):
         self.jobid = self.submit.submit_job()
+    
     def run(self, **kwargs):
         self.create_job(**kwargs)
         self.jobid = self.submit.submit_job()

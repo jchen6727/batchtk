@@ -10,7 +10,7 @@ class Template(object):
         else:
             return super().__new__(cls)
 
-    def __init__(self, template, key_args = None):
+    def __init__(self, template, key_args = None, **kwargs):
         if isinstance(template, Template): # passthrough if already a Template
             return
         self.template = template
@@ -56,7 +56,7 @@ def serialize(args, var ='env', serializer ='sh'):
 class Submit(object):
     key_args = {'label', 'cwd', 'env'}
 
-    def __init__(self, submit_template, script_template):
+    def __init__(self, submit_template, script_template, **kwargs):
         self.submit_template = Template(submit_template)
         self.script_template = Template(script_template)
         self.path_template = Template("{cwd}/{label}.sh", {'cwd', 'label'})
@@ -135,14 +135,17 @@ export JOBID=$JOB_ID
 {env}
 {command}
 """
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__(
             submit_template = Template(template="qsub {cwd}/{label}.sh", key_args={'cwd', 'label'}),
             script_template = Template(self.script_template, key_args=self.script_args))
 
-    def submit_job(self):
+    def submit_job(self, **kwargs):
         proc = super().submit_job()
-        self.job_id = proc.stdout.split(' ')[2]
+        try:
+            self.job_id = proc.stdout.split(' ')[2]
+        except Exception as e:
+            raise(Exception("{}\nJob submission failed:\n{}\n{}\n{}\n{}".format(e, self.submit, self.script, proc.stdout, proc.stderr)))
         return self.job_id
 
     def set_handles(self):
