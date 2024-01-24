@@ -28,4 +28,7 @@ if sim.rank == 0:
         ca3.send(out_json)
         ca3.close()
     else:
-        print(out_json)
+        print('dumping to file ca3.json')
+        with open('ca3.json', 'w') as fptr:
+            fptr.write(out_json)
+        

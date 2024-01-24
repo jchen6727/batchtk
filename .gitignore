@@ -2,3 +2,17 @@
 .idea/
 *.egg-info/
 pubtk/runtk/__pycache__/
+
+*.log
+
+tests/__pycache__/
+
+pubtk/utils/__pycache__/
+
+pubtk/.DS_Store
+
+examples/ca3_sfs/arm64/
+
+.DS_Store
+
+examples/ca3_sfs/__pycache__/
