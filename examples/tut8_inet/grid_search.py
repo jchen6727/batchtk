@@ -29,7 +29,6 @@ def ray_grid_search(job_type, label, params, concurrency, batch_dir, config):
         config['cfg.filename'] = '{}/{}_{}'.format(batch_dir, label, tid)
         config['cfg.send'] = 'INET'
         dispatcher = Dispatcher(cwd = cwd, submit = submit, gid = '{}_{}'.format(label, tid))
-        
         dispatcher.update_env(dictionary = config)
         try:
             dispatcher.run()

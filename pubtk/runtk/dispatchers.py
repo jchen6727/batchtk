@@ -6,15 +6,20 @@ from pubtk.runtk.submit import Submit
 import socket
 
 
-def format_env(dictionary, index=0, value_type=None):
+def format_env(dictionary, value_type=None, index=0):
     """
     Parameters
     ----------
     dictionary - the dictionary of variable_path: values to add to the environment
-    value_type - the type of the values added in the dictionary
+    index (optional) - the index to start at for environment generation, defaults to 0
+    value_type (optional) - forces the type of values added to the dictionary, how the runner interprets the values
+                          - if not provided, the value_type will be based on the dictionary item's type per entry basis.
+    use:
+        format_env({'foo': 1, 'bar': 2.0, 'baz': 'three'})
+    returns:
+        {'INTRUNTK0': 'foo=1', 'FLOATRUNTK1': 'bar=2.0', 'STRRUNTK2': 'baz=three'}
 
-    handles any global tasks prior to running the subprocess
-        if self.gid = False, generates alphanumeric for self.gid based on self.env and **kwargs
+    with runtk.GREPSTR being defined in as 'RUNTK' (see ./header.py)
     """
     cl = len(dictionary)
     get_type = staticmethod(lambda x: type(x).__name__)
@@ -29,31 +34,33 @@ class Dispatcher(object):
 
     initialized values:
     env ->
-        dictionary of values to be exported to the simulation environment, either within the subprocess call,
-        or to an environment script
+        dictionary of values to be exported to the simulation environment, can be within the subprocess call,
+        or an environment script (some shell, env equivalent)
     grepstr ->
-        the string value that generates labels for relevant values (filename and environment dictionary)
+        the string value used in label generation (specifically the environment dictionary)
+        defaults to runtk.GREPSTR ('RUNTK') (see ./header.py)
     gid ->
-        a generated ID string that is unique to a Dispatcher <-> Runner pair.
+        an ID string that is unique to a Dispatcher <-> Runner pair. If it is not provided, it will be generated
+        upon subprocess call by the environment dictionary and **kwargs
     """ 
     obj_count = 0 # persistent count N.B. may be shared between objects.
 
-    def __init__(self, env=False, grepstr=runtk.GREPSTR, gid = False, **kwargs):
+    def __init__(self, env=None, json=None, grepstr=runtk.GREPSTR, gid = None, **kwargs):
         """
+        initializes base dispatcher class
         Parameters
         ----------
-        initializes dispatcher
-        env - any environmental variables to be inherited by the created runner
+        env - any environmental variables to be passed to the subprocess
         grepstr - the string ID for subprocess to identify necessary environment variables
+        gid - an ID string that is unique to the dispatcher <-> runner pair
         **kwargs are placed into a __dict__ item that can be accessed by __getattr__
-        id, str_id, int_id are special keyword arguments that can be supplied for FS and port handling.
 
         initializes gid, will set if the argument is supplied, otherwise the value will be
         created upon subprocess call.
         """
 
         self.__dict__ = kwargs # the __dict__ has to come first or else env won't work...?
-        self.env = env or {} # if env is False, then set to empty dictionary
+        self.env = env or {} # if env is None, then set to empty dictionary
         self.grepstr = grepstr
         self.gid = gid
         Dispatcher.obj_count = Dispatcher.obj_count + 1
@@ -64,18 +71,19 @@ class Dispatcher(object):
         """
         Parameters
         ----------
-        value_type - the type of the values added in the dictionary
-        dictionary - the dictionary of variable_path: values to add to the environment
+        dictionary - the dictionary of key: values to add to self.env
+        value_type (optional) - the type of the values added in the dictionary, relevant if format is True (see
+                                format_env() above)
+        format (optional) - if True, the dictionary will be formatted by format_env() before being added to self.env
 
-        adds a dictionary of single type <value_type> {variable_path: values} to the environment dictionary self.env
-        with the proper formatting (<value_type><self.grepstr><unique_id>: <variable_path><value>)
         Returns
         -------
-        the formatted entries added to the environment:
-            {<value_type><self.grepstr><unique_id>: <variable_path><value>}
+        None
+
+        the entries are added to the environment, either formatted (if format = True) or unformatted (if format = False):
         """
         if format:
-            self.env.update(self.format_env(dictionary, value_type=value_type))
+            self.env.update(format_env(dictionary, value_type=value_type, index=len(self.env)))
         else:
             self.env.update(dictionary)
 
@@ -103,19 +111,23 @@ class Dispatcher(object):
         **kwargs - of note, **kwargs here is used if necessary to help generate self.gid
 
         handles any global tasks prior to running the subprocess
-            if self.gid = False, generates alphanumeric for self.gid based on self.env and **kwargs
+            if self.gid = None, uses hashlib to generate alphanumeric for self.gid based on self.env and **kwargs then
+            sets self.label = self.gid
+            if self.gid already set, uses self.gid as self.label
         """
         if not self.gid:
             gstr = str(self.env) + str(kwargs)
             self.gid = hashlib.md5(gstr.encode()).hexdigest()
-        self.label = "{}_{}".format(self.grepstr.lower(), self.gid)
+            self.label = "{}_{}".format(self.grepstr.lower(), self.gid)
+        else:
+            self.label = self.gid
         # convert dictionary to proper elements
 
     def __getattr__(self, k):
         # only called if __getattribute__ fails
         return self.__dict__[k]
 
-    def save_json(self, filename):
+    def save_env(self, filename):
         """
         Parameters
         ----------
@@ -152,7 +164,7 @@ class NOF_Dispatcher(Dispatcher):
 
 class SH_Dispatcher(Dispatcher):
     """
-    Shell based Dispatcher generating shell script to submit jobs
+    Shell based Dispatcher that handles job generating shell script to submit jobs
     """
     def __init__(self, cwd="", submit=False, **kwargs):
         """
@@ -171,10 +183,13 @@ class SH_Dispatcher(Dispatcher):
 
     def create_job(self, **kwargs):
         super().init_run()
+        self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
+        self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
         self.submit.create_job(label=self.label,
                                cwd=self.cwd,
                                env=self.env,
                                **kwargs)
+
 
     def submit_job(self):
         self.jobid = self.submit.submit_job()
@@ -185,6 +200,10 @@ class SH_Dispatcher(Dispatcher):
 
 class SFS_Dispatcher(SH_Dispatcher):
     """
+    This class can be improved by implementing a single file communication system without a signal file and checking
+    proc.readline() -- see threading course
+
+    what about grep for a specific run string?
     Shared File System Dispatcher utilizing file operations to submit jobs and collect results
     handles submitting the script to a Runner/Worker object
     """

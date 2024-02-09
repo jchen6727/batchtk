@@ -1,2 +1,0 @@
-/ddn/singularity3.11/singularity-ce-3.11.2/etc/bash_completion.d/singularity: line 129: syntax error near unexpected token `<'
-/ddn/singularity3.11/singularity-ce-3.11.2/etc/bash_completion.d/singularity: line 129: `        done < <(compgen -W "${out}" -- "$cur")'
