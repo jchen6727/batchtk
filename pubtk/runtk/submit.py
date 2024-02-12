@@ -170,7 +170,7 @@ export JOBID=$JOB_ID
 """
 
 class SGESubmitSOCK(SGESubmit):
-    script_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', 'socname'}
+    script_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', 'sockname'}
     script_template = \
         """\
 #!/bin/bash

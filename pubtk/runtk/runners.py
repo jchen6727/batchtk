@@ -48,7 +48,7 @@ class Runner(object):
 
         #self.debug.append("grepstr = {}".format(grepstr))
         self.grepstr = grepstr or runtk.GREPSTR
-        self.grepfunc = staticmethod(lambda key: grepstr in key )
+        self.grepfunc = staticmethod(lambda key: self.grepstr in key )
         self.greptups = {key: self.env[key].split('=') for key in self.env if
                          self.grepfunc(key)}
         # readability, greptups as the environment variables: (key,value) passed by runtk.GREPSTR environment variables
