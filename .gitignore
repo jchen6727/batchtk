@@ -16,3 +16,5 @@ examples/ca3_sfs/arm64/
 .DS_Store
 
 examples/ca3_sfs/__pycache__/
+
+examples/tut8/__pycache__/grid_search.cpython-311.pyc

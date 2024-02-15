@@ -11,8 +11,7 @@ batch_cfg = {
     'vmem': '32G',
 }
 
-ray_grid_search(('sge', 'inet'),
-                'tut8',
+ray_grid_search('tut8',
                 params,
                 9,
                 '../tut8_batch',

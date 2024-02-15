@@ -54,14 +54,11 @@ class Runner(object):
         # readability, greptups as the environment variables: (key,value) passed by runtk.GREPSTR environment variables
         # saved the environment variables TODO JSON vs. STRING vs. FLOAT
         self.mappings = { # export JSONPMAP0="cfg.settings={...}" for instance would map the {...} as a json to cfg.settings
-            val[0].strip(): self.convert(key.split(grepstr)[0], val[1].strip())
+            val[0].strip(): self.convert(key.split(self.grepstr)[0], val[1].strip())
             for key, val in self.greptups.items()
         }
         if kwargs:
             self.log("Unused arguments were passed into Runner.__init__(): {}".format(kwargs), level='info')
-
-    def get_debug(self):
-        return self.debug
 
     def get_mappings(self):
         return self.mappings

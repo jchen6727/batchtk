@@ -12,8 +12,8 @@ def write_pkl(wobject: object, write_path: str):
 
 
 def read_pkl(read_path: str):
-    fptr = open(read_path, 'rb')
-    robject = pickle.load(fptr)
+    with open(read_path, 'rb') as fptr:
+        robject = pickle.load(fptr)
     return robject
 
 

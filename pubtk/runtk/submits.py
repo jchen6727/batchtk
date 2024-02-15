@@ -120,6 +120,64 @@ script:
         self.handles.update(kwargs)
         return self.handles
 
+class ZSHSubmit(Submit):
+    script_args = {'label', 'cwd', 'env', 'command'}
+    script_template = \
+        """\
+#!/bin/zsh
+cd {cwd}
+export JOBID=$$
+{env}
+nohup {command} > {cwd}/{label}.run &
+pid=$!
+echo $pid >&1
+"""
+    def __init__(self, **kwargs):
+        super().__init__(
+            submit_template = Template(template="zsh {cwd}/{label}.sh", key_args={'cwd', 'label'}),
+            script_template = Template(self.script_template, key_args=self.script_args))
+    def set_handles(self):
+        pass
+
+    def submit_job(self):
+        proc = super().submit_job()
+        try:
+            self.job_id = int(proc.stdout)
+        except Exception as e:
+            raise(Exception("{}\nJob submission failed:\n{}\n{}\n{}\n{}".format(e, self.submit, self.script, proc.stdout, proc.stderr)))
+        if self.job_id < 0:
+            raise(Exception("Job submission failed:\n{}\n{}\n{}\n{}".format(self.submit, self.script, proc.stdout, proc.stderr)))
+        return self.job_id
+
+class ZSHSubmitSFS(ZSHSubmit):
+    script_args = {'label', 'cwd', 'env', 'command'}
+    script_template = \
+        """\
+#!/bin/zsh
+cd {cwd}
+export OUTFILE="{label}.out"
+export SGLFILE="{label}.sgl"
+export JOBID=$$
+{env}
+nohup {command} > {cwd}/{label}.run &
+pid=$!
+echo $pid >&1
+"""
+
+class ZSHSubmitSOCK(ZSHSubmit):
+    script_args = {'label', 'cwd', 'env', 'command', 'sockname'}
+    script_template = \
+        """\
+#!/bin/zsh
+cd {cwd}
+export SOCNAME="{sockname}"
+export JOBID=$$
+{env}
+nohup {command} > {cwd}/{label}.run &
+pid=$!
+echo $pid >&1
+"""
+
 class SGESubmit(Submit):
     script_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', }
     script_template = \
@@ -181,22 +239,23 @@ class SGESubmitSOCK(SGESubmit):
 cd {cwd}
 source ~/.bashrc
 export SOCNAME="{sockname}"
+export JOBID=$JOB_ID
 {env}
 {command}
 """
 
-class SGESubmitINET(SGESubmit):
-    script_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', 'sockname'}
-    script_template = \
-        """\
-#!/bin/bash
-#$ -N {label}
-#$ -pe smp {cores}
-#$ -l h_vmem={vmem}
-#$ -o {cwd}/{label}.run
-cd {cwd}
-source ~/.bashrc
-export SOCNAME="{sockname}"
-{env}
-{command}
-"""
+SGESubmitINET = SGESubmitSOCK
+SGESubmitUNIX = SGESubmitSOCK
+
+submits = {
+    'sge': {
+        'inet': SGESubmitSOCK,
+        'unix': SGESubmitSOCK,
+        'sfs': SGESubmitSFS,
+    },
+    'zsh': {
+        'inet': ZSHSubmitSOCK,
+        'unix': ZSHSubmitSOCK,
+        'sfs': ZSHSubmitSOCK,
+    }
+}

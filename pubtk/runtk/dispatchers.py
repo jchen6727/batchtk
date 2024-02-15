@@ -2,7 +2,7 @@ import os
 import subprocess
 import hashlib
 from pubtk import runtk
-from pubtk.runtk.submit import Submit
+from pubtk.runtk.submits import Submit
 import socket
 
 
@@ -143,6 +143,7 @@ class Dispatcher(object):
 class NOF_Dispatcher(Dispatcher):
     """
     No File Dispatcher, everything is run without generation of shell scripts.
+    ? utility of NOF_Dispatcher vs. UNIX ?
     """
     def __init__(self, cmdstr='', env=None, **kwargs):
         """
@@ -178,7 +179,7 @@ class SH_Dispatcher(Dispatcher):
         super().__init__(**kwargs)
         self.cwd = cwd
         self.submit = submit or Submit()
-        self.jobid = -1
+        self.job_id = -1
         #self.label = self.gid
 
     def create_job(self, **kwargs):
@@ -192,12 +193,23 @@ class SH_Dispatcher(Dispatcher):
 
 
     def submit_job(self):
-        self.jobid = self.submit.submit_job()
+        self.job_id = self.submit.submit_job()
 
     def run(self, **kwargs):
         self.create_job(**kwargs)
-        self.jobid = self.submit.submit_job()
+        self.job_id = self.submit.submit_job()
 
+    def accept(self, **kwargs):
+        pass
+
+    def recv(self, **kwargs):
+        pass
+
+    def send(self, **kwargs):
+        pass
+
+    def clean(self, **kwargs):
+        pass
 class SFS_Dispatcher(SH_Dispatcher):
     """
     This class can be improved by implementing a single file communication system without a signal file and checking
@@ -221,11 +233,16 @@ class SFS_Dispatcher(SH_Dispatcher):
     def get_run(self):
         # if file exists, return data, otherwise return False
         if os.path.exists(self.watchfile):
-            fptr = open(self.readfile, 'r')
-            data = fptr.read()
-            fptr.close()
+            with open(self.readfile, 'r') as fptr:
+                data = fptr.read()
             return data # what if data itself is False equivalence
         return False
+
+    def recv(self, **kwargs): # blocking function,
+        data = False
+        while not data:
+            data = self.get_run()
+        return data
 
     def clean(self, args='rswo'):
         if args == 'all':
@@ -261,14 +278,13 @@ class UNIX_Dispatcher(SH_Dispatcher):
         self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.server.bind(self.socketfile)
         self.server.listen(1)
-
         self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
         self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
         self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, socketfile=self.socketfile, **kwargs)
 
     def run(self, **kwargs):
         self.create_job(**kwargs)
-        self.jobid = self.submit.submit_job()
+        self.job_id = self.submit.submit_job()
 
     def accept(self):
         """
@@ -322,11 +338,11 @@ class INET_Dispatcher(SH_Dispatcher):
         self.connection = None
 
     def submit_job(self):
-        self.jobid = self.submit.submit_job()
+        self.job_id = self.submit.submit_job()
     
     def run(self, **kwargs):
         self.create_job(**kwargs)
-        self.jobid = self.submit.submit_job()
+        self.job_id = self.submit.submit_job()
 
     def accept(self):
         """
@@ -356,3 +372,10 @@ class INET_Dispatcher(SH_Dispatcher):
             os.remove(self.shellfile)
         if os.path.exists(self.runfile) and 'o' in args:
             os.remove(self.runfile)
+
+
+dispatchers = {
+    'inet': INET_Dispatcher,
+    'unix': UNIX_Dispatcher,
+    'sfs': SFS_Dispatcher,
+}

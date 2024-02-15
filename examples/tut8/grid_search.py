@@ -1,42 +1,39 @@
 import ray
 import pandas
 import os
-from ray import tune
+from ray import tune, train
 from ray.air import session, RunConfig
 from ray.tune.search.basic_variant import BasicVariantGenerator
 
-from pubtk.runtk.dispatchers import INET_Dispatcher
-from pubtk.runtk.submits import SGESubmitSOCK
+from pubtk.runtk.dispatchers import dispatchers
+from pubtk.runtk.submits import submits
 
-job = {
-    ('sge', 'inet'): (INET_Dispatcher, SGESubmitSOCK),
-}
-def ray_grid_search(label, params, concurrency, batch_dir, config):
+def ray_grid_search(dispatcher_type = 'zsh', submission_type = 'inet', label = 'grid', params = None, concurrency = 1, checkpoint_dir = '../grid', batch_config = None):
     ray.init(
-        runtime_env={"working_dir": ".", # needed for import statements
+        runtime_env={"working_dir": ".", # needed for python import statements
                      "excludes": ["*.csv", "*.out", "*.run",
                                   "*.sh" , "*.sgl", ]}
     )
+    #TODO class this object for self calls? cleaner? vs nested functions
+    #TODO clean up working_dir and excludes
     algo = BasicVariantGenerator(max_concurrent=concurrency)
-    _Dispatcher, submit = INET_Dispatcher, SGESubmitSOCK()
+    submit = submits[dispatcher_type][submission_type]()
     submit.update_templates(
-        **config
+        **batch_config
     )
     cwd = os.getcwd()
     def run(config):
-        tid = tune.get_trial_id()
+        tid = ray.train.get_context().get_trial_id()
         tid = int(tid.split('_')[-1]) #integer value for the trial
-        config['cfg.filename'] = '{}/{}_{}'.format(batch_dir, label, tid)
-        config['cfg.send'] = 'INET'
-        dispatcher = _Dispatcher(cwd = cwd, submit = submit, gid = '{}_{}'.format(label, tid))
+        dispatcher = dispatchers[dispatcher_type](cwd = cwd, submit = submit, gid = '{}_{}'.format(label, tid))
         dispatcher.update_env(dictionary = config)
         try:
             dispatcher.run()
             dispatcher.accept()
             data = dispatcher.recv(1024)
-            dispatcher.clean('')
+            dispatcher.clean([])
         except Exception as e:
-            dispatcher.clean('')
+            dispatcher.clean([])
             raise(e)
         data = pandas.read_json(data, typ='series', dtype=float)
         session.report({'loss': 0, 'data': data})
@@ -49,7 +46,7 @@ def ray_grid_search(label, params, concurrency, batch_dir, config):
             metric="loss"
         ),
         run_config=RunConfig(
-            #local_dir=batch_dir,
+            #storage_path=checkpoint_dir,
             name="grid",
         ),
         param_space=params,
@@ -58,5 +55,4 @@ def ray_grid_search(label, params, concurrency, batch_dir, config):
     results = tuner.fit()
     resultsdf = results.get_dataframe()
     resultsdf.to_csv("{}.csv".format(label))
-    return resultsdf
 
