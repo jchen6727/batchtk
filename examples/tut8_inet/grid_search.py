@@ -39,17 +39,17 @@ def ray_grid_search(label, params, concurrency, batch_dir, config):
             dispatcher.clean('')
             raise(e)
         data = pandas.read_json(data, typ='series', dtype=float)
-        session.report({'loss': 0, 'data': data})
+        session.report({'data': data})
 
     tuner = tune.Tuner(
         run,
         tune_config=tune.TuneConfig(
             search_alg=algo,
             num_samples=1, # grid search samples 1 for each param
-            metric="loss"
+            metric="data"
         ),
         run_config=RunConfig(
-            #local_dir=batch_dir,
+            local_dir=batch_dir,
             name="grid",
         ),
         param_space=params,

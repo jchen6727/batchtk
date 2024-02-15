@@ -36,7 +36,7 @@ def ray_grid_search(dispatcher_type = 'zsh', submission_type = 'inet', label = '
             dispatcher.clean([])
             raise(e)
         data = pandas.read_json(data, typ='series', dtype=float)
-        session.report({'loss': 0, 'data': data})
+        session.report({'data': data})
 
     tuner = tune.Tuner(
         run,
