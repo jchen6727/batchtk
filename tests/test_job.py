@@ -1,7 +1,7 @@
 import pytest
 import os
 from pubtk.runtk.dispatchers import Dispatcher, SFS_Dispatcher, INET_Dispatcher
-from pubtk.runtk.submits import Submit, SGESubmitSOCK, SGESubmitSFS, SHSubmitSFS, SHSubmitSOCK
+from pubtk.runtk.submits import Submit, SGESubmitSOCK, SGESubmitSFS, ZSHSubmitSFS, ZSHSubmitSOCK
 from pubtk.runtk.runners import SocketRunner
 from pubtk.utils import get_exports, get_port_info
 import logging
@@ -81,7 +81,7 @@ class TestSHINET:
     @pytest.fixture
     def dispatcher_setup(self):
         dispatcher = INET_Dispatcher(cwd=os.getcwd(),
-                                     submit=SHSubmitSOCK(),
+                                     submit=ZSHSubmitSOCK(),
                                      gid='test_job_shinet')
         dispatcher.update_env({'strvalue': '1',
                                'intvalue': 2,

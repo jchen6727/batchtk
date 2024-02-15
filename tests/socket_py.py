@@ -9,6 +9,8 @@ try:
     print("connected to dispatcher")
     result = runner.mappings['intvalue'] + runner.mappings['fltvalue']
     runner.send(str(result))
+#    data = runner.recv()
+#    print(data)
     runner.close()
 except Exception as e:
     runner.close()

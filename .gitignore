@@ -18,3 +18,15 @@ examples/ca3_sfs/arm64/
 examples/ca3_sfs/__pycache__/
 
 examples/tut8/__pycache__/grid_search.cpython-311.pyc
+
+examples/tut8/tut8.csv
+
+*.pyc
+
+examples/tut8_inet/tut8.csv
+
+tests/123.sh
+
+*.run
+
+tests/test_sh_shinet.sh
