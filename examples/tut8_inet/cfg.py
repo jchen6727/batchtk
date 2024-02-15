@@ -2,7 +2,7 @@ from pubtk.runtk import NetpyneRunner
 
 main = NetpyneRunner()
 
-cfg = main.get_cfg()
+cfg = main.get_SimConfig()
 
 cfg.duration = 1*1e3        # Duration of the simulation, in ms
 cfg.dt = 0.025              # Internal integration timestep to use

@@ -2,7 +2,7 @@ from params import main
 from netpyne import sim
 import json
 
-cfg, params = main.get_cfg(), main.get_netParams()
+cfg, params = main.get_SimConfig(), main.get_NetParams(set_cfg=False)
 #simConfig, netParams = sim.readCmdLineArgs(simConfigDefault='src/cfg.py', netParamsDefault='src/params.py')
 # Create network and run simulation
 sim.createSimulateAnalyze(netParams=params,

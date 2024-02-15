@@ -1,9 +1,9 @@
 from cfg import main
 
-cfg = main.get_cfg()
+cfg = main.get_SimConfig()
 
 # Network parameters
-netParams = main.get_netParams()  # object of class NetParams to store the network parameters
+netParams = main.get_NetParams(set_cfg=False)  # object of class NetParams to store the network parameters
 
 ## Cell parameters/rules
 PYRcell = {'secs': {}}

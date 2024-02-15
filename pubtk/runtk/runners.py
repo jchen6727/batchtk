@@ -216,8 +216,8 @@ class NetpyneRunner(Runner):
                 cls = type(self)
                 cls.__bases__ = (runners[inherit],)
 
-        def get_NetParams(self, set=True): #change nomenclature to match NetPyNE
-            if set:
+        def get_NetParams(self, set_cfg=True): #change nomenclature to match NetPyNE
+            if set_cfg:
                 self.set_SimConfig()
             if self.netParams:
                 return self.netParams
