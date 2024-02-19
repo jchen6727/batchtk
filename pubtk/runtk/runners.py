@@ -33,13 +33,15 @@ class Runner(object):
         """
         # Initialize logger
         self.logger = log
-        if self.logger:
+        if isinstance(log, str):
             self.logger = logging.getLogger(log)
             self.logger.setLevel(logging.DEBUG)
             handler = logging.FileHandler("{}.log".format(log))
             formatter = logging.Formatter()
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
+        if isinstance(log, logging.Logger):
+            pass
 
         self.env = os.environ.copy()
         env and self.env.update(env) # update the self.env if (env) evaluates to True

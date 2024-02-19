@@ -264,23 +264,24 @@ class UNIX_Dispatcher(SH_Dispatcher):
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.socket = False
+        self.socket = None
+        self.socketname = None
+        self.server = None
 
     def create_job(self, **kwargs):
         super().create_job()
-        self.socketfile = "{}/{}.s".format(self.cwd, self.label)  # the socket file
+        self.socketname = "{}/{}.s".format(self.cwd, self.label)  # the socket file
         try:
-            os.unlink(self.socketfile)
-        except OSError:
-            if os.path.exists(self.socketfile):
-                raise
-
+            os.unlink(self.socketname)
+        except OSError as e:
+            if os.path.exists(self.socketname):
+                raise OSError("issue when creating socket {}:".format(self.socketname), e)
         self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.server.bind(self.socketfile)
+        self.server.bind(self.socketname)
         self.server.listen(1)
         self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
         self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
-        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, socketfile=self.socketfile, **kwargs)
+        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, socketfile=self.socketname, **kwargs)
 
     def run(self, **kwargs):
         self.create_job(**kwargs)
@@ -291,8 +292,8 @@ class UNIX_Dispatcher(SH_Dispatcher):
         accept incoming connection from client
         this function is blocking
         """
-        self.connection, client_address = self.server.accept()  # actual blocking statement
-        return self.connection, client_address
+        self.connection, peer_address = self.server.accept()  # actual blocking statement
+        return self.connection, peer_address
 
     def recv(self, size=1024):
         """
