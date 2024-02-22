@@ -46,8 +46,8 @@ class Template(object):
     def __repr__(self):
         return self.template
 
-    def __call__(self):
-        return self.template
+    def __call__(self, **kwargs):
+        return self.format(**kwargs)
 
 serializers = {
     'sh': lambda x: '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in x.items()])
@@ -112,19 +112,19 @@ class Submit(object):
 
     def __repr__(self):
         if self.job:
-            sps = self.job #submit, path, script
+            ssp = self.job #submit, path, script
         else:
-            sps = self.templates
+            ssp = self.templates
         return """
 submit:
 {}
 
-path:
-{}
-
 script:
 {}
-""".format(*sps)
+
+path:
+{}
+""".format(*ssp)
 
     def submit_job(self):
         self.proc = subprocess.run(self.job.submit.split(' '), text=True, stdout=subprocess.PIPE,

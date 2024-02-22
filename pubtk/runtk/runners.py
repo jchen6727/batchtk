@@ -8,15 +8,15 @@ import time
 
 class Runner(object):
     """
-    Handles parsing and injection of environmental variables into python script.
+    Handles parsing and injection of passed variables (env) into the python script's namespace.
     """
     def __init__(
         self,
-        grepstr = None, #expecting string
-        env = None, #expecting dictionary
-        aliases = None, #expecting dictionary
-        supports = None, #expecting dictionary
-        log = None, #expecting string
+        grepstr = None, #expecting string, defaults to runtk.GREPSTR (header.py)
+        env = None, #expecting dictionary, this UPDATES the dictionary of already passed variables (env)
+        aliases = None, #expecting dictionary, defaults to empty dictionary
+        supports = None, #expecting dictionary, defaults to runtk.SUPPORTS (header.py)
+        log = None, #expecting string or logging.Logger instance, the string will create a log.
         **kwargs
     ):
         """
@@ -42,10 +42,9 @@ class Runner(object):
             self.logger.addHandler(handler)
         if isinstance(log, logging.Logger):
             pass
-
         self.env = os.environ.copy()
         env and self.env.update(env) # update the self.env if (env) evaluates to True
-        self.aliases = aliases or runtk.ALIASES
+        self.aliases = aliases or {}
         self.supports = supports or runtk.SUPPORTS
 
         #self.debug.append("grepstr = {}".format(grepstr))
@@ -60,7 +59,7 @@ class Runner(object):
             for key, val in self.greptups.items()
         }
         if kwargs:
-            self.log("Unused arguments were passed into Runner.__init__(): {}".format(kwargs), level='info')
+            self.log("Unused arguments were passed into base class Runner.__init__(): {}".format(kwargs), level='info')
 
     def get_mappings(self):
         return self.mappings
@@ -229,10 +228,11 @@ class NetpyneRunner(Runner):
                 return self.netParams
 
         def get_SimConfig(self):
-            if self.cfg:
+            if self.cfg: # if cfg already exists, set values, then return it
+                self.set_SimConfig()
                 return self.cfg
             else:
-                from netpyne import specs
+                from netpyne import specs # the first time it calls config, it only returns cfg to be edited
                 self.cfg = specs.SimConfig()
                 return self.cfg
 

@@ -10,12 +10,9 @@ SUPPORTS = {
     'STR': staticmethod(lambda val: val),
 }
 
-ALIASES = {
-    'SOCKET':
-        {'socketname': 'SOCNAME',
-         'jobid': 'JOBID'},
-    'FILE':
-        {'signalfile': 'SGLFILE',
-         'writefile': 'OUTFILE',
-         'jobid': 'JOBID'}
-}
+ALIASES = namedtuple('ALIASES', 'SOCKET FILE')(
+    {'socketname': 'SOCNAME',
+     'jobid': 'JOBID'},
+    {'signalfile': 'SGLFILE',
+     'writefile': 'OUTFILE',
+     'jobid': 'JOBID'})

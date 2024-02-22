@@ -67,10 +67,14 @@ def convert(self: object, _type: str, val: object):
 
 def set_map(self, assign_path, value):
     assigns = assign_path.split('.')
+    if len(assigns) == 1:
+        self.__setitem__(assigns[0], value)
+        return
     crawler = self.__getitem__(assigns[0])
     for gi in assigns[1:-1]:
         crawler = crawler.__getitem__(gi)
     crawler.__setitem__(assigns[-1], value)
+    return
 
 def create_script(env, filename, template, **kwargs):
     """

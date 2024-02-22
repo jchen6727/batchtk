@@ -3,9 +3,9 @@ import struct
 class Socket(object):
     """
     socket class
-    protocolized socket for communication dispatchers <-> runners
+    protocolized socket for communication between dispatchers <-> runners
     """
-    def __init__(self, socketname=None, socket_type=socket.AF_UNIX, timeout=10):
+    def __init__(self, socketname=None, socket_type=socket.AF_INET):
         self.name = socketname
         self.type = socket_type
         self.socket = None
@@ -28,7 +28,6 @@ class Socket(object):
         self.connection = socket.socket(self.type, socket.SOCK_STREAM)
         self.connection.connect(host_socket)
 
-
     def send(self, message):
         bmsg = message.encode()
         self.connection.sendall(struct.pack('!I', len(bmsg)) + bmsg)
@@ -50,17 +49,15 @@ class Socket(object):
         return data
 
     def close(self):
-        try:
+        if self.socket:
             self.socket.close()
-        except:
-            pass
-        try:
+        if self.connection:
             self.connection.close()
-        except:
-            pass
 
 class INETSocket(Socket):
-    pass
+    def __init__(self):
+        super().__init__(socketname=(socket.gethostname(), 0), socket_type=socket.AF_INET)
 
 class UNIXSocket(Socket):
-    pass
+    def __init__(self, socketname):
+        super().__init__(socketname=socketname, socket_type=socket.AF_UNIX)

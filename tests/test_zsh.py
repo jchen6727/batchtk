@@ -25,7 +25,7 @@ class TestSHINET:
         dispatcher.update_env({'strvalue': '1',
                                'intvalue': 2,
                                'fltvalue': 3.0})
-        dispatcher.submit.update_templates(command='python socket_py.py')
+        dispatcher.submit.update_templates(command='python runner_scripts/socket_py.py')
         return dispatcher
 
     def test_job(self, dispatcher_setup):
@@ -41,7 +41,7 @@ class TestSHINET:
             #print(script)
         logger.info("script:\n{}".format(script))
         logger.info("port info (dispatcher listen):\n{}".format(get_port_info(dispatcher.sockname[1])))
-        assert 'python socket_py.py' in script
+        assert 'python runner_scripts/socket_py' in script
         dispatcher.submit_job()
         logger.info("job id:\n{}".format(dispatcher.job_id))
         connection, peer_address = dispatcher.accept()
