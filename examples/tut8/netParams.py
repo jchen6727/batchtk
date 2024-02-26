@@ -1,9 +1,9 @@
-from cfg import main
-
-cfg = main.get_SimConfig()
+from pubtk.netpyne import specs
+from cfg import cfg
+cfg.update_cfg()
 
 # Network parameters
-netParams = main.get_netParams()  # object of class NetParams to store the network parameters
+netParams = specs.NetParams() # object of class NetParams to store the network parameters
 
 ## Cell parameters/rules
 PYRcell = {'secs': {}}

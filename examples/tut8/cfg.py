@@ -1,8 +1,6 @@
-from pubtk.netpyne import NetpyneRunner
+from pubtk.netpyne import specs
 
-main = NetpyneRunner() # defaults socket
-
-cfg = main.get_NetParams()
+cfg = specs.SimConfig()
 
 cfg.duration = 1*1e3        # Duration of the simulation, in ms
 cfg.dt = 0.025              # Internal integration timestep to use
@@ -22,5 +20,5 @@ cfg.synMechTau2 = 5
 cfg.connWeight = 0.01
 
 # network parameters
-cfg.send = None
-main.set_SimConfig()
+cfg.send = "INET"
+

@@ -112,7 +112,7 @@ class Submit(object):
 
     def __repr__(self):
         if self.job:
-            ssp = self.job #submit, path, script
+            ssp = self.job #submit, script, path
         else:
             ssp = self.templates
         return """

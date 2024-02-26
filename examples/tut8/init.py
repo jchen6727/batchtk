@@ -1,22 +1,22 @@
-from params import main
+from pubtk.netpyne import specs
 from netpyne import sim
+from cfg import cfg
+from netParams import netParams
+
 import json
 
-cfg, params = main.get_cfg(), main.get_netParams()
-#simConfig, netParams = sim.readCmdLineArgs(simConfigDefault='src/cfg.py', netParamsDefault='src/params.py')
-# Create network and run simulation
-sim.createSimulateAnalyze(netParams=params,
+sim.createSimulateAnalyze(netParams=netParams,
                           simConfig=cfg)
 
 rates = sim.analysis.popAvgRates(show=False)
-inputs = main.get_mappings()
+inputs = specs.get_mappings()
 out_json = json.dumps({**inputs, **rates})
 if cfg.send == 'INET':
-    print("sending to host {}".format(main.socketname))
+    print("sending to host {}".format(specs.socketname))
     try:
-        main.connect()
-        main.send(out_json)
-        main.close()
+        specs.connect()
+        specs.send(out_json)
+        specs.close()
     except Exception as e:
         print("error sending to host due to:\n{}".format(e))
-        main.close()
+        specs.close()
