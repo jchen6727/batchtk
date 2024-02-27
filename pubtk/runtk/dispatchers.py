@@ -253,18 +253,21 @@ class UNIX_Dispatcher(SH_Dispatcher):
 
     def create_job(self, **kwargs):
         super().create_job()
-        self.socketname = "{}/{}.s".format(self.cwd, self.label)  # the socket file
+        socket_name = "{}/{}.s".format(self.cwd, self.label)  # the socket file
         try:
-            os.unlink(self.socketname)
+            os.unlink(socket_name)
         except OSError as e:
-            if os.path.exists(self.socketname):
-                raise OSError("issue when creating socket {}:".format(self.socketname), e)
-        self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.server.bind(self.socketname)
-        self.server.listen(1)
+            if os.path.exists(socket_name):
+                raise OSError("issue when creating socket {}:".format(socket_name), e)
+        self.socket = UNIXSocket(socket_name = socket_name)
+        self.socket.listen()
+
+        #self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        #self.server.bind(self.socketname)
+        #self.server.listen(1)
         self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
         self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
-        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, socketfile=self.socketname, **kwargs)
+        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, sockname=socket_name, **kwargs)
 
     def run(self, **kwargs):
         self.create_job(**kwargs)
@@ -275,23 +278,23 @@ class UNIX_Dispatcher(SH_Dispatcher):
         accept incoming connection from client
         this function is blocking
         """
-        self.connection, peer_address = self.server.accept()  # actual blocking statement
-        return self.connection, peer_address
+        connection, peer_address = self.socket.accept()  # actual blocking statement
+        return connection, peer_address
 
-    def recv(self, size=1024):
+    def recv(self):
         """
 
         Returns
         -------
 
         """
-        return self.connection.recv(size).decode()
+        return self.socket.recv()
 
     def send(self, data):
-        self.connection.sendall(data.encode())
+        self.socket.send(data)
     def clean(self, args='so'):
-        self.connection.close()
-        os.unlink(self.socketname)
+        if self.socket:
+            self.socket.close()
         if args == 'all':
             args = 'so'
         if os.path.exists(self.shellfile) and 's' in args:
@@ -310,16 +313,15 @@ class INET_Dispatcher(SH_Dispatcher):
 
     def create_job(self, **kwargs):
         super().init_run(**kwargs)
-        host = socket.gethostname() #string, can be provided to bind.
-        _socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        _socket.bind((host, 0)) # let OS determine the port
-        self.sockname = _socket.getsockname()
-        self.socket = _socket
-        self.socket.listen(1) # one server <-> one client
+        #host = socket.gethostname() #string, can be provided to bind.
+        #_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #_socket.bind((host, 0)) # let OS determine the port
+        #self.sockname = _socket.getsockname()
+        self.socket = INETSocket()
+        socket_name = self.socket.listen() # one server <-> one client
         self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
         self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
-        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, sockname=self.sockname, **kwargs)
-        self.connection = None
+        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, sockname=socket_name, **kwargs)
 
     def submit_job(self):
         self.job_id = self.submit.submit_job()
@@ -333,20 +335,20 @@ class INET_Dispatcher(SH_Dispatcher):
         accept incoming connection from runner
         this function is blocking
         """
-        self.connection, peer_address = self.socket.accept()  # actual blocking statement
-        return self.connection, peer_address
+        connection, peer_address = self.socket.accept()  # actual blocking statement
+        return connection, peer_address
 
-    def recv(self, size=1024):
+    def recv(self):
         """
 
         Returns
         -------
 
         """
-        return self.connection.recv(size).decode()
+        return self.socket.recv()
 
     def send(self, data):
-        self.connection.sendall(data.encode())
+        self.socket.send(data)
     def clean(self, args='so'):
         if args == 'all':
             args = 'so'

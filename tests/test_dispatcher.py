@@ -118,7 +118,7 @@ class TestDispatcherSHSFS:
     @pytest.fixture
     def setup(self):
         dispatcher = SFS_Dispatcher(cwd=os.getcwd(),
-                                    submit=SHSubmitSFS(),
+                                    submit=ZSHSubmitSFS(),
                                     env={'test': 'value'},
                                     gid='123')
         return dispatcher

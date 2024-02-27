@@ -1,7 +1,8 @@
 import os
 import json
-from pubtk.runtk.utils import convert, set_map, create_script
+from pubtk.runtk.utils import convert, set_map
 from pubtk import runtk
+from pubtk.runtk.sockets import INETSocket, UNIXSocket
 import socket
 import logging
 import time
@@ -142,6 +143,7 @@ class SocketRunner(Runner): # socket based runner
         'aliases' in kwargs or kwargs.update(
             {'aliases':
                 {'socketname': 'SOCNAME',
+                 'socket_name': 'SOCNAME',
                  'jobid': 'JOBID'}
             }
         )
@@ -155,13 +157,14 @@ class SocketRunner(Runner): # socket based runner
             case socket.AF_INET:
                 ip, port = self.socketname.split(',')
                 self.host_socket = (ip.strip(' (\''), int(port.strip(')')))
+                self.socket = INETSocket(socket_name=self.host_socket)
             case socket.AF_UNIX:
                 self.host_socket = self.socketname # just a filename
+                self.socket = UNIXSocket(socket_name=self.host_socket)
             case _:
                 raise ValueError(socket_type)
-        self.socket = socket.socket(socket_type, socket.SOCK_STREAM)
-        self.socket.settimeout(timeout)
-        self.socket.connect(self.host_socket)
+        self.socket.socket.settimeout(timeout)
+        self.socket.connect()
         return self.host_socket
 
     def send(self, data):
@@ -170,14 +173,14 @@ class SocketRunner(Runner): # socket based runner
         # data: data to send
         # size: size of data to send
         """
-        self.socket.sendall(data.encode())
+        self.socket.send(data)
 
-    def recv(self, size=1024):
+    def recv(self):
         """
         # receive data from socket
         # size: size of data to receive
         """
-        return self.socket.recv(size).decode()
+        return self.socket.recv()
 
     def close(self):
         super().close()

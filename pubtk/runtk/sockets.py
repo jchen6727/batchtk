@@ -24,10 +24,10 @@ class Socket(object):
         self.connection, self.peer_address = self.socket.accept()
         return self.connection, self.peer_address
 
-    def connect(self, host_socket):
-        self.peer_address = host_socket
+    def connect(self):
+        self.peer_address = self.name
         self.connection = socket.socket(self.type, socket.SOCK_STREAM)
-        self.connection.connect(host_socket)
+        self.connection.connect(self.name)
 
     def send(self, message):
         bmsg = message.encode()
@@ -56,8 +56,10 @@ class Socket(object):
             self.connection.close()
 
 class INETSocket(Socket):
-    def __init__(self):
-        super().__init__(socket_name=(socket.gethostname(), 0), socket_type=socket.AF_INET)
+    def __init__(self, socket_name=None):
+        if not socket_name: #either allow OS to choose, or use provided
+            socket_name = (socket.gethostname(), 0)
+        super().__init__(socket_name=socket_name, socket_type=socket.AF_INET)
 
 
 class UNIXSocket(Socket):

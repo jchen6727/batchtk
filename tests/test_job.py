@@ -34,14 +34,14 @@ class TestSGEINET:
         dispatcher.create_job()
         assert os.path.exists(dispatcher.shellfile)
         logger.info("dispatcher.env:\n{}".format(json.dumps(dispatcher.env)))
-        logger.info("dispatcher.sockname:\n{}".format(dispatcher.sockname))
+        logger.info("dispatcher.socket.name:\n{}".format(dispatcher.socket.name))
         logger.info("dispatcher.shellfile:\n{}".format(dispatcher.shellfile))
         #print(dispatcher.shellfile)
         with open(dispatcher.shellfile, 'r') as fptr:
             script = fptr.read()
             #print(script)
         logger.info("script:\n{}".format(script))
-        logger.info("port info (dispatcher listen):\n{}".format(get_port_info(dispatcher.sockname[1])))
+        logger.info("port info (dispatcher listen):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         assert 'python test.py' in script
         env = get_exports(dispatcher.shellfile)
 
@@ -50,7 +50,7 @@ class TestSGEINET:
         logger.info("runner.socketname:\n{}".format(runner.socketname))
         runner.connect()
         connection, peer_address = dispatcher.accept()
-        logger.info("port info (runner connect):\n{}".format(get_port_info(dispatcher.sockname[1])))
+        logger.info("port info (runner connect):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         logger.info("runner.host_socket:\n{}".format(runner.host_socket))
         test_message = 'runner -> dispatcher message'
         runner.send(test_message)
@@ -69,13 +69,13 @@ dispatcher sent              ---> runner recv
 {} ---> {}""".format(test_message, recv_message))
         assert test_message == recv_message
         runner.close()
-        logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.sockname[1])))
+        logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         dispatcher.clean()
         logger.info("runner.mappings:\n{}".format(json.dumps(runner.mappings)))
         assert runner.mappings['strvalue'] == '1'
         assert runner.mappings['intvalue'] == 2
         assert runner.mappings['fltvalue'] == 3.0
-        logger.info("port info (dispatcher clean):\n{}".format(get_port_info(dispatcher.sockname[1])))
+        logger.info("port info (dispatcher clean):\n{}".format(get_port_info(dispatcher.socket.name[1])))
 
 class TestSHINET:
     @pytest.fixture
@@ -94,14 +94,14 @@ class TestSHINET:
         dispatcher.create_job()
         assert os.path.exists(dispatcher.shellfile)
         logger.info("dispatcher.env:\n{}".format(json.dumps(dispatcher.env)))
-        logger.info("dispatcher.sockname:\n{}".format(dispatcher.sockname))
+        logger.info("dispatcher.socket.name:\n{}".format(dispatcher.socket.name))
         logger.info("dispatcher.shellfile:\n{}".format(dispatcher.shellfile))
         #print(dispatcher.shellfile)
         with open(dispatcher.shellfile, 'r') as fptr:
             script = fptr.read()
             #print(script)
         logger.info("script:\n{}".format(script))
-        logger.info("port info (dispatcher listen):\n{}".format(get_port_info(dispatcher.sockname[1])))
+        logger.info("port info (dispatcher listen):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         assert 'python test.py' in script
         env = get_exports(dispatcher.shellfile)
 
@@ -110,7 +110,7 @@ class TestSHINET:
         logger.info("runner.socketname:\n{}".format(runner.socketname))
         runner.connect()
         connection, peer_address = dispatcher.accept()
-        logger.info("port info (runner connect):\n{}".format(get_port_info(dispatcher.sockname[1])))
+        logger.info("port info (runner connect):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         logger.info("runner.host_socket:\n{}".format(runner.host_socket))
         test_message = 'runner -> dispatcher message'
         runner.send(test_message)
@@ -129,10 +129,10 @@ dispatcher sent              ---> runner recv
 {} ---> {}""".format(test_message, recv_message))
         assert test_message == recv_message
         runner.close()
-        logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.sockname[1])))
+        logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         dispatcher.clean()
         logger.info("runner.mappings:\n{}".format(json.dumps(runner.mappings)))
         assert runner.mappings['strvalue'] == '1'
         assert runner.mappings['intvalue'] == 2
         assert runner.mappings['fltvalue'] == 3.0
-        logger.info("port info (dispatcher clean):\n{}".format(get_port_info(dispatcher.sockname[1])))
+        logger.info("port info (dispatcher clean):\n{}".format(get_port_info(dispatcher.socket.name[1])))

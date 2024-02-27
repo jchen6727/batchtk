@@ -90,11 +90,19 @@ def ray_grid_search(dispatcher_constructor, submit_constructor, label = 'grid', 
             params[key] = tune.grid_search(val)
 
     #brief check path
+    if checkpoint_dir[0] == '/':
+        storage_path = os.path.normpath(checkpoint_dir)
+    elif checkpoint_dir[0] == '.':
+        storage_path = os.path.normpath(os.path.join(os.getcwd(), checkpoint_dir))
+    else:
+        raise ValueError("checkpoint_dir must be an absolute path (starts with /) or relative to the current working directory (starts with .)")
+    #TODO check that write permissions to path are possible
+    """
     if os.path.exists(checkpoint_dir):
         storage_path = os.path.normpath(checkpoint_dir)
     else:
         storage_path = os.path.normpath(os.path.join(os.getcwd(), checkpoint_dir))
-
+    """
     algo = create_searcher('variant_generator')
     algo = ConcurrencyLimiter(searcher=algo, max_concurrent=concurrency, batch=True)
     submit = submit_constructor()
