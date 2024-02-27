@@ -1,22 +1,21 @@
 import pytest
 import os
-from pubtk.runtk.dispatchers import Dispatcher, SFS_Dispatcher, INET_Dispatcher
-from pubtk.runtk.submits import Submit, SGESubmitSOCK, SGESubmitSFS, ZSHSubmitSFS, ZSHSubmitSOCK
-from pubtk.runtk.runners import SocketRunner
-from pubtk.utils import get_exports, get_port_info
+from pubtk.runtk.dispatchers import Dispatcher, INET_Dispatcher
+from pubtk.runtk.submits import Submit, ZSHSubmitSOCK
+from pubtk.utils import get_port_info
 import logging
 import json
 
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.INFO)
-handler = logging.FileHandler('test_sh.log')
+handler = logging.FileHandler('test_zsh.log')
 
 formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-class TestSHINET:
+class TestZSHINET:
     @pytest.fixture
     def dispatcher_setup(self):
         dispatcher = INET_Dispatcher(cwd=os.getcwd(),

@@ -228,8 +228,7 @@ class NetpyneRunner(Runner):
                 return self.netParams
 
         def get_SimConfig(self):
-            if self.cfg: # if cfg already exists, set values, then return it
-                self.set_SimConfig()
+            if self.cfg: # if cfg already exists
                 return self.cfg
             else:
                 from netpyne import specs # the first time it calls config, it only returns cfg to be edited

@@ -3,6 +3,7 @@ import subprocess
 import hashlib
 from pubtk import runtk
 from pubtk.runtk.submits import Submit
+from pubtk.runtk.sockets import INETSocket, UNIXSocket
 import socket
 
 

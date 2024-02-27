@@ -1,23 +1,24 @@
 import socket
 import struct
+import os
+
 class Socket(object):
     """
     socket class
     protocolized socket for communication between dispatchers <-> runners
     """
-    def __init__(self, socketname=None, socket_type=socket.AF_INET):
-        self.name = socketname
+    def __init__(self, socket_name=None, socket_type=socket.AF_INET):
+        self.name = socket_name
         self.type = socket_type
-        self.socket = None
-        #self.socket.bind(self.socketname)
-        #self.socket.listen(1)
+        self.socket = socket.socket(self.type, socket.SOCK_STREAM)
         self.connection = None
         self.peer_address = None
 
-    def start(self):
-        self.socket = socket.socket(self.type, socket.SOCK_STREAM)
+    def listen(self):
         self.socket.bind(self.name)
         self.socket.listen(1)
+        self.name = self.socket.getsockname() # works both INET and UNIX, redundant for UNIX
+        return self.name
 
     def accept(self):
         self.connection, self.peer_address = self.socket.accept()
@@ -56,8 +57,14 @@ class Socket(object):
 
 class INETSocket(Socket):
     def __init__(self):
-        super().__init__(socketname=(socket.gethostname(), 0), socket_type=socket.AF_INET)
+        super().__init__(socket_name=(socket.gethostname(), 0), socket_type=socket.AF_INET)
+
 
 class UNIXSocket(Socket):
-    def __init__(self, socketname):
-        super().__init__(socketname=socketname, socket_type=socket.AF_UNIX)
+    def __init__(self, socket_name):
+        super().__init__(socket_name=socket_name, socket_type=socket.AF_UNIX)
+
+    def close(self):
+        super().close()
+        if os.path.exists(self.name):
+            os.unlink(self.name)
