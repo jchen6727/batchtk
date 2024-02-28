@@ -54,8 +54,7 @@ class TestZSHINET:
 
         recv_message = dispatcher.recv()
         logger.info("results:\n{}".format(recv_message))
-        #dispatcher.socket.connection.settimeout(15)
-        #dispatcher.send("goodbye")
+        dispatcher.send("goodbye")
         logger.info("port info (runner connect):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         #logger.info("result:\n{}".format(recv_message))
         logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.socket.name[1])))

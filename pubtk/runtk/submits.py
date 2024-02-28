@@ -154,7 +154,7 @@ class ZSHSubmit(Submit):
 cd {cwd}
 export JOBID=$$
 {env}
-nohup {command} > {cwd}/{label}.run &
+nohup {command} > {cwd}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
@@ -185,7 +185,7 @@ export OUTFILE="{label}.out"
 export SGLFILE="{label}.sgl"
 export JOBID=$$
 {env}
-nohup {command} > {cwd}/{label}.run &
+nohup {command} > {cwd}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
@@ -199,7 +199,7 @@ cd {cwd}
 export SOCNAME="{sockname}"
 export JOBID=$$
 {env}
-nohup {command} > {cwd}/{label}.run &
+nohup {command} > {cwd}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
