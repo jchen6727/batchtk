@@ -7,12 +7,15 @@ class Socket(object):
     socket class
     protocolized socket for communication between dispatchers <-> runners
     """
-    def __init__(self, socket_name=None, socket_type=socket.AF_INET):
+    def __init__(self, socket_name=None, socket_type=socket.AF_INET, timeout=None):
         self.name = socket_name
         self.type = socket_type
+        self.timeout = timeout
         self.socket = socket.socket(self.type, socket.SOCK_STREAM)
+        self.socket.settimeout(self.timeout)
         self.connection = None
         self.peer_address = None
+        self.timeout = None
 
     def listen(self):
         self.socket.bind(self.name)
@@ -22,16 +25,30 @@ class Socket(object):
 
     def accept(self):
         self.connection, self.peer_address = self.socket.accept()
+        self.connection.settimeout(self.timeout)
         return self.connection, self.peer_address
 
     def connect(self):
         self.peer_address = self.name
         self.connection = socket.socket(self.type, socket.SOCK_STREAM)
+        self.connection.settimeout(self.timeout)
         self.connection.connect(self.name)
+
+
+    #def send(self, message):
+    #    bmsg = message.encode()
+    #    self.connection.sendall(struct.pack('!I', len(bmsg)) + bmsg)
 
     def send(self, message):
         bmsg = message.encode()
-        self.connection.sendall(struct.pack('!I', len(bmsg)) + bmsg)
+        msg_with_length = struct.pack('!I', len(bmsg)) + bmsg
+        total_sent = 0
+        while total_sent < len(msg_with_length):
+            sent = self.connection.send(msg_with_length[total_sent:])
+            if sent == 0:
+                raise RuntimeError("socket connection broken")
+            total_sent = total_sent + sent
+        return total_sent
 
     def recv(self):
         msglen = self.connection.recv(4)
