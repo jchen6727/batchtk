@@ -8,15 +8,14 @@ runner = SocketRunner()
 try:
     connection, peer_address = runner.connect() # connect to dispatcher
     print("connected to dispatcher:\n({},{})".format(connection, peer_address))
+    print("received message from dispatcher: {}".format(runner.recv()))
     mappings = json.dumps(runner.mappings)
     result = runner.mappings['intvalue'] + runner.mappings['fltvalue']
     runner.send(mappings)
     print("sent mappings to dispatcher")
     runner.send(str(result))
     print("sent result to dispatcher")
-
-    data = runner.recv()
-    print("received data from dispatcher: {}".format(data))
+    print("received message from dispatcher: {}".format(runner.recv()))
     runner.close()
 except Exception as e:
     runner.close()

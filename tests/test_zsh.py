@@ -49,6 +49,7 @@ class TestZSHINET:
         peer_address: {}""".format(connection, peer_address))
         logger.info("port info (runner connect):\n{}".format(get_port_info(dispatcher.socket.name[1])))
 
+        dispatcher.send("hello")
         recv_message = dispatcher.recv()
         logger.info("mappings:\n{}".format(recv_message))
 
@@ -59,6 +60,7 @@ class TestZSHINET:
         #logger.info("result:\n{}".format(recv_message))
         logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         dispatcher.clean([])
+        logger.info("port info (dispatcher close:\n{}".format(get_port_info(dispatcher.socket.name[1])))
 
 if __name__ == '__main__':
     pytest.main(['-s', __file__])
