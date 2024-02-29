@@ -23,6 +23,16 @@ def path_open(path: str, mode: str):
     fptr = open(path, mode)
     return fptr
 
+def create_path(path0: str, path1 = ""):
+    if path1 and path1[0] == '/':
+        target = os.path.normpath(path1)
+    else:
+        target = os.path.normpath(os.path.join(path0, path1))
+    try:
+        os.makedirs(target, exist_ok=True)
+        return target
+    except Exception as e:
+        raise Exception("attempted to create from ({},{}) path: {} and failed with exception: {}".format(path0, path1, target, e))
 
 def get_exports(filename):
     with open(filename, 'r') as fptr:

@@ -52,6 +52,7 @@ class Template(object):
 serializers = {
     'sh': lambda x: '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in x.items()])
 }
+
 def serialize(args, var ='env', serializer ='sh'):
     if var in args and serializer in serializers:
         args[var] = serializers[serializer](args[var])
@@ -63,7 +64,7 @@ class Submit(object):
         self._jtuple = namedtuple('job', 'submit script path')
         self.submit_template = Template(submit_template)
         self.script_template = Template(script_template)
-        self.path_template = path_template or Template("{cwd}/{label}.sh", {'cwd', 'label'})
+        self.path_template = path_template or Template("{output_path}/{label}.sh", {'output_path', 'label'})
         self.templates = self._jtuple(self.submit_template, self.script_template, self.path_template)
         self.kwargs = self.submit_template.kwargs | self.script_template.kwargs | self.path_template.kwargs
         self.job = None
@@ -147,20 +148,21 @@ path:
         return self.handles
 
 class ZSHSubmit(Submit):
-    script_args = {'label', 'cwd', 'env', 'command'}
+    script_args = {'label', 'project_path', 'output_path', 'env', 'command'}
     script_template = \
         """\
 #!/bin/zsh
-cd {cwd}
+cd {project_path}
 export JOBID=$$
 {env}
-nohup {command} > {cwd}/{label}.run 2>&1 &
+nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
     def __init__(self, **kwargs):
         super().__init__(
-            submit_template = Template(template="zsh {cwd}/{label}.sh", key_args={'cwd', 'label'}),
+            submit_template = Template(template="zsh {output_path}/{label}.sh", key_args={'project_path',
+                                                                                         'output_path',  'label'}),
             script_template = Template(self.script_template, key_args=self.script_args))
     def set_handles(self):
         pass
@@ -176,44 +178,44 @@ echo $pid >&1
         return self.job_id
 
 class ZSHSubmitSFS(ZSHSubmit):
-    script_args = {'label', 'cwd', 'env', 'command'}
+    script_args = {'label', 'project_path', 'output_path', 'env', 'command'}
     script_template = \
         """\
 #!/bin/zsh
-cd {cwd}
-export OUTFILE="{label}.out"
-export SGLFILE="{label}.sgl"
+cd {project_path}
+export OUTFILE="{output_path}/{label}.out"
+export SGLFILE="{output_path}/{label}.sgl"
 export JOBID=$$
 {env}
-nohup {command} > {cwd}/{label}.run 2>&1 &
+nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
 
 class ZSHSubmitSOCK(ZSHSubmit):
-    script_args = {'label', 'cwd', 'env', 'command', 'sockname'}
+    script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'sockname'}
     script_template = \
         """\
 #!/bin/zsh
-cd {cwd}
+cd {project_path}
 export SOCNAME="{sockname}"
 export JOBID=$$
 {env}
-nohup {command} > {cwd}/{label}.run 2>&1 &
+nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
 
 class SGESubmit(Submit):
-    script_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', }
+    script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', }
     script_template = \
         """\
 #!/bin/bash
 #$ -N j{label}
 #$ -pe smp {cores}
 #$ -l h_vmem={vmem}
-#$ -o {cwd}/{label}.run
-cd {cwd}
+#$ -o {output_path}/{label}.run
+cd {project_path}
 source ~/.bashrc
 export JOBID=$JOB_ID
 {env}
@@ -221,7 +223,7 @@ export JOBID=$JOB_ID
 """
     def __init__(self, **kwargs):
         super().__init__(
-            submit_template = Template(template="qsub {cwd}/{label}.sh", key_args={'cwd', 'label'}),
+            submit_template = Template(template="qsub {output_path}/{label}.sh", key_args={'output_path',  'label'}),
             script_template = Template(self.script_template, key_args=self.script_args))
 
     def submit_job(self, **kwargs):
@@ -236,33 +238,33 @@ export JOBID=$JOB_ID
         pass
 
 class SGESubmitSFS(SGESubmit):
-    script_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', }
+    script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', }
     script_template = \
         """\
 #!/bin/bash
 #$ -N j{label}
 #$ -pe smp {cores}
 #$ -l h_vmem={vmem}
-#$ -o {cwd}/{label}.run
-cd {cwd}
+#$ -o {output_path}/{label}.run
+cd {project_path}
 source ~/.bashrc
-export OUTFILE="{label}.out"
-export SGLFILE="{label}.sgl"
+export OUTFILE="{output_path}/{label}.out"
+export SGLFILE="{output_path}/{label}.sgl"
 export JOBID=$JOB_ID
 {env}
 {command}
 """
 
 class SGESubmitSOCK(SGESubmit):
-    script_args = {'label', 'cwd', 'env', 'command', 'cores', 'vmem', 'sockname'}
+    script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', 'sockname'}
     script_template = \
         """\
 #!/bin/bash
-#$ -N job{label}
+#$ -N j{label}
 #$ -pe smp {cores}
 #$ -l h_vmem={vmem}
-#$ -o {cwd}/{label}.run
-cd {cwd}
+#$ -o {output_path}/{label}.run
+cd {project_path}
 source ~/.bashrc
 export SOCNAME="{sockname}"
 export JOBID=$JOB_ID

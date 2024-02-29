@@ -4,6 +4,7 @@ import hashlib
 from pubtk import runtk
 from pubtk.runtk.submits import Submit
 from pubtk.runtk.sockets import INETSocket, UNIXSocket
+from pubtk.utils import create_path
 import socket
 
 
@@ -147,27 +148,30 @@ class SH_Dispatcher(Dispatcher):
     """
     Shell based Dispatcher that handles job generating shell script to submit jobs
     """
-    def __init__(self, submit, cwd="", **kwargs):
+    def __init__(self, submit, project_path, output_path=".", **kwargs):
         """
         initializes dispatcher
-        cwd: current working directory
+        project_path: current working directory
         submit: Submit object (see pubtk.runk.submit)
         in **kwargs:
             gid: string to identify dispatcher by the created runner
             env: dictionary of environmental variables to be passed to the created runner
         """
         super().__init__(**kwargs)
-        self.cwd = cwd
+        self.project_path = project_path
+        self.output_path = create_path(project_path, output_path)
         self.submit = submit
         self.job_id = -1
+        # create a "self.target" that contains the output_path and label?
         #self.label = self.gid
 
     def create_job(self, **kwargs):
         super().init_run()
-        self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
-        self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
+        self.shellfile = "{}/{}.sh".format(self.output_path, self.label)  # the shellfile that will be submitted
+        self.runfile = "{}/{}.run".format(self.output_path, self.label)  # the runfile created by the job
         self.submit.create_job(label=self.label,
-                               cwd=self.cwd,
+                               project_path=self.project_path,
+                               output_path=self.output_path,
                                env=self.env,
                                **kwargs)
 
@@ -205,10 +209,11 @@ class SFS_Dispatcher(SH_Dispatcher):
 
     def create_job(self, **kwargs):
         super().create_job(**kwargs)
-        self.watchfile = "{}/{}.sgl".format(self.cwd, self.label)  # the signal file (only to represent completion of job)
-        self.readfile = "{}/{}.out".format(self.cwd, self.label)  # the read file containing the actual results
-        self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
-        self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
+        self.watchfile = "{}/{}.sgl".format(self.output_path, self.label)  # the signal file (only to represent
+        # completion of job)
+        self.readfile = "{}/{}.out".format(self.output_path, self.label)  # the read file containing the actual results
+        self.shellfile = "{}/{}.sh".format(self.output_path, self.label)  # the shellfile that will be submitted
+        self.runfile = "{}/{}.run".format(self.output_path, self.label)  # the runfile created by the job
 
     def run(self, **kwargs):
         super().run(**kwargs)
@@ -253,7 +258,7 @@ class UNIX_Dispatcher(SH_Dispatcher):
 
     def create_job(self, **kwargs):
         super().create_job()
-        socket_name = "{}/{}.s".format(self.cwd, self.label)  # the socket file
+        socket_name = "{}/{}.s".format(self.output_path, self.label)  # the socket file
         try:
             os.unlink(socket_name)
         except OSError as e:
@@ -265,9 +270,10 @@ class UNIX_Dispatcher(SH_Dispatcher):
         #self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         #self.server.bind(self.socketname)
         #self.server.listen(1)
-        self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
-        self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
-        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, sockname=socket_name, **kwargs)
+        self.shellfile = "{}/{}.sh".format(self.output_path, self.label)  # the shellfile that will be submitted
+        self.runfile = "{}/{}.run".format(self.output_path, self.label)  # the runfile created by the job
+        self.submit.create_job(label=self.label, project_path=self.project_path,
+                               output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
 
     def run(self, **kwargs):
         self.create_job(**kwargs)
@@ -319,9 +325,10 @@ class INET_Dispatcher(SH_Dispatcher):
         #self.sockname = _socket.getsockname()
         self.socket = INETSocket()
         socket_name = self.socket.listen() # one server <-> one client
-        self.shellfile = "{}/{}.sh".format(self.cwd, self.label)  # the shellfile that will be submitted
-        self.runfile = "{}/{}.run".format(self.cwd, self.label)  # the runfile created by the job
-        self.submit.create_job(label=self.label, cwd=self.cwd, env=self.env, sockname=socket_name, **kwargs)
+        self.shellfile = "{}/{}.sh".format(self.output_path, self.label)  # the shellfile that will be submitted
+        self.runfile = "{}/{}.run".format(self.output_path, self.label)  # the runfile created by the job
+        self.submit.create_job(label=self.label, project_path=self.project_path,
+                               output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
 
     def submit_job(self):
         self.job_id = self.submit.submit_job()

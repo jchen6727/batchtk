@@ -18,7 +18,7 @@ logger.addHandler(handler)
 class TestSGEINET:
     @pytest.fixture
     def dispatcher_setup(self):
-        dispatcher = INET_Dispatcher(cwd=os.getcwd(),
+        dispatcher = INET_Dispatcher(project_path=os.getcwd(),
                                      submit=SGESubmitSOCK(),
                                      gid='test_job_sgeinet')
         dispatcher.update_env({'strvalue': '1',
@@ -80,7 +80,7 @@ dispatcher sent              ---> runner recv
 class TestSHINET:
     @pytest.fixture
     def dispatcher_setup(self):
-        dispatcher = INET_Dispatcher(cwd=os.getcwd(),
+        dispatcher = INET_Dispatcher(project_path=os.getcwd(),
                                      submit=ZSHSubmitSOCK(),
                                      gid='test_job_shinet')
         dispatcher.update_env({'strvalue': '1',

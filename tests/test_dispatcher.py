@@ -25,7 +25,7 @@ class TestDispatcher:
 class TestDispatcherSGESOCK:
     @pytest.fixture
     def setup(self):
-        dispatcher = INET_Dispatcher(cwd=os.getcwd(),
+        dispatcher = INET_Dispatcher(project_path=os.getcwd(),
                                      submit=SGESubmitSOCK(),
                                      env={'test': 'value'},
                                      gid='sgeinet')
@@ -60,7 +60,7 @@ class TestDispatcherSGESOCK:
 class TestDispatcherSHSOCK:
     @pytest.fixture
     def setup(self):
-        dispatcher = INET_Dispatcher(cwd=os.getcwd(),
+        dispatcher = INET_Dispatcher(project_path=os.getcwd(),
                                      submit=ZSHSubmitSOCK(),
                                      env={'test': 'value'},
                                      gid='shinet')
@@ -94,7 +94,7 @@ class TestDispatcherSHSOCK:
 class TestDispatcherSGESFS:
     @pytest.fixture
     def setup(self):
-        dispatcher = SFS_Dispatcher(cwd=os.getcwd(),
+        dispatcher = SFS_Dispatcher(project_path=os.getcwd(),
                                     submit=SGESubmitSFS(),
                                     env={'test': 'value'},
                                     gid='123')
@@ -117,7 +117,7 @@ class TestDispatcherSGESFS:
 class TestDispatcherSHSFS:
     @pytest.fixture
     def setup(self):
-        dispatcher = SFS_Dispatcher(cwd=os.getcwd(),
+        dispatcher = SFS_Dispatcher(project_path=os.getcwd(),
                                     submit=ZSHSubmitSFS(),
                                     env={'test': 'value'},
                                     gid='123')
