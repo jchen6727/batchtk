@@ -16,3 +16,11 @@ ALIASES = namedtuple('ALIASES', 'SOCKET FILE')(
     {'signalfile': 'SGLFILE',
      'writefile': 'OUTFILE',
      'jobid': 'JOBID'})
+
+EXTENSIONS = { #making crusty sysadmins cry
+    'submit': '([\S]*\.[a-z]*sh)', # sh, bash, csh, zsh, tcsh, etc.
+    'stdout': '([\S]*\.run)',
+    'msgout': '([\S]*\.out)',
+    'signal': '([\S]*\.sgl)',
+    'socket': '([\S]*\.soc)',
+}

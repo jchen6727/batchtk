@@ -2,7 +2,8 @@
 import subprocess
 import logging
 from collections import namedtuple
-
+from pubtk import runtk
+import re
 
 class Template(object):
 
@@ -12,17 +13,18 @@ class Template(object):
         else:
             return super().__new__(cls)
 
-    def __init__(self, template, key_args = None, **kwargs):
+    def __init__(self, template, key_args = None, handles = None, **kwargs):
         if isinstance(template, Template): # passthrough if already a Template
             return #TODO why does this need to be here?, __init__ shouldn't be called if template
         self.template = template
+        if not handles:
+            self.handles = self.get_handles()
         if key_args:
             self.kwargs = {key: "{" + key + "}" for key in key_args}
         else:
             self.kwargs = {key: "{" + key + "}" for key in self.get_args()}
 
     def get_args(self):
-        import re
         return re.findall(r'{(.*?)}', self.template)
 
 #    def __format__(self, **kwargs):
@@ -38,8 +40,15 @@ class Template(object):
             mkwargs = mkwargs | {key: "{" + key + "}" for key in self.get_args()}
             return self.template.format(**mkwargs)
 
+    def format_handles(self, **kwargs):
+        mkwargs = self.kwargs | kwargs
+        return {key: val.format(**mkwargs) for key, val in self.handles.items()}
+
     def update(self, **kwargs):
         self.template = self.format(**kwargs)
+
+    def update_handles(self, **kwargs):
+        self.handles = self.format_handles(**kwargs)
 
     def check_missing(self, template):
         return [key for key in self.kwargs if key in template]
@@ -48,6 +57,16 @@ class Template(object):
 
     def __call__(self, **kwargs):
         return self.format(**kwargs)
+
+    def get_handles(self):
+        handles = {}
+        for extension, expr in runtk.EXTENSIONS.items():
+            handle = re.search(expr, self.template)
+            if handle:
+                handles[extension] = handle.group(1)
+        print(handles)
+        return handles
+
 
 serializers = {
     'sh': lambda x: '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in x.items()])
