@@ -40,6 +40,9 @@ class Template(object):
             mkwargs = mkwargs | {key: "{" + key + "}" for key in self.get_args()}
             return self.template.format(**mkwargs)
 
+    format_template = format
+
+
     def format_handles(self, **kwargs):
         mkwargs = self.kwargs | kwargs
         return {key: val.format(**mkwargs) for key, val in self.handles.items()}
@@ -90,7 +93,7 @@ class Submit(object):
         self.submit = None
         self.script = None
         self.path = None
-        self.handles = None
+        self.handles = self.submit_template.handles | self.script_template.handles | self.path_template.handles
         self.logger = log
         if isinstance(log, str): ## TODO move into a logging object, then inherit?.
             self.logger = logging.getLogger(log)
@@ -120,6 +123,7 @@ class Submit(object):
             raise Exception("Failed to write script to file: {}\n{}".format(self.path, e))
 
     def format_job(self, **kwargs):
+
         submit = self.submit_template.format(**kwargs)
         script = self.script_template.format(**kwargs)
         path = self.path_template.format(**kwargs)
@@ -129,6 +133,7 @@ class Submit(object):
         #kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
         for template in self.templates:
             template.update(**kwargs)
+            template.update_handles(**kwargs)
 
     def __repr__(self):
         if self.job:
@@ -216,7 +221,7 @@ pid=$!
 echo $pid >&1
 """
     script_handles = {'stdout': '{output_path}/{label}.run',
-                      'outfile': '{output_path}/{label}.out',
+                      'msgout': '{output_path}/{label}.out',
                       'sglfile': '{output_path}/{label}.sgl'}
 
 class ZSHSubmitSOCK(ZSHSubmit):
@@ -233,7 +238,7 @@ pid=$!
 echo $pid >&1
 """
     script_handles = {'stdout': '{output_path}/{label}.run',
-                      'socket': '{sockname}'}
+                      'socketname': '{sockname}'}
 
 class SGESubmit(Submit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', }
@@ -289,9 +294,10 @@ export JOBID=$JOB_ID
 {env}
 {command}
 """
-    script_handles = {'stdout': '{output_path}/{label}.out',
+    script_handles = {'stdout': '{output_path}/{label}.run',
+                      'msgout': '{output_path}/{label}.out',
                       'sglfile': '{output_path}/{label}.sgl',
-                      'socket': '{sockname}'}
+                      }
 
 class SGESubmitSOCK(SGESubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', 'sockname'}
@@ -309,7 +315,9 @@ export JOBID=$JOB_ID
 {env}
 {command}
 """
-
+    script_handles = {'stdout': '{output_path}/{label}.run',
+                      'socketname': '{sockname}'
+                      }
 SGESubmitINET = SGESubmitSOCK
 SGESubmitUNIX = SGESubmitSOCK
 

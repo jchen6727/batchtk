@@ -17,10 +17,10 @@ ALIASES = namedtuple('ALIASES', 'SOCKET FILE')(
      'writefile': 'OUTFILE',
      'jobid': 'JOBID'})
 
-EXTENSIONS = { #making crusty sysadmins cry
-    'submit': '([\S]*\.[a-z]*sh)', # sh, bash, csh, zsh, tcsh, etc.
+EXTENSIONS = {
+    'submit': '([\S]*\.[a-z]*sh)', # sh, bash, csh, zsh, tcsh, etc. ask a sysadmin how they'd do this.
     'stdout': '([\S]*\.run)',
     'msgout': '([\S]*\.out)',
     'signal': '([\S]*\.sgl)',
-    'socket': '([\S]*\.soc)',
-}
+    'socketname': '(\{sockname\})',
+} # standardize names between EXTENSIONS and ALIASES?
