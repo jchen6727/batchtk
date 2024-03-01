@@ -178,11 +178,16 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
+    script_handles = {'stdout': '{output_path}/{label}.run'}
     def __init__(self, **kwargs):
         super().__init__(
-            submit_template = Template(template="zsh {output_path}/{label}.sh", key_args={'project_path',
-                                                                                         'output_path',  'label'}),
-            script_template = Template(self.script_template, key_args=self.script_args))
+            submit_template = Template(template="zsh {output_path}/{label}.sh",
+                                       key_args={'project_path', 'output_path', 'label'},
+                                       handles ={'submit': '{output_path}/{label}.sh'}),
+            script_template = Template(template=self.script_template,
+                                       key_args=self.script_args,
+                                       handles =self.script_handles)
+        )
     def set_handles(self):
         pass
 
@@ -210,6 +215,9 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
+    script_handles = {'stdout': '{output_path}/{label}.run',
+                      'outfile': '{output_path}/{label}.out',
+                      'sglfile': '{output_path}/{label}.sgl'}
 
 class ZSHSubmitSOCK(ZSHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'sockname'}
@@ -224,6 +232,8 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
+    script_handles = {'stdout': '{output_path}/{label}.run',
+                      'socket': '{sockname}'}
 
 class SGESubmit(Submit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', }
@@ -240,10 +250,16 @@ export JOBID=$JOB_ID
 {env}
 {command}
 """
+    script_handles = {'stdout': '{output_path}/{label}.run'}
     def __init__(self, **kwargs):
         super().__init__(
-            submit_template = Template(template="qsub {output_path}/{label}.sh", key_args={'output_path',  'label'}),
-            script_template = Template(self.script_template, key_args=self.script_args))
+            submit_template = Template(template="qsub {output_path}/{label}.sh",
+                                       key_args={'output_path',  'label'},
+                                       handles ={'submit': '{output_path}/{label}.sh'}),
+            script_template = Template(template=self.script_template,
+                                       key_args=self.script_args,
+                                       handles =self.script_handles)
+            )
 
     def submit_job(self, **kwargs):
         proc = super().submit_job()
@@ -273,6 +289,9 @@ export JOBID=$JOB_ID
 {env}
 {command}
 """
+    script_handles = {'stdout': '{output_path}/{label}.out',
+                      'sglfile': '{output_path}/{label}.sgl',
+                      'socket': '{sockname}'}
 
 class SGESubmitSOCK(SGESubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', 'sockname'}
