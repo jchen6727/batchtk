@@ -4,6 +4,7 @@ import logging
 from collections import namedtuple
 from pubtk import runtk
 import re
+import json
 
 class Template(object):
 
@@ -13,12 +14,10 @@ class Template(object):
         else:
             return super().__new__(cls)
 
-    def __init__(self, template, key_args = None, handles = None, **kwargs):
+    def __init__(self, template, key_args = None, **kwargs):
         if isinstance(template, Template): # passthrough if already a Template
             return #TODO why does this need to be here?, __init__ shouldn't be called if template
         self.template = template
-        if not handles:
-            self.handles = self.get_handles()
         if key_args:
             self.kwargs = {key: "{" + key + "}" for key in key_args}
         else:
@@ -40,18 +39,8 @@ class Template(object):
             mkwargs = mkwargs | {key: "{" + key + "}" for key in self.get_args()}
             return self.template.format(**mkwargs)
 
-    format_template = format
-
-
-    def format_handles(self, **kwargs):
-        mkwargs = self.kwargs | kwargs
-        return {key: val.format(**mkwargs) for key, val in self.handles.items()}
-
     def update(self, **kwargs):
         self.template = self.format(**kwargs)
-
-    def update_handles(self, **kwargs):
-        self.handles = self.format_handles(**kwargs)
 
     def check_missing(self, template):
         return [key for key in self.kwargs if key in template]
@@ -61,18 +50,14 @@ class Template(object):
     def __call__(self, **kwargs):
         return self.format(**kwargs)
 
-    def get_handles(self):
-        handles = {}
-        for extension, expr in runtk.EXTENSIONS.items():
-            handle = re.search(expr, self.template)
-            if handle:
-                handles[extension] = handle.group(1)
-        print(handles)
-        return handles
-
 
 serializers = {
-    'sh': lambda x: '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in x.items()])
+    'sh': lambda x: '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in x.items()]),
+    'eq': lambda x: "".join(["{}={}\n".format(key, val) for key, val in x.items()]),
+}
+
+deserializers = {
+    'eq': lambda x: dict([tuple(x.split('=')) for x in x.split('\n') if x]),
 }
 
 def serialize(args, var ='env', serializer ='sh'):
@@ -82,18 +67,22 @@ def serialize(args, var ='env', serializer ='sh'):
 
 
 class Submit(object):
-    def __init__(self, submit_template, script_template, path_template=None, log=None, **kwargs):
-        self._jtuple = namedtuple('job', 'submit script path')
+    def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None, **kwargs):
+        self._jtuple = namedtuple('job', 'submit script path handles')
         self.submit_template = Template(submit_template)
         self.script_template = Template(script_template)
         self.path_template = path_template or Template("{output_path}/{label}.sh", {'output_path', 'label'})
-        self.templates = self._jtuple(self.submit_template, self.script_template, self.path_template)
         self.kwargs = self.submit_template.kwargs | self.script_template.kwargs | self.path_template.kwargs
+        if handles: #TODO need better serialization of handles
+            self.handles = Template(serializers['eq'](handles), key_args=self.kwargs)
+        else:
+            handles = self.get_handles()
+            self.handles = Template(serializers['eq'](handles), key_args=self.kwargs)
+        self.templates = self._jtuple(self.submit_template, self.script_template, self.path_template, self.handles)
         self.job = None
         self.submit = None
         self.script = None
         self.path = None
-        self.handles = self.submit_template.handles | self.script_template.handles | self.path_template.handles
         self.logger = log
         if isinstance(log, str): ## TODO move into a logging object, then inherit?.
             self.logger = logging.getLogger(log)
@@ -104,6 +93,16 @@ class Submit(object):
             self.logger.addHandler(handler)
         if isinstance(log, logging.Logger):
             pass
+
+    def get_handles(self):
+        handles = {}
+        for extension, expr in runtk.EXTENSIONS.items():
+            for template in [self.script_template, self.path_template]:
+                handle = re.search(expr, template)
+                if handle:
+                    handles[extension] = handle.group(1)
+        print(handles)
+        return handles
 
     def log(self, message, level='info'):
         if self.logger:
@@ -116,6 +115,7 @@ class Submit(object):
         self.submit = job.submit
         self.script = job.script
         self.path = job.path
+        self.handles = job.handles
         try:
             with open(self.path, 'w') as fptr:
                 fptr.write(self.script)
@@ -123,23 +123,21 @@ class Submit(object):
             raise Exception("Failed to write script to file: {}\n{}".format(self.path, e))
 
     def format_job(self, **kwargs):
-
-        submit = self.submit_template.format(**kwargs)
-        script = self.script_template.format(**kwargs)
-        path = self.path_template.format(**kwargs)
-        return self._jtuple(submit, script, path)
+        templates = []
+        for template in self.templates:
+            templates.append(template.format(**kwargs))
+        return self._jtuple(*templates)
 
     def update_templates(self, **kwargs):
         #kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
         for template in self.templates:
             template.update(**kwargs)
-            template.update_handles(**kwargs)
 
     def __repr__(self):
         if self.job:
-            ssp = self.job #submit, script, path
+            ssph = self.job #submit, script, path, handles
         else:
-            ssp = self.templates
+            ssph = self.templates
         return """
 submit:
 {}
@@ -149,7 +147,10 @@ script:
 
 path:
 {}
-""".format(*ssp)
+
+handles:
+{}
+""".format(*ssph)
 
     def submit_job(self):
         self.proc = subprocess.run(self.job.submit.split(' '), text=True, stdout=subprocess.PIPE,
@@ -167,6 +168,12 @@ path:
         mkwargs = self.kwargs | kwargs
         return template.format(**mkwargs)
 
+    def get_handles(self):
+        if self.job:
+            return deserializers['eq'](self.job.handles)
+        else:
+            return deserializers['eq'](self.handles)
+
     def create_handles(self, **kwargs):
         self.handles.update(kwargs)
         return self.handles
@@ -183,15 +190,16 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    script_handles = {'stdout': '{output_path}/{label}.run'}
+    script_handles = {
+        runtk.STDOUT: '{output_path}/{label}.run',
+        runtk.SUBMIT: '{output_path}/{label}.sh'}
     def __init__(self, **kwargs):
         super().__init__(
             submit_template = Template(template="zsh {output_path}/{label}.sh",
-                                       key_args={'project_path', 'output_path', 'label'},
-                                       handles ={'submit': '{output_path}/{label}.sh'}),
+                                       key_args={'project_path', 'output_path', 'label'}),
             script_template = Template(template=self.script_template,
-                                       key_args=self.script_args,
-                                       handles =self.script_handles)
+                                       key_args=self.script_args),
+            handles = self.script_handles,
         )
     def set_handles(self):
         pass
@@ -220,9 +228,10 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    script_handles = {'stdout': '{output_path}/{label}.run',
-                      'msgout': '{output_path}/{label}.out',
-                      'sglfile': '{output_path}/{label}.sgl'}
+    script_handles = {runtk.SUBMIT: '{output_path}/{label}.sh',
+                      runtk.STDOUT: '{output_path}/{label}.run',
+                      runtk.MSGOUT: '{output_path}/{label}.out',
+                      runtk.SGLOUT: '{output_path}/{label}.sgl'}
 
 class ZSHSubmitSOCK(ZSHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'sockname'}
@@ -237,8 +246,9 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    script_handles = {'stdout': '{output_path}/{label}.run',
-                      'socketname': '{sockname}'}
+    script_handles = {runtk.SUBMIT: '{output_path}/{label}.sh',
+                      runtk.STDOUT: '{output_path}/{label}.run',
+                      runtk.SOCKET: '{sockname}'}
 
 class SGESubmit(Submit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', }
@@ -255,15 +265,15 @@ export JOBID=$JOB_ID
 {env}
 {command}
 """
-    script_handles = {'stdout': '{output_path}/{label}.run'}
+    script_handles = {runtk.SUBMIT: '{output_path}/{label}.sh',
+                      runtk.STDOUT: '{output_path}/{label}.run'}
     def __init__(self, **kwargs):
         super().__init__(
             submit_template = Template(template="qsub {output_path}/{label}.sh",
-                                       key_args={'output_path',  'label'},
-                                       handles ={'submit': '{output_path}/{label}.sh'}),
+                                       key_args={'output_path',  'label'}),
             script_template = Template(template=self.script_template,
-                                       key_args=self.script_args,
-                                       handles =self.script_handles)
+                                       key_args=self.script_args),
+            handles = self.script_handles,
             )
 
     def submit_job(self, **kwargs):
@@ -294,9 +304,10 @@ export JOBID=$JOB_ID
 {env}
 {command}
 """
-    script_handles = {'stdout': '{output_path}/{label}.run',
-                      'msgout': '{output_path}/{label}.out',
-                      'sglfile': '{output_path}/{label}.sgl',
+    script_handles = {runtk.SUBMIT: '{output_path}/{label}.sh',
+                      runtk.STDOUT: '{output_path}/{label}.run',
+                      runtk.MSGOUT: '{output_path}/{label}.out',
+                      runtk.SGLOUT: '{output_path}/{label}.sgl',
                       }
 
 class SGESubmitSOCK(SGESubmit):
@@ -315,21 +326,9 @@ export JOBID=$JOB_ID
 {env}
 {command}
 """
-    script_handles = {'stdout': '{output_path}/{label}.run',
-                      'socketname': '{sockname}'
+    script_handles = {runtk.SUBMIT: '{output_path}/{label}.sh',
+                      runtk.STDOUT: '{output_path}/{label}.run',
+                      runtk.SOCKET: '{sockname}'
                       }
 SGESubmitINET = SGESubmitSOCK
 SGESubmitUNIX = SGESubmitSOCK
-
-submits = {
-    'sge': {
-        'inet': SGESubmitSOCK,
-        'unix': SGESubmitSOCK,
-        'sfs': SGESubmitSFS,
-    },
-    'zsh': {
-        'inet': ZSHSubmitSOCK,
-        'unix': ZSHSubmitSOCK,
-        'sfs': ZSHSubmitSOCK,
-    }
-}

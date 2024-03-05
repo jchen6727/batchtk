@@ -144,6 +144,8 @@ class Dispatcher(object):
             json.dump(self.env, fptr)
             fptr.close()
 
+
+
 class SH_Dispatcher(Dispatcher):
     """
     Shell based Dispatcher that handles job generating shell script to submit jobs
@@ -161,20 +163,19 @@ class SH_Dispatcher(Dispatcher):
         self.project_path = project_path
         self.output_path = create_path(project_path, output_path)
         self.submit = submit
+        self.handles = None
         self.job_id = -1
         # create a "self.target" that contains the output_path and label?
         #self.label = self.gid
 
     def create_job(self, **kwargs):
         super().init_run()
-        self.shellfile = "{}/{}.sh".format(self.output_path, self.label)  # the shellfile that will be submitted
-        self.runfile = "{}/{}.run".format(self.output_path, self.label)  # the runfile created by the job
         self.submit.create_job(label=self.label,
                                project_path=self.project_path,
                                output_path=self.output_path,
                                env=self.env,
                                **kwargs)
-
+        self.handles = self.submit.get_handles()
 
     def submit_job(self):
         self.job_id = self.submit.submit_job()
@@ -193,8 +194,11 @@ class SH_Dispatcher(Dispatcher):
     def send(self, **kwargs):
         pass
 
-    def clean(self, **kwargs):
-        pass
+    def clean(self, handles = None, **kwargs):
+        if handles:
+            for handle in handles:
+                if os.path.exists(self.handles[handle]):
+                    os.remove(self.handles[handle])
 
 
 class SFS_Dispatcher(SH_Dispatcher):
@@ -209,19 +213,14 @@ class SFS_Dispatcher(SH_Dispatcher):
 
     def create_job(self, **kwargs):
         super().create_job(**kwargs)
-        self.watchfile = "{}/{}.sgl".format(self.output_path, self.label)  # the signal file (only to represent
-        # completion of job)
-        self.readfile = "{}/{}.out".format(self.output_path, self.label)  # the read file containing the actual results
-        self.shellfile = "{}/{}.sh".format(self.output_path, self.label)  # the shellfile that will be submitted
-        self.runfile = "{}/{}.run".format(self.output_path, self.label)  # the runfile created by the job
 
     def run(self, **kwargs):
         super().run(**kwargs)
 
     def get_run(self):
         # if file exists, return data, otherwise return False
-        if os.path.exists(self.watchfile):
-            with open(self.readfile, 'r') as fptr:
+        if os.path.exists(self.handles[runtk.SGLOUT]):
+            with open(self.handles[runtk.MSGOUT], 'r') as fptr:
                 data = fptr.read()
             return data # what if data itself is False equivalence
         return False
@@ -232,17 +231,7 @@ class SFS_Dispatcher(SH_Dispatcher):
             data = self.get_run()
         return data
 
-    def clean(self, args='rswo'):
-        if args == 'all':
-            args = 'rswo'
-        if os.path.exists(self.readfile) and 'r' in args:
-            os.remove(self.readfile)
-        if os.path.exists(self.shellfile) and 's' in args:
-            os.remove(self.shellfile)
-        if os.path.exists(self.watchfile) and 'w' in args:
-            os.remove(self.watchfile)
-        if os.path.exists(self.runfile) and 'o' in args:
-            os.remove(self.runfile)
+
 
 
 class UNIX_Dispatcher(SH_Dispatcher):
@@ -253,7 +242,6 @@ class UNIX_Dispatcher(SH_Dispatcher):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.socket = None
-        self.socketname = None
         self.server = None
 
     def create_job(self, **kwargs):
@@ -266,14 +254,10 @@ class UNIX_Dispatcher(SH_Dispatcher):
                 raise OSError("issue when creating socket {}:".format(socket_name), e)
         self.socket = UNIXSocket(socket_name = socket_name)
         self.socket.listen()
-
-        #self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        #self.server.bind(self.socketname)
-        #self.server.listen(1)
-        self.shellfile = "{}/{}.sh".format(self.output_path, self.label)  # the shellfile that will be submitted
-        self.runfile = "{}/{}.run".format(self.output_path, self.label)  # the runfile created by the job
         self.submit.create_job(label=self.label, project_path=self.project_path,
                                output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
+        self.handles = self.submit.get_handles()
+
 
     def run(self, **kwargs):
         self.create_job(**kwargs)
@@ -298,15 +282,10 @@ class UNIX_Dispatcher(SH_Dispatcher):
 
     def send(self, data):
         self.socket.send(data)
-    def clean(self, args='so'):
+    def clean(self, handles=None):
+        super().clean(handles)
         if self.socket:
             self.socket.close()
-        if args == 'all':
-            args = 'so'
-        if os.path.exists(self.shellfile) and 's' in args:
-            os.remove(self.shellfile)
-        if os.path.exists(self.runfile) and 'o' in args:
-            os.remove(self.runfile)
 
 class INET_Dispatcher(SH_Dispatcher):
     """
@@ -319,16 +298,12 @@ class INET_Dispatcher(SH_Dispatcher):
 
     def create_job(self, **kwargs):
         super().init_run(**kwargs)
-        #host = socket.gethostname() #string, can be provided to bind.
-        #_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #_socket.bind((host, 0)) # let OS determine the port
-        #self.sockname = _socket.getsockname()
         self.socket = INETSocket()
         socket_name = self.socket.listen() # one server <-> one client
-        self.shellfile = "{}/{}.sh".format(self.output_path, self.label)  # the shellfile that will be submitted
-        self.runfile = "{}/{}.run".format(self.output_path, self.label)  # the runfile created by the job
         self.submit.create_job(label=self.label, project_path=self.project_path,
                                output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
+        self.handles = self.submit.get_handles()
+
 
     def submit_job(self):
         self.job_id = self.submit.submit_job()
@@ -356,22 +331,10 @@ class INET_Dispatcher(SH_Dispatcher):
 
     def send(self, data):
         self.socket.send(data)
-    def clean(self, args='so'):
-        if args == 'all':
-            args = 'so'
+    def clean(self, handles=None):
+        super().clean(handles)
         if self.socket:
             self.socket.close()
-        if os.path.exists(self.shellfile) and 's' in args:
-            os.remove(self.shellfile)
-        if os.path.exists(self.runfile) and 'o' in args:
-            os.remove(self.runfile)
-
-
-dispatchers = {
-    'inet': INET_Dispatcher,
-    'unix': UNIX_Dispatcher,
-    'sfs': SFS_Dispatcher,
-}
 
 
 class NOF_Dispatcher(Dispatcher):

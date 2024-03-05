@@ -18,7 +18,7 @@ class TestDispatcher:
 
     def test_update_env(self, setup):
         dispatcher = setup
-        dispatcher.add_dict({'new_var': 'new_value'}, value_type='STR')
+        dispatcher.update_env({'new_var': 'new_value'}, value_type='STR')
         assert 'STRRUNTK1' in dispatcher.env
         assert dispatcher.env['STRRUNTK1'] == 'new_var=new_value'
 
@@ -42,7 +42,7 @@ class TestDispatcherSGESOCK:
         assert dispatcher.env == {'test': 'value'}
         assert dispatcher.gid == 'sgeinet'
 
-    def test_add_dict(self, setup):
+    def test_update_env(self, setup):
         dispatcher = setup
         dispatcher.update_env({'new_var': 'new_value'}, value_type='STR')
         assert 'STRRUNTK1' in dispatcher.env
@@ -77,7 +77,7 @@ class TestDispatcherSHSOCK:
         assert dispatcher.env == {'test': 'value'}
         assert dispatcher.gid == 'shinet'
 
-    def test_add_dict(self, setup):
+    def test_update_env(self, setup):
         dispatcher = setup
         dispatcher.update_env({'new_var': 'new_value'}, value_type='STR')
         assert 'STRRUNTK1' in dispatcher.env
@@ -108,11 +108,8 @@ class TestDispatcherSGESFS:
     def test_create_job(self, setup):
         dispatcher = setup
         dispatcher.create_job()
-        print(dispatcher.submit)
-        print(dispatcher.watchfile)
-        print(dispatcher.readfile)
-        print(dispatcher.shellfile)
-        print(dispatcher.runfile)
+        print(dispatcher.handles)
+
 
 class TestDispatcherSHSFS:
     @pytest.fixture
@@ -131,8 +128,4 @@ class TestDispatcherSHSFS:
     def test_create_job(self, setup):
         dispatcher = setup
         dispatcher.create_job()
-        print(dispatcher.submit)
-        print(dispatcher.watchfile)
-        print(dispatcher.readfile)
-        print(dispatcher.shellfile)
-        print(dispatcher.runfile)
+        print(dispatcher.handles)

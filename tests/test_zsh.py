@@ -1,5 +1,6 @@
 import pytest
 import os
+from pubtk import runtk
 from pubtk.runtk.dispatchers import Dispatcher, INET_Dispatcher
 from pubtk.runtk.submits import Submit, ZSHSubmitSOCK
 from pubtk.utils import get_port_info
@@ -30,12 +31,12 @@ class TestZSHINET:
     def test_job(self, dispatcher_setup):
         dispatcher = dispatcher_setup
         dispatcher.create_job()
-        assert os.path.exists(dispatcher.shellfile)
+        assert os.path.exists(dispatcher.handles[runtk.SUBMIT])
         logger.info("dispatcher.env:\n{}".format(json.dumps(dispatcher.env)))
         logger.info("dispatcher.socket.name:\n{}".format(dispatcher.socket.name))
-        logger.info("dispatcher.shellfile:\n{}".format(dispatcher.shellfile))
+        logger.info("dispatcher.handles[runtk.SUBMIT]:\n{}".format(dispatcher.handles[runtk.SUBMIT]))
         #print(dispatcher.shellfile)
-        with open(dispatcher.shellfile, 'r') as fptr:
+        with open(dispatcher.handles[runtk.SUBMIT], 'r') as fptr:
             script = fptr.read()
             #print(script)
         logger.info("script:\n{}".format(script))
@@ -59,7 +60,7 @@ class TestZSHINET:
         logger.info("port info (runner connect):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         #logger.info("result:\n{}".format(recv_message))
         logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.socket.name[1])))
-        dispatcher.clean([])
+        dispatcher.clean()
         logger.info("port info (dispatcher close:\n{}".format(get_port_info(dispatcher.socket.name[1])))
 
 if __name__ == '__main__':

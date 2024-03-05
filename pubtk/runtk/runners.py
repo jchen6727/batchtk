@@ -189,14 +189,6 @@ class SocketRunner(Runner): # socket based runner
         """
         self.socket.close()
 
-runners = {
-    'socket': SocketRunner,
-    'inet': SocketRunner,
-    'unix': SocketRunner,
-    'file': FileRunner,
-    's': SocketRunner,
-    'f': FileRunner,
-}
 
 class NetpyneRunner(Runner):
     """
