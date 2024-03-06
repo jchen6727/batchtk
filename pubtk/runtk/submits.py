@@ -4,6 +4,7 @@ import logging
 from collections import namedtuple
 from pubtk import runtk
 import re
+from pubtk.utils import path_open
 import json
 
 class Template(object):
@@ -35,7 +36,6 @@ class Template(object):
         try:
             return self.template.format(**mkwargs)
         except KeyError as e:
-
             mkwargs = mkwargs | {key: "{" + key + "}" for key in self.get_args()}
             return self.template.format(**mkwargs)
 
@@ -53,11 +53,11 @@ class Template(object):
 
 serializers = {
     'sh': lambda x: '\nexport ' + '\nexport '.join(['{}="{}"'.format(key, val) for key, val in x.items()]),
-    'eq': lambda x: "".join(["{}={}\n".format(key, val) for key, val in x.items()]),
+    'eq': lambda x: ("".join(["{}={}\n".format(key, val) for key, val in x.items()]))[:-1], #rstrip the last newline
 }
 
 deserializers = {
-    'eq': lambda x: dict([tuple(x.split('=')) for x in x.split('\n') if x]),
+    'eq': lambda x: dict([tuple(x.split('=')) for x in x.split('\n')]),
 }
 
 def serialize(args, var ='env', serializer ='sh'):
@@ -71,12 +71,12 @@ class Submit(object):
         self._jtuple = namedtuple('job', 'submit script path handles')
         self.submit_template = Template(submit_template)
         self.script_template = Template(script_template)
-        self.path_template = path_template or Template("{output_path}/{label}.sh", {'output_path', 'label'})
+        self.path_template = path_template or Template(self.submit_template.template.split(' ')[-1])
         self.kwargs = self.submit_template.kwargs | self.script_template.kwargs | self.path_template.kwargs
         if handles: #TODO need better serialization of handles
             self.handles = Template(serializers['eq'](handles), key_args=self.kwargs)
         else:
-            handles = self.get_handles()
+            handles = self.create_handles()
             self.handles = Template(serializers['eq'](handles), key_args=self.kwargs)
         self.templates = self._jtuple(self.submit_template, self.script_template, self.path_template, self.handles)
         self.job = None
@@ -94,13 +94,13 @@ class Submit(object):
         if isinstance(log, logging.Logger):
             pass
 
-    def get_handles(self):
+    def create_handles(self):
         handles = {}
         for extension, expr in runtk.EXTENSIONS.items():
             for template in [self.script_template, self.path_template]:
-                handle = re.search(expr, template)
+                handle = re.search(expr, template.template)
                 if handle:
-                    handles[extension] = handle.group(1)
+                    handles[extension] = handle.group()
         print(handles)
         return handles
 
@@ -117,7 +117,7 @@ class Submit(object):
         self.path = job.path
         self.handles = job.handles
         try:
-            with open(self.path, 'w') as fptr:
+            with path_open(self.path, 'w') as fptr:
                 fptr.write(self.script)
         except Exception as e:
             raise Exception("Failed to write script to file: {}\n{}".format(self.path, e))
@@ -150,7 +150,10 @@ path:
 
 handles:
 {}
-""".format(*ssph)
+
+kwargs:
+{}
+""".format(*ssph, self.kwargs)
 
     def submit_job(self):
         self.proc = subprocess.run(self.job.submit.split(' '), text=True, stdout=subprocess.PIPE,
@@ -172,11 +175,8 @@ handles:
         if self.job:
             return deserializers['eq'](self.job.handles)
         else:
-            return deserializers['eq'](self.handles)
+            return deserializers['eq'](self.handles.template)
 
-    def create_handles(self, **kwargs):
-        self.handles.update(kwargs)
-        return self.handles
 
 class ZSHSubmit(Submit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command'}
