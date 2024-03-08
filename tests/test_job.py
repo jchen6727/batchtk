@@ -1,5 +1,19 @@
+"""
+test_job.py
+this file runs a simple test between a dispatcher<->runner pair
+it does not start a subprocess but validates that the file is appropriate and the runner operates correctly with
+the created environment. for subprocess testing, use test_zsh.py.
+
+
+
+"""
+
+
+
+
 import pytest
 import os
+from pubtk import runtk
 from pubtk.runtk.dispatchers import Dispatcher, SFS_Dispatcher, INET_Dispatcher
 from pubtk.runtk.submits import Submit, SGESubmitSOCK, SGESubmitSFS, ZSHSubmitSFS, ZSHSubmitSOCK
 from pubtk.runtk.runners import SocketRunner
@@ -18,7 +32,7 @@ logger.addHandler(handler)
 class TestSGEINET:
     @pytest.fixture
     def dispatcher_setup(self):
-        dispatcher = INET_Dispatcher(cwd=os.getcwd(),
+        dispatcher = INET_Dispatcher(project_path=os.getcwd(),
                                      submit=SGESubmitSOCK(),
                                      gid='test_job_sgeinet')
         dispatcher.update_env({'strvalue': '1',
@@ -35,15 +49,14 @@ class TestSGEINET:
         assert os.path.exists(dispatcher.shellfile)
         logger.info("dispatcher.env:\n{}".format(json.dumps(dispatcher.env)))
         logger.info("dispatcher.socket.name:\n{}".format(dispatcher.socket.name))
-        logger.info("dispatcher.shellfile:\n{}".format(dispatcher.shellfile))
+        logger.info("dispatcher.handles[runtk.SUBMIT]:\n{}".format(dispatcher.handles[runtk.SUBMIT]))
         #print(dispatcher.shellfile)
-        with open(dispatcher.shellfile, 'r') as fptr:
+        with open(dispatcher.handles[runtk.SUBMIT], 'r') as fptr:
             script = fptr.read()
-            #print(script)
         logger.info("script:\n{}".format(script))
         logger.info("port info (dispatcher listen):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         assert 'python test.py' in script
-        env = get_exports(dispatcher.shellfile)
+        env = get_exports(dispatcher.handles[runtk.SUBMIT])
 
         logger.info(env)
         runner = SocketRunner(env=env)
@@ -80,7 +93,7 @@ dispatcher sent              ---> runner recv
 class TestSHINET:
     @pytest.fixture
     def dispatcher_setup(self):
-        dispatcher = INET_Dispatcher(cwd=os.getcwd(),
+        dispatcher = INET_Dispatcher(project_path=os.getcwd(),
                                      submit=ZSHSubmitSOCK(),
                                      gid='test_job_shinet')
         dispatcher.update_env({'strvalue': '1',
@@ -95,7 +108,7 @@ class TestSHINET:
         assert os.path.exists(dispatcher.shellfile)
         logger.info("dispatcher.env:\n{}".format(json.dumps(dispatcher.env)))
         logger.info("dispatcher.socket.name:\n{}".format(dispatcher.socket.name))
-        logger.info("dispatcher.shellfile:\n{}".format(dispatcher.shellfile))
+        logger.info("dispatcher.handles[runtk.SUBMIT]:\n{}".format(dispatcher.handles[runtk.SUBMIT]))
         #print(dispatcher.shellfile)
         with open(dispatcher.shellfile, 'r') as fptr:
             script = fptr.read()
@@ -103,7 +116,7 @@ class TestSHINET:
         logger.info("script:\n{}".format(script))
         logger.info("port info (dispatcher listen):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         assert 'python test.py' in script
-        env = get_exports(dispatcher.shellfile)
+        env = get_exports(dispatcher.handles[runtk.SUBMIT])
 
         logger.info(env)
         runner = SocketRunner(env=env)

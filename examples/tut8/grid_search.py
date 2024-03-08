@@ -28,7 +28,7 @@ SEE:
 
 
 
-def ray_search(dispatcher_constructor, submit_constructor, algorithm = "optuna", label = 'opt', params = None, concurrency = 1, checkpoint_dir = '../opt', batch_config = None):
+def ray_search(dispatcher_constructor, submit_constructor, algorithm = "optuna", label = 'optim', params = None, concurrency = 1, output_path = '../batch', checkpoint_path = '../optim', batch_config = None):
     ray.init(
         runtime_env={"working_dir": ".", # needed for python import statements
                      "excludes": ["*.csv", "*.out", "*.run",
@@ -36,23 +36,30 @@ def ray_search(dispatcher_constructor, submit_constructor, algorithm = "optuna",
     )
     #TODO class this object for self calls? cleaner? vs nested functions
     #TODO clean up working_dir and excludes
+    if checkpoint_path[0] == '/':
+        storage_path = os.path.normpath(checkpoint_path)
+    elif checkpoint_path[0] == '.':
+        storage_path = os.path.normpath(os.path.join(os.getcwd(), checkpoint_path))
+    else:
+        raise ValueError("checkpoint_dir must be an absolute path (starts with /) or relative to the current working directory (starts with .)")
+    algo = create_searcher(algorithm)
+    algo = ConcurrencyLimiter(searcher=algo, max_concurrent=concurrency, batch=True)
 
-    algo = BasicVariantGenerator(max_concurrent=concurrency)
     submit = submit_constructor()
     submit.update_templates(
         **batch_config
     )
     cwd = os.getcwd()
     def run(config):
-        dispatcher = dispatcher_constructor(cwd = cwd, submit = submit, gid = label)
+        dispatcher = dispatcher_constructor(project_path = cwd, output_path = output_path, submit = submit, gid = label)
         dispatcher.update_env(dictionary = config)
         try:
             dispatcher.run()
             dispatcher.accept()
-            data = dispatcher.recv(1024)
-            dispatcher.clean([])
+            data = dispatcher.recv()
+            dispatcher.clean()
         except Exception as e:
-            dispatcher.clean([])
+            dispatcher.clean()
             raise(e)
         data = pandas.read_json(data, typ='series', dtype=float)
         session.report({'data': data})
@@ -65,8 +72,8 @@ def ray_search(dispatcher_constructor, submit_constructor, algorithm = "optuna",
             metric="data"
         ),
         run_config=RunConfig(
-            storage_path="{}/{}".format(cwd, checkpoint_dir),
-            name="grid",
+            storage_path=checkpoint_path,
+            name=algorithm,
         ),
         param_space=params,
     )

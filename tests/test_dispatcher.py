@@ -18,14 +18,14 @@ class TestDispatcher:
 
     def test_update_env(self, setup):
         dispatcher = setup
-        dispatcher.add_dict({'new_var': 'new_value'}, value_type='STR')
+        dispatcher.update_env({'new_var': 'new_value'}, value_type='STR')
         assert 'STRRUNTK1' in dispatcher.env
         assert dispatcher.env['STRRUNTK1'] == 'new_var=new_value'
 
 class TestDispatcherSGESOCK:
     @pytest.fixture
     def setup(self):
-        dispatcher = INET_Dispatcher(cwd=os.getcwd(),
+        dispatcher = INET_Dispatcher(project_path=os.getcwd(),
                                      submit=SGESubmitSOCK(),
                                      env={'test': 'value'},
                                      gid='sgeinet')
@@ -42,7 +42,7 @@ class TestDispatcherSGESOCK:
         assert dispatcher.env == {'test': 'value'}
         assert dispatcher.gid == 'sgeinet'
 
-    def test_add_dict(self, setup):
+    def test_update_env(self, setup):
         dispatcher = setup
         dispatcher.update_env({'new_var': 'new_value'}, value_type='STR')
         assert 'STRRUNTK1' in dispatcher.env
@@ -60,7 +60,7 @@ class TestDispatcherSGESOCK:
 class TestDispatcherSHSOCK:
     @pytest.fixture
     def setup(self):
-        dispatcher = INET_Dispatcher(cwd=os.getcwd(),
+        dispatcher = INET_Dispatcher(project_path=os.getcwd(),
                                      submit=ZSHSubmitSOCK(),
                                      env={'test': 'value'},
                                      gid='shinet')
@@ -77,7 +77,7 @@ class TestDispatcherSHSOCK:
         assert dispatcher.env == {'test': 'value'}
         assert dispatcher.gid == 'shinet'
 
-    def test_add_dict(self, setup):
+    def test_update_env(self, setup):
         dispatcher = setup
         dispatcher.update_env({'new_var': 'new_value'}, value_type='STR')
         assert 'STRRUNTK1' in dispatcher.env
@@ -94,7 +94,7 @@ class TestDispatcherSHSOCK:
 class TestDispatcherSGESFS:
     @pytest.fixture
     def setup(self):
-        dispatcher = SFS_Dispatcher(cwd=os.getcwd(),
+        dispatcher = SFS_Dispatcher(project_path=os.getcwd(),
                                     submit=SGESubmitSFS(),
                                     env={'test': 'value'},
                                     gid='123')
@@ -108,16 +108,13 @@ class TestDispatcherSGESFS:
     def test_create_job(self, setup):
         dispatcher = setup
         dispatcher.create_job()
-        print(dispatcher.submit)
-        print(dispatcher.watchfile)
-        print(dispatcher.readfile)
-        print(dispatcher.shellfile)
-        print(dispatcher.runfile)
+        print(dispatcher.handles)
+
 
 class TestDispatcherSHSFS:
     @pytest.fixture
     def setup(self):
-        dispatcher = SFS_Dispatcher(cwd=os.getcwd(),
+        dispatcher = SFS_Dispatcher(project_path=os.getcwd(),
                                     submit=ZSHSubmitSFS(),
                                     env={'test': 'value'},
                                     gid='123')
@@ -131,8 +128,4 @@ class TestDispatcherSHSFS:
     def test_create_job(self, setup):
         dispatcher = setup
         dispatcher.create_job()
-        print(dispatcher.submit)
-        print(dispatcher.watchfile)
-        print(dispatcher.readfile)
-        print(dispatcher.shellfile)
-        print(dispatcher.runfile)
+        print(dispatcher.handles)

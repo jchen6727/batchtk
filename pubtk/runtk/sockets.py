@@ -6,6 +6,7 @@ class Socket(object):
     """
     socket class
     protocolized socket for communication between dispatchers <-> runners
+    #TODO: implement security measures for communication
     """
     def __init__(self, socket_name=None, socket_type=socket.AF_INET, timeout=None):
         self.name = socket_name
