@@ -101,8 +101,16 @@ class Submit(object):
                 handle = re.search(expr, template.template)
                 if handle:
                     handles[extension] = handle.group()
-        print(handles)
         return handles
+
+    def repr_handles(self):
+        repr = "{\n"
+        self_handles = self.get_handles()
+        for handle in runtk.HANDLES:
+            if handle in self_handles:
+                repr += '\t{}: "{}",\n'.format(runtk.HANDLES[handle], self_handles[handle])
+        repr += "}"
+        return repr
 
     def log(self, message, level='info'):
         if self.logger:
@@ -135,9 +143,9 @@ class Submit(object):
 
     def __repr__(self):
         if self.job:
-            ssph = self.job #submit, script, path, handles
+            ssph = self.job._replace(handles=self.repr_handles()) #submit, script, path, handles
         else:
-            ssph = self.templates
+            ssph = self.templates._replace(handles=self.repr_handles())
         return """
 submit:
 {}

@@ -8,7 +8,11 @@ MSGOUT = 'msgout'
 SGLOUT = 'signal'
 SOCKET = 'socketname'
 
-HANDLES = {SUBMIT, STDOUT, MSGOUT, SGLOUT, SOCKET}
+HANDLES = {SUBMIT: 'runtk.SUBMIT',
+           STDOUT: 'runtk.STDOUT',
+           MSGOUT: 'runtk.MSGOUT',
+           SGLOUT: 'runtk.SGLOUT',
+           SOCKET: 'runtk.SOCKET'}
 
 SUPPORTS = {
     'INT': int,
