@@ -7,7 +7,6 @@ from pubtk.runtk.sockets import INETSocket, UNIXSocket
 from pubtk.utils import create_path
 import socket
 
-
 def format_env(dictionary, value_type=None, index=0):
     """
     Parameters
@@ -16,6 +15,10 @@ def format_env(dictionary, value_type=None, index=0):
     index (optional) - the index to start at for environment generation, defaults to 0
     value_type (optional) - forces the type of values added to the dictionary, how the runner interprets the values
                           - if not provided, the value_type will be based on the dictionary item's type per entry basis.
+    Returns
+    -------
+    dictionary of formatted environment variables
+
     use:
         format_env({'foo': 1, 'bar': 2.0, 'baz': 'three'})
     returns:
@@ -26,13 +29,14 @@ def format_env(dictionary, value_type=None, index=0):
     cl = len(dictionary)
     get_type = staticmethod(lambda x: type(x).__name__)
     return {"{}{}{}".format(value_type or get_type(value).upper(), runtk.GREPSTR, cl + i):
-                  "{}={}".format(key, value) for i, (key, value) in enumerate(dictionary.items())}
+                "{}={}".format(key, value) for i, (key, value) in enumerate(dictionary.items())}
 
     # convert dictionary to proper elements
 class Dispatcher(object):
     """
-    base class for Dispatcher
-    handles submitting the script to a Runner/Worker object and retrieving outputs
+    base class for all Dispatcher classes
+    Handles parsing and injection of passed variables (env) to Runner script, submitting the script to a Runner
+    and retrieving outputs
 
     initialized values:
     env ->
@@ -45,16 +49,16 @@ class Dispatcher(object):
         an ID string that is unique to a Dispatcher <-> Runner pair. If it is not provided, it will be generated
         upon subprocess call by the environment dictionary and **kwargs
     """ 
-    obj_count = 0 # persistent count N.B. may be shared between objects.
+    #obj_count = 0 # persistent count N.B. may be shared between objects. TODO no utility for this
 
     def __init__(self, env=None, json=None, grepstr=runtk.GREPSTR, gid = None, **kwargs):
         """
         initializes base dispatcher class
-        Parameters
+        *Optional* Parameters
         ----------
-        env - any environmental variables to be passed to the subprocess
-        grepstr - the string ID for subprocess to identify necessary environment variables
-        gid - an ID string that is unique to the dispatcher <-> runner pair
+        env     - any environmental variables to be passed to the created runner
+        grepstr - the string ID for a subprocess to identify environment variables passed by the dispatcher
+        gid     - an ID string that is unique to the dispatcher <-> runner pair
         **kwargs are placed into a __dict__ item that can be accessed by __getattr__
 
         initializes gid, will set if the argument is supplied, otherwise the value will be
@@ -66,43 +70,61 @@ class Dispatcher(object):
         self.env = env or {} # if env is None, then set to empty dictionary
         self.grepstr = grepstr
         self.gid = gid
-        Dispatcher.obj_count = Dispatcher.obj_count + 1
+        #Dispatcher.obj_count = Dispatcher.obj_count + 1 #TODO no utility for this
 
     def add_json(self):
         pass
     def update_env(self, dictionary, value_type=None, format = True, **kwargs):
         """
+        Function used to update the environment dictionary that will be passed to the Runner object
+
         Parameters
         ----------
         dictionary - the dictionary of key: values to add to self.env
-        value_type (optional) - the type of the values added in the dictionary, relevant if format is True (see
-                                format_env() above)
-        format (optional) - if True, the dictionary will be formatted by format_env() before being added to self.env
+        value_type (optional) - defaults to None, the type of the values added in the dictionary, will "cast" all values
+        to value_type, otherwise will infer the type of the value by the dictionary entries. Relevant if format is True
+        (see format_env())
+        format (optional) - defaults to True, if True, the dictionary will be formatted by format_env() before being
+        added to self.env, otherwise the dictionary will be added verbatim.
 
         Returns
         -------
         None
 
         the entries are added to the environment, either formatted (if format = True) or unformatted (if format = False):
+
+        use:
+        .update_env({'foo': 1, 'bar': 2.0, 'baz': 'three'})
+        returns:
+        {'INTRUNTK0': 'foo=1', 'FLOATRUNTK1': 'bar=2.0', 'STRRUNTK2': 'baz=three'}
+
         """
         if format:
-            self.env.update(format_env(dictionary, value_type=value_type, index=len(self.env)))
+            self.env.update(self.format_env(dictionary, value_type=value_type, index=len(self.env)))
         else:
             self.env.update(dictionary)
 
-    def format_env(self, dictionary, value_type=None):
+    def format_env(self, dictionary, value_type=None, index=0):
         """
         Parameters
         ----------
         dictionary - the dictionary of variable_path: values to add to the environment
-        value_type - the type of the values added in the dictionary
+        index (optional) - the index to start at for environment generation, defaults to 0
+        value_type (optional) - forces the type of values added to the dictionary, how the runner interprets the values
+                              - if not provided, the value_type will be based on the dictionary item's type per entry basis.
+        Returns
+        -------
+        dictionary of formatted environment variables
 
-        handles any global tasks prior to running the subprocess
-            if self.gid = False, generates alphanumeric for self.gid based on self.env and **kwargs
+        use:
+            format_env({'foo': 1, 'bar': 2.0, 'baz': 'three'})
+        returns:
+            {'INTRUNTK0': 'foo=1', 'FLOATRUNTK1': 'bar=2.0', 'STRRUNTK2': 'baz=three'}
+
+        with runtk.GREPSTR being defined in as 'RUNTK' (see ./header.py)
         """
-        cl = len(self.env)
         get_type = staticmethod(lambda x: type(x).__name__)
-        return {"{}{}{}".format(value_type or get_type(value).upper(), self.grepstr, cl + i):
+        return {"{}{}{}".format(value_type or get_type(value).upper(), self.grepstr, index + i):
                       "{}={}".format(key, value) for i, (key, value) in enumerate(dictionary.items())}
 
         # convert dictionary to proper elements
@@ -148,16 +170,18 @@ class Dispatcher(object):
 
 class SH_Dispatcher(Dispatcher):
     """
-    Shell based Dispatcher that handles job generating shell script to submit jobs
+    Extension of base Dispatcher that extends functionality to handle job generating shell script to submit jobs
     """
     def __init__(self, submit, project_path, output_path=".", **kwargs):
         """
         initializes dispatcher
-        project_path: current working directory
-        submit: Submit object (see pubtk.runk.submit)
+        project_path - current directory where the relevant files to run are located.
+        output_path  - path to output directory, can be either relative if starting with '.' or absolute if starting
+                       with '/'. defaults to current directory
+        submit       - Submit object (see pubtk.runk.submit)
         in **kwargs:
-            gid: string to identify dispatcher by the created runner
-            env: dictionary of environmental variables to be passed to the created runner
+            gid      - string to identify dispatcher by the created runner
+            env      - dictionary of environmental variables to be passed to the created runner
         """
         super().__init__(**kwargs)
         self.project_path = project_path
@@ -169,6 +193,14 @@ class SH_Dispatcher(Dispatcher):
         #self.label = self.gid
 
     def create_job(self, **kwargs):
+        """
+        creates a job through the submit instance
+        the `label` is created, and the relevant commands and scripts are created,
+        then the handles are retrieved from the submit instance
+
+        :param kwargs: #TODO use this format in all docstrings :/
+        :return:
+        """
         super().init_run()
         self.submit.create_job(label=self.label,
                                project_path=self.project_path,
@@ -178,23 +210,63 @@ class SH_Dispatcher(Dispatcher):
         self.handles = self.submit.get_handles()
 
     def submit_job(self):
+        """
+        submits the job through the submit instance
+        """
         self.job_id = self.submit.submit_job()
 
     def run(self, **kwargs):
+        """
+        creates and submits a job through the submit instance
+        (calls .create_job() and .submit_job())
+        :param kwargs:
+        :return:
+        """
         self.create_job(**kwargs)
         self.job_id = self.submit.submit_job()
 
     def accept(self, **kwargs):
+        """
+        Method for accepting a connection from a peer (runner) if bidirectional communication is implemented
+        (see runtk.UNIX_Dispatcher, runtk.INET_Dispatcher, runtk.SocketRunner)
+        If it is implemented, it will be a blocking call.
+        Otherwise will simply pass
+        :param kwargs:
+        :return:
+        """
         pass
 
 
     def recv(self, **kwargs):
-        pass
+        """
+        Method for receiving data from the host (dispatcher). To be implemented by inherited classes.
+        Method is a blocking call if implemented, it will wait until the data is received.
+        Otherwise, will be a nonblocking function returning None
+        Returns
+        -------
+        data - the data sent from the dispatcher (data = runner.recv() <- dispatcher.send(data))
+        """
+        return None
 
-    def send(self, **kwargs):
+    def send(self, data, **kwargs):
+        """
+        Method for sending data to the host (dispatcher). To be implemented by inherited classes.
+        Parameters
+        ----------
+        data - the data to be sent to the Dispatcher (to be caught in the dispatcher's .recv() method)
+        """
         pass
 
     def clean(self, handles = None, **kwargs):
+        """
+        Method called at close of the script, cleans up any open file handles or sockets, etc. To be implemented by
+        inherited classes.
+        :param handles: see runtk.HANDLES, passing a list of handles will remove those associated files
+        :param kwargs:
+
+
+        :return:
+        """
         if handles:
             for handle in handles:
                 if os.path.exists(self.handles[handle]):
@@ -238,6 +310,8 @@ class UNIX_Dispatcher(SH_Dispatcher):
     """
     AF UNIX Dispatcher utilizing sockets (requires socket forwarding)
     handles submitting the script to a Runner/Worker object
+
+    #TODO can we consolidate UNIX_Dispatcher and SOCKET_Dispatcher into a single class?
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

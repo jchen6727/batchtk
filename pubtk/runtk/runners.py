@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 class Runner(object):
     """
+    base class for all Runner classes
     Handles parsing and injection of passed variables (env) into the python script's namespace. This serves as a base
     class for all runners.
 
@@ -26,6 +27,7 @@ class Runner(object):
         **kwargs
     ):
         """
+        initializes base runner class
         *Optional* Parameters
         ----------
         grepstr  - a string identifier to select relevant environment variables, defaults to runtk.GREPSTR
