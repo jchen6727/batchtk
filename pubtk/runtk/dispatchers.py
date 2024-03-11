@@ -70,6 +70,7 @@ class Dispatcher(object):
         self.env = env or {} # if env is None, then set to empty dictionary
         self.grepstr = grepstr
         self.gid = gid
+        self.label = ''
         #Dispatcher.obj_count = Dispatcher.obj_count + 1 #TODO no utility for this
 
     def add_json(self):
@@ -166,7 +167,14 @@ class Dispatcher(object):
             json.dump(self.env, fptr)
             fptr.close()
 
+    def __repr__(self):
+        self.init_run()
+        return """
+label:
+{}
 
+env:
+{}""".format(self.label)
 
 class SH_Dispatcher(Dispatcher):
     """
@@ -271,6 +279,14 @@ class SH_Dispatcher(Dispatcher):
             for handle in handles:
                 if os.path.exists(self.handles[handle]):
                     os.remove(self.handles[handle])
+
+    def __repr__(self):
+        repr = super().__repr__()
+        repr += """
+submit:
+------------------------------
+{}
+""".format(self.submit)
 
 
 class SFS_Dispatcher(SH_Dispatcher):
