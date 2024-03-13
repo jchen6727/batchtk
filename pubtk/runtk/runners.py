@@ -293,10 +293,3 @@ def create_runner(runner_type):
         return RUNNERS[runner_type]
     else:
         raise ValueError(runner_type)
-
-
-
-from netpyne.batchtk import comm
-
-comm.send()
-comm.recv()
