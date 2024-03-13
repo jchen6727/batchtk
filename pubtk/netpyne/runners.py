@@ -2,18 +2,11 @@ import os
 import json
 from pubtk.runtk.utils import convert, set_map, create_script
 from pubtk import runtk
-from pubtk.runtk.runners import Runner, SocketRunner, FileRunner
+from pubtk.runtk.runners import create_runner
+from pubkt.runtk import RUNNERS
 import socket
 import logging
 import time
-runners = {
-    'socket': SocketRunner,
-    'inet': SocketRunner,
-    'unix': SocketRunner,
-    'file': FileRunner,
-    's': SocketRunner,
-    'f': FileRunner,
-}
 
 class NetpyneRunner(Runner):
     """
@@ -21,11 +14,9 @@ class NetpyneRunner(Runner):
     see class runner
     mappings <-
     """
-    def __new__(cls, inherit='s', **kwargs):
-        if inherit in runners:
-            _super = runners[inherit]
-        else:
-            _super = SocketRunner
+    def __new__(cls, inherit='file', **kwargs):
+
+        _super = create_runner(inherit)
 
         def __init__(self, netParams=None, cfg=None, **kwargs):
             _super.__init__(self, **kwargs)
@@ -33,9 +24,9 @@ class NetpyneRunner(Runner):
             self.cfg = cfg
 
         def _set_inheritance(self, inherit):
-            if inherit in runners:
+            if inherit in pubtk.RUNNERS:
                 cls = type(self)
-                cls.__bases__ = (runners[inherit],)
+                cls.__bases__ = (pubkt.RUNNERS[inherit],)
 
         def get_NetParams(self): #change nomenclature to match NetPyNE
             if self.netParams:

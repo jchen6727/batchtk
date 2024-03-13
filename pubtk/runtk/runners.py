@@ -274,7 +274,10 @@ class SocketRunner(Runner):
         super().close()
         self.socket.close()
 
-
+RUNNERS = {
+    'socket': SocketRunner,
+    'file': FileRunner,
+}
 def create_runner(runner_type):
     """
     Factory function for creating a runner
@@ -285,11 +288,15 @@ def create_runner(runner_type):
     -------
     runners[runner_type] - a runner instance
     """
-    runners = {
-        'socket': SocketRunner,
-        'file': FileRunner,
-    }
-    if runner_type in runners:
-        return runners[runner_type]
+
+    if runner_type in RUNNERS:
+        return RUNNERS[runner_type]
     else:
         raise ValueError(runner_type)
+
+
+
+from netpyne.batchtk import comm
+
+comm.send()
+comm.recv()

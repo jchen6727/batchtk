@@ -43,10 +43,6 @@ class Pubtk_Sim(Sim_Wrapper):
         self.sim.pc.barrier()
     def close(self):
         self.sync()
+        self.sim.clearAll()
         self.runner.close()
         sys.exit(0)
-
-
-
-sim = Pubtk_Sim()
-sim.get_rank()
