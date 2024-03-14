@@ -274,62 +274,22 @@ class SocketRunner(Runner):
         super().close()
         self.socket.close()
 
-
-class NetpyneRunner(Runner):
+RUNNERS = {
+    'socket': SocketRunner,
+    'file': FileRunner,
+}
+def create_runner(runner_type):
     """
-    runner for netpyne
-    see class runner
-    mappings <-
+    Factory function for creating a runner
+    Parameters
+    ----------
+    runner_type - a string specifying the type of runner to be created, must be a key in runners
+    Returns
+    -------
+    runners[runner_type] - a runner instance
     """
-    def __new__(cls, inherit='s', **kwargs):
-        if inherit in runners:
-            _super = runners[inherit]
-        else:
-            _super = SocketRunner
 
-        def __init__(self, netParams=None, cfg=None, **kwargs):
-            _super.__init__(self, **kwargs)
-            self.netParams = netParams
-            self.cfg = cfg
-
-        def _set_inheritance(self, inherit):
-            if inherit in runners:
-                cls = type(self)
-                cls.__bases__ = (runners[inherit],)
-
-        def get_NetParams(self, set_cfg=True): #change nomenclature to match NetPyNE
-            if set_cfg:
-                self.set_SimConfig()
-            if self.netParams:
-                return self.netParams
-            else:
-                from netpyne import specs
-                self.netParams = specs.NetParams()
-                return self.netParams
-
-        def get_SimConfig(self):
-            if self.cfg: # if cfg already exists
-                return self.cfg
-            else:
-                from netpyne import specs # the first time it calls config, it only returns cfg to be edited
-                self.cfg = specs.SimConfig()
-                return self.cfg
-
-        def set_SimConfig(self):
-            # assumes values are only in 'cfg'
-            for assign_path, value in self.mappings.items():
-                set_map(self.cfg, assign_path, value)
-
-        def set_mappings(self, filter=''):
-            # arbitrary filter, can work with 'cfg' or 'netParams'
-            for assign_path, value in self.mappings.items():
-                if filter in assign_path:
-                    set_map(self, assign_path, value)
-
-        return type("NetpyneRunner{}".format(str(_super.__name__)), (_super,),
-                    {'__init__': __init__,
-                     '_set_inheritance': _set_inheritance,
-                     'get_NetParams': get_NetParams,
-                     'get_SimConfig': get_SimConfig,
-                     'set_SimConfig': set_SimConfig,
-                     'set_mappings': set_mappings})(**kwargs) # need to override __init__ or else will call parent
+    if runner_type in RUNNERS:
+        return RUNNERS[runner_type]
+    else:
+        raise ValueError(runner_type)

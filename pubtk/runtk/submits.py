@@ -32,6 +32,12 @@ class Template(object):
 #        return self.template.format(mkwargs)
 
     def format(self, **kwargs):
+        """
+        formats the template with the supplied kwargs, returns the formatted string. The template value itself is
+        unchanged
+        :param kwargs:
+        :return self.template.format(**kwargs) (str): template string formatted with kwargs.
+        """
         mkwargs = self.kwargs | kwargs
         try:
             return self.template.format(**mkwargs)
@@ -40,10 +46,24 @@ class Template(object):
             return self.template.format(**mkwargs)
 
     def update(self, **kwargs):
+        """
+        permanently updates the template with the supplied kwargs, returns None (template updated in place)
+        :param kwargs:
+        :return None:
+        """
         self.template = self.format(**kwargs)
 
     def check_missing(self, template):
+        """
+        checks for missing keys in the provided template
+        use, for instance as
+        self.check_missing(self.format(**kwargs)) to validate that the format string completes successfully.
+        :param template:
+        :return:
+        """
         return [key for key in self.kwargs if key in template]
+
+
     def __repr__(self):
         return self.template
 
@@ -131,10 +151,14 @@ class Submit(object):
             raise Exception("Failed to write script to file: {}\n{}".format(self.path, e))
 
     def format_job(self, **kwargs):
-        templates = []
-        for template in self.templates:
-            templates.append(template.format(**kwargs))
-        return self._jtuple(*templates)
+        """
+        if self.job:
+            templates = list(self.job)
+        else:
+            templates = self.templates
+        """
+        _jtuple = [template.format(**kwargs) for template in self.templates]
+        return self._jtuple(*_jtuple)
 
     def update_templates(self, **kwargs):
         #kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
