@@ -2,8 +2,7 @@ import os
 import json
 from pubtk.runtk.utils import convert, set_map, create_script
 from pubtk import runtk
-from pubtk.runtk.runners import create_runner
-from pubkt.runtk import RUNNERS
+from pubtk.runtk.runners import Runner, create_runner
 import socket
 import logging
 import time
@@ -24,9 +23,9 @@ class NetpyneRunner(Runner):
             self.cfg = cfg
 
         def _set_inheritance(self, inherit):
-            if inherit in pubtk.RUNNERS:
+            if inherit in runtk.RUNNERS:
                 cls = type(self)
-                cls.__bases__ = (pubkt.RUNNERS[inherit],)
+                cls.__bases__ = (runtk.RUNNERS[inherit],)
 
         def get_NetParams(self): #change nomenclature to match NetPyNE
             if self.netParams:

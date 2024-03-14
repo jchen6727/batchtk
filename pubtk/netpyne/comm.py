@@ -2,6 +2,7 @@ from pubtk.netpyne import specs
 from pubtk.runtk.runners import create_runner
 from neuron import h
 
+HOST = 0
 
 class Comm(object):
     def __init__(self, runner_type='socket'):
@@ -10,29 +11,23 @@ class Comm(object):
         self.pc = h.ParallelContext()
         self.rank = self.pc.id()
 
-    def __getattr__(self, item):
-        return getattr(self.sim, item)
     def initialize(self):
         if self.is_host():
             self.runner.connect()
+
+
     def set_runner(self, runner_type='socket'):
         self.runner = create_runner(runner_type)
-    def get_rank(self):
-        try:
-            return self.rank
-        except Exception as e:
-            print("currently no rank as the sim object has not been initialized: {}".format(e))
-            return 0
     def is_host(self):
-        return self.get_rank() == 0
+        return self.rank == HOST
     def send(self, data):
         if self.is_host():
             self.runner.send(data)
+
     def recv(self): # to be implemented. need to broadcast value to all workers
-        pass
-    def sync(self):
-        self.runner.sync()
+        data = self.is_host() and self.runner.recv()
+        self.pc.barrier()
+        return self.pc.py_broadcast(data, HOST)
+
     def close(self):
-        self.sync()
         self.runner.close()
-        sys.exit(0)

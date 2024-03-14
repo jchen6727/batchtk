@@ -5,11 +5,11 @@ from ray import tune
 from ray.air import session, RunConfig
 from ray.tune.search.basic_variant import BasicVariantGenerator
 
-from pubtk.runtk.dispatchers import INET_Dispatcher
+from pubtk.runtk.dispatchers import INETDispatcher
 from pubtk.runtk.submits import SGESubmitSOCK
 
 job = {
-    ('sge', 'inet'): (INET_Dispatcher, SGESubmitSOCK),
+    ('sge', 'inet'): (INETDispatcher, SGESubmitSOCK),
 }
 def ray_grid_search(label, params, concurrency, batch_dir, config):
     ray.init(
@@ -18,7 +18,7 @@ def ray_grid_search(label, params, concurrency, batch_dir, config):
                                   "*.sh" , "*.sgl", ]}
     )
     algo = BasicVariantGenerator(max_concurrent=concurrency)
-    _Dispatcher, submit = INET_Dispatcher, SGESubmitSOCK()
+    Dispatcher, submit = INETDispatcher, SGESubmitSOCK()
     submit.update_templates(
         **config
     )
@@ -28,7 +28,7 @@ def ray_grid_search(label, params, concurrency, batch_dir, config):
         tid = int(tid.split('_')[-1]) #integer value for the trial
         config['cfg.filename'] = '{}/{}_{}'.format(batch_dir, label, tid)
         config['cfg.send'] = 'INET'
-        dispatcher = _Dispatcher(cwd = cwd, submit = submit, gid = '{}_{}'.format(label, tid))
+        dispatcher = Dispatcher(cwd = cwd, submit = submit, gid = '{}_{}'.format(label, tid))
         dispatcher.update_env(dictionary = config)
         try:
             dispatcher.run()

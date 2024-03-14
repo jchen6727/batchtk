@@ -7,7 +7,7 @@ from ray import air
 from ray.air import session
 
 
-from pubtk.runtk.dispatchers import SFS_Dispatcher
+from pubtk.runtk.dispatchers import SFSDispatcher
 from pubtk.runtk.submit import Submit
 
 template = """\
@@ -32,7 +32,7 @@ TARGET = pandas.Series(
 
 def sge_run(config):
     sge = Submit(submit_template = "qsub {cwd}/{label}.sh", script_template = template)
-    dispatcher = SFS_Dispatcher(cwd = cwd, env = {}, submit = sge)
+    dispatcher = SFSDispatcher(cwd = cwd, env = {}, submit = sge)
     dispatcher.add_dict(value_type="FLOAT", dictionary = config)
     dispatcher.run()
     data = dispatcher.get_run()

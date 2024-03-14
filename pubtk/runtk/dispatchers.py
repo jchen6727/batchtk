@@ -176,7 +176,7 @@ label:
 env:
 {}""".format(self.label)
 
-class SH_Dispatcher(Dispatcher):
+class SHDispatcher(Dispatcher):
     """
     Extension of base Dispatcher that extends functionality to handle job generating shell script to submit jobs
     """
@@ -289,7 +289,7 @@ submit:
 """.format(self.submit)
 
 
-class SFS_Dispatcher(SH_Dispatcher):
+class SFSDispatcher(SHDispatcher):
     """
     This class can be improved by implementing a single file communication system without a signal file and checking
     proc.readline() -- see threading course
@@ -322,7 +322,7 @@ class SFS_Dispatcher(SH_Dispatcher):
 
 
 
-class UNIX_Dispatcher(SH_Dispatcher):
+class UNIXDispatcher(SHDispatcher):
     """
     AF UNIX Dispatcher utilizing sockets (requires socket forwarding)
     handles submitting the script to a Runner/Worker object
@@ -377,7 +377,7 @@ class UNIX_Dispatcher(SH_Dispatcher):
         if self.socket:
             self.socket.close()
 
-class INET_Dispatcher(SH_Dispatcher):
+class INETDispatcher(SHDispatcher):
     """
     AF INET Dispatcher utilizing sockets
     handles submitting the script to a Runner/Worker object
@@ -427,7 +427,7 @@ class INET_Dispatcher(SH_Dispatcher):
             self.socket.close()
 
 
-class NOF_Dispatcher(Dispatcher):
+class NOFDispatcher(Dispatcher):
     """
     No File Dispatcher, everything is run without generation of shell scripts.
     ? utility of NOF_Dispatcher vs. UNIX ?
@@ -449,3 +449,23 @@ class NOF_Dispatcher(Dispatcher):
         self.proc = subprocess.run(self.cmdstr.split(), env=self.env, text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)
         return self.proc
+
+DISPATCHERS = {
+    'socket': SocketRunner,
+    'file': FileRunner,
+}
+def create_dispatchers(runner_type):
+    """
+    Factory function for creating a runner
+    Parameters
+    ----------
+    runner_type - a string specifying the type of runner to be created, must be a key in runners
+    Returns
+    -------
+    runners[runner_type] - a runner instance
+    """
+
+    if runner_type in RUNNERS:
+        return RUNNERS[runner_type]
+    else:
+        raise ValueError(runner_type)

@@ -8,7 +8,7 @@ from ray import air
 from ray.air import session
 from ray.tune.search.basic_variant import BasicVariantGenerator
 
-from pubtk.runtk.dispatchers import INET_Dispatcher
+from pubtk.runtk.dispatchers import INETDispatcher
 from pubtk.runtk.submit import SGESubmitINET
 
 import time
@@ -47,7 +47,7 @@ TARGET = pandas.Series(
 def sge_run(config):
     tid, tname = tune.get_trial_id(), tune.get_trial_name()
     tno = int(tid.split('_')[-1]) #integer value for the trial
-    dispatcher = INET_Dispatcher(cwd = cwd, env = {}, submit = sge, gid = 'ca3_{}'.format(tno))
+    dispatcher = INETDispatcher(cwd = cwd, env = {}, submit = sge, gid = 'ca3_{}'.format(tno))
     dispatcher.update_env(dictionary = config)
     try:
         dispatcher.run()

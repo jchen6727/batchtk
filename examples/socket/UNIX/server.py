@@ -1,4 +1,4 @@
-from pubtk.runtk.dispatchers import AFU_Dispatcher
+from pubtk.runtk.dispatchers import AFUDispatcher
 from pubtk.runtk.submit import Submit
 
 
@@ -35,7 +35,7 @@ env = {'foo': 'bar'}
 
 def run(env):
     shrun = Submit(submit_template = "bash {cwd}/{label}.sh", script_template = template)
-    dispatcher = AFU_Dispatcher(cwd = cwd, env = env, submit = shrun)
+    dispatcher = AFUDispatcher(cwd = cwd, env = env, submit = shrun)
     dispatcher.run()
     dispatcher.accept()
     data = dispatcher.recv()
@@ -49,6 +49,6 @@ run(env)
 
 """
 shrun = Submit(submit_template = "zsh {cwd}/{label}.sh", script_template = template)
-dispatcher = AFU_Dispatcher(cwd = cwd, env = env, submit = shrun)
+dispatcher = AFUDispatcher(cwd = cwd, env = env, submit = shrun)
 dispatcher.create_job()
 """
