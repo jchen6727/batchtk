@@ -5,7 +5,7 @@ from ray import tune
 from ray.air import session, RunConfig
 from ray.tune.search.basic_variant import BasicVariantGenerator
 
-from pubtk.runtk.dispatchers import dispatchers
+from pubtk.runtk.dispatchers import create_dispatcher
 from pubtk.runtk.submits import submits
 
 def ray_grid_search(dispatcher_type = 'sh', submission_type = 'inet', label = 'grid', params = None, concurrency = 1, checkpoint_dir = '../grid', config = None):

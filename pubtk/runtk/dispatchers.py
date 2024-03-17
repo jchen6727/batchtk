@@ -327,7 +327,7 @@ class UNIXDispatcher(SHDispatcher):
     AF UNIX Dispatcher utilizing sockets (requires socket forwarding)
     handles submitting the script to a Runner/Worker object
 
-    #TODO can we consolidate UNIX_Dispatcher and SOCKET_Dispatcher into a single class?
+    #TODO can we consolidate UNIXDispatcher and INETDispatcher into a single class?
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -426,7 +426,6 @@ class INETDispatcher(SHDispatcher):
         if self.socket:
             self.socket.close()
 
-
 class NOFDispatcher(Dispatcher):
     """
     No File Dispatcher, everything is run without generation of shell scripts.
@@ -450,22 +449,25 @@ class NOFDispatcher(Dispatcher):
             stderr=subprocess.PIPE)
         return self.proc
 
+
 DISPATCHERS = {
-    'socket': SocketRunner,
-    'file': FileRunner,
+    'INET': INETDispatcher,
+    'UNIX': UNIXDispatcher,
+    'SFS': SFSDispatcher,
+    'NOF': NOFDispatcher
 }
-def create_dispatchers(runner_type):
+def create_dispatchers(dispatcher_type):
     """
-    Factory function for creating a runner
+    Factory function for creating a dispatcher constructor
     Parameters
     ----------
-    runner_type - a string specifying the type of runner to be created, must be a key in runners
+    runner_type - a string specifying the type of dispatcher to be created, must be a key in runners
     Returns
     -------
-    runners[runner_type] - a runner instance
+    DISPATCHERS[dispatcher_type] - a dispatcher constructor
     """
 
-    if runner_type in RUNNERS:
-        return RUNNERS[runner_type]
+    if dispatcher_type in DISPATCHERS:
+        return DISPATCHERS[dispatcher_type]
     else:
-        raise ValueError(runner_type)
+        raise ValueError(dispatcher_type)
