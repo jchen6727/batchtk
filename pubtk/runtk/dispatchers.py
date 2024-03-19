@@ -456,7 +456,7 @@ DISPATCHERS = {
     'SFS': SFSDispatcher,
     'NOF': NOFDispatcher
 }
-def create_dispatchers(dispatcher_type):
+def create_dispatcher(dispatcher_type):
     """
     Factory function for creating a dispatcher constructor
     Parameters

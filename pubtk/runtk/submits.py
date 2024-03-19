@@ -5,7 +5,7 @@ from collections import namedtuple
 from pubtk import runtk
 import re
 from pubtk.utils import path_open
-import json
+
 
 class Template(object):
 
