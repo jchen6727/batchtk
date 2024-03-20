@@ -53,6 +53,10 @@ def ray_search(dispatcher_constructor, submit_constructor, algorithm = "optuna",
     def run(config):
         dispatcher = dispatcher_constructor(project_path = cwd, output_path = output_path, submit = submit, gid = label)
         dispatcher.update_env(dictionary = config)
+        dispatcher.update_env(dictionary = {
+            'saveFolder': output_path,
+            'simLabel': label,
+        })
         try:
             dispatcher.run()
             dispatcher.accept()

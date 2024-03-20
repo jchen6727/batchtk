@@ -1,4 +1,4 @@
-from pubtk.netpyne import specs
+from netpyne.batchtools import specs
 from cfg import cfg
 cfg.update_cfg()
 
