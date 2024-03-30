@@ -4,6 +4,7 @@ import os
 from ray import tune, train
 from ray.air import session, RunConfig
 from ray.tune.search import create_searcher, ConcurrencyLimiter, SEARCH_ALG_IMPORT
+from collections import namedtuple
 
 def get_path(path):
     if path[0] == '/':
@@ -15,7 +16,7 @@ def get_path(path):
 
 def ray_trial(config, label, dispatcher_constructor, project_path, output_path, submit):
     tid = ray.train.get_context().get_trial_id()
-    tid = int(tid.split('_')[-1])  # integer value for the trial
+    tid = tid.split('_')[-1]  # integer value for the trial
     run_label = '{}_{}'.format(label, tid)
     dispatcher = dispatcher_constructor(project_path=project_path, output_path=output_path, submit=submit,
                                         gid=run_label)
@@ -195,6 +196,7 @@ def ray_optuna_search(dispatcher_constructor, submit_constructor, label = 'optun
     results = tuner.fit()
     resultsdf = results.get_dataframe()
     resultsdf.to_csv("{}.csv".format(label))
+    return namedtuple('Study', ['algo', 'results'])(algo, results)
 
 
 
