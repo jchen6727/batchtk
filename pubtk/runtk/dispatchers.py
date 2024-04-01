@@ -319,39 +319,20 @@ class SFSDispatcher(SHDispatcher):
             data = self.get_run()
         return data
 
-
-
-
-class UNIXDispatcher(SHDispatcher):
+class SOCKETDispatcher(SHDispatcher):
     """
-    AF UNIX Dispatcher utilizing sockets (requires socket forwarding)
-    handles submitting the script to a Runner/Worker object
-
-    #TODO can we consolidate UNIXDispatcher and INETDispatcher into a single class?
+    Base class for socket-based dispatchers
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.socket = None
-        self.server = None
 
-    def create_job(self, **kwargs):
-        super().create_job()
-        socket_name = "{}/{}.s".format(self.output_path, self.label)  # the socket file
-        try:
-            os.unlink(socket_name)
-        except OSError as e:
-            if os.path.exists(socket_name):
-                raise OSError("issue when creating socket {}:".format(socket_name), e)
-        self.socket = UNIXSocket(socket_name = socket_name)
-        self.socket.listen()
-        self.submit.create_job(label=self.label, project_path=self.project_path,
-                               output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
-        self.handles = self.submit.get_handles()
-
+    def submit_job(self):
+        self.job_id = self.submit.submit_job()
 
     def run(self, **kwargs):
         self.create_job(**kwargs)
-        self.job_id = self.submit.submit_job()
+        self.submit_job()
 
     def accept(self):
         """
@@ -377,15 +358,34 @@ class UNIXDispatcher(SHDispatcher):
         if self.socket:
             self.socket.close()
 
-class INETDispatcher(SHDispatcher):
+
+class UNIXDispatcher(SOCKETDispatcher):
+    """
+    AF UNIX Dispatcher utilizing sockets (requires socket forwarding)
+    handles submitting the script to a Runner/Worker object
+
+    #TODO can we consolidate UNIXDispatcher and INETDispatcher into a single class?
+    """
+    def create_job(self, **kwargs):
+        super().init_run(**kwargs)
+        socket_name = "{}/{}.s".format(self.output_path, self.label)  # the socket file
+        self.socket = UNIXSocket(socket_name = socket_name)
+        self.socket.listen()
+        self.submit.create_job(label=self.label, project_path=self.project_path,
+                               output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
+        self.handles = self.submit.get_handles()
+        #TODO if doing stale socket handling....
+        #try:
+        #    os.unlink(socket_name)
+        #except OSError as e:
+        #    if os.path.exists(socket_name):
+        #        raise OSError("issue when creating socket {}:".format(socket_name), e)
+
+class INETDispatcher(SOCKETDispatcher):
     """
     AF INET Dispatcher utilizing sockets
     handles submitting the script to a Runner/Worker object
     """
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.socket = None
-
     def create_job(self, **kwargs):
         super().init_run(**kwargs)
         self.socket = INETSocket()
@@ -393,38 +393,6 @@ class INETDispatcher(SHDispatcher):
         self.submit.create_job(label=self.label, project_path=self.project_path,
                                output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
         self.handles = self.submit.get_handles()
-
-
-    def submit_job(self):
-        self.job_id = self.submit.submit_job()
-    
-    def run(self, **kwargs):
-        self.create_job(**kwargs)
-        self.job_id = self.submit.submit_job()
-
-    def accept(self):
-        """
-        accept incoming connection from runner
-        this function is blocking
-        """
-        connection, peer_address = self.socket.accept()  # actual blocking statement
-        return connection, peer_address
-
-    def recv(self):
-        """
-
-        Returns
-        -------
-
-        """
-        return self.socket.recv()
-
-    def send(self, data):
-        self.socket.send(data)
-    def clean(self, handles=None):
-        super().clean(handles)
-        if self.socket:
-            self.socket.close()
 
 class NOFDispatcher(Dispatcher):
     """

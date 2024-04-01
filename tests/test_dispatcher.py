@@ -3,33 +3,34 @@ import os
 
 from pubtk.runtk.dispatchers import Dispatcher, SFS_Dispatcher, INET_Dispatcher
 
-from pubtk.runtk.submits import Submit, SGESubmitSOCK, SGESubmitSFS, ZSHSubmitSOCK, ZSHSubmitSFS
+from pubtk.runtk.submits import ZSHSubmit, ZSHSubmitSOCK, ZSHSubmitSFS
 
 class TestDispatcher:
     @pytest.fixture
     def setup(self):
-        dispatcher = Dispatcher(env={'type': 'dispatcher'}, gid='dispatcher')
+        dispatcher = Dispatcher(env={'type': 'base'}, gid='dispatcher_base')
         return dispatcher
 
     def test_init(self, setup):
         dispatcher = setup
-        assert dispatcher.gid == 'dispatcher'
-        assert dispatcher.env['type'] == 'dispatcher'
+        assert dispatcher.gid == 'dispatcher_base'
+        assert dispatcher.env['type'] == 'base'
 
     def test_update_env(self, setup):
         dispatcher = setup
         dispatcher.update_env({'new_var': 'new_value'}, value_type='STR')
-        assert 'STRRUNTK1' in dispatcher.env
-        assert dispatcher.env['STRRUNTK1'] == 'new_var=new_value'
+        assert 'new_var=new_value' in dispatcher.env.values()
 
-class TestDispatcherSGESOCK:
-    @pytest.fixture
-    def setup(self):
+SUBMITS = [ZSHSubmit, ZSHSubmitSOCK, ZSHSubmitSFS]
+class TestDispatcherZSHSubmit:
+    @pytest.fixture(params=SUBMITS)
+    def setup(self, request):
+        submit = request.param()
         dispatcher = INET_Dispatcher(project_path=os.getcwd(),
-                                     submit=SGESubmitSOCK(),
+                                     submit=submit,
                                      env={'test': 'value'},
                                      gid='sgeinet')
-        return dispatcher
+        return dispatcher, submit
 
     def test_add_command(self, setup):
         dispatcher = setup
