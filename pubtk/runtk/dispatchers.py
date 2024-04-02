@@ -174,7 +174,7 @@ label:
 {}
 
 env:
-{}""".format(self.label)
+{}""".format(self.label, self.env)
 
 class SHDispatcher(Dispatcher):
     """
@@ -275,6 +275,8 @@ class SHDispatcher(Dispatcher):
 
         :return:
         """
+        if handles == 'all':
+            handles = self.handles
         if handles:
             for handle in handles:
                 if os.path.exists(self.handles[handle]):

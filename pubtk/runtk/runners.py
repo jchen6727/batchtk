@@ -245,8 +245,9 @@ class SocketRunner(Runner):
         self.host_socket = None
         self.socket = None
 
-    def connect(self, socket_type=socket.AF_INET, timeout=None): #AF_INET == 2
+    def connect(self, socket_type=None, timeout=None): #AF_INET == 2
         #timeout = None (blocking), 0 (non-blocking), >0 (timeout in seconds)
+        socket_type = not socket_type and os.path.exists(self.socket_name) and socket.AF_UNIX or socket.AF_INET
         match socket_type:
             case socket.AF_INET:
                 ip, port = self.socket_name.split(',')

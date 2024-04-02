@@ -6,8 +6,8 @@ print("starting process: {}".format(os.getpid()))
 
 runner = SocketRunner()
 try:
-    connection, peer_address = runner.connect() # connect to dispatcher
-    print("connected to dispatcher:\n({},{})".format(connection, peer_address))
+    connection = runner.connect() # connect to dispatcher
+    print("connected to dispatcher:\n({})".format(connection))
     print("received message from dispatcher: {}".format(runner.recv()))
     mappings = json.dumps(runner.mappings)
     result = runner.mappings['intvalue'] + runner.mappings['fltvalue']
