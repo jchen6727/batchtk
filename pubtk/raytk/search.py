@@ -5,6 +5,9 @@ from ray import tune, train
 from ray.air import session, RunConfig
 from ray.tune.search import create_searcher, ConcurrencyLimiter, SEARCH_ALG_IMPORT
 from collections import namedtuple
+import types
+
+
 
 def get_path(path):
     if path[0] == '/':
@@ -14,18 +17,19 @@ def get_path(path):
     else:
         raise ValueError("path must be an absolute path (starts with /) or relative to the current working directory (starts with .)")
 
+
 def ray_trial(config, label, dispatcher_constructor, project_path, output_path, submit):
     tid = ray.train.get_context().get_trial_id()
-    tid = tid.split('_')[-1]  # integer value for the trial
+    tid = tid.split('_')[-1]  # value for trial (can be int/string)
     run_label = '{}_{}'.format(label, tid)
+    ray_trial.run_label = run_label
+    ray_trial.output_path = output_path
+    for k, v in config.items(): #call any function pointers
+        if isinstance(v, types.FunctionType):
+            config[k] = v()
     dispatcher = dispatcher_constructor(project_path=project_path, output_path=output_path, submit=submit,
                                         gid=run_label)
-
     dispatcher.update_env(dictionary=config)
-    dispatcher.update_env(dictionary={
-        'saveFolder': output_path,
-        'simLabel': run_label,
-    })
     try:
         dispatcher.run()
         dispatcher.accept()
@@ -36,6 +40,11 @@ def ray_trial(config, label, dispatcher_constructor, project_path, output_path, 
         raise (e)
     data = pandas.read_json(data, typ='series', dtype=float)
     return data
+
+
+LABEL_POINTER = lambda:ray_trial.run_label
+PATH_POINTER = lambda:ray_trial.output_path
+
 
 def ray_search(dispatcher_constructor, submit_constructor, algorithm = "variant_generator", label = 'search',
                params = None, output_path = '../batch', checkpoint_path = '../ray',
@@ -197,6 +206,4 @@ def ray_optuna_search(dispatcher_constructor, submit_constructor, label = 'optun
     resultsdf = results.get_dataframe()
     resultsdf.to_csv("{}.csv".format(label))
     return namedtuple('Study', ['algo', 'results'])(algo, results)
-
-
 
