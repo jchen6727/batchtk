@@ -6,6 +6,13 @@ import shlex
 import pandas
 import itertools
 
+def get_path(path):
+    if path[0] == '/':
+        return os.path.normpath(path)
+    elif path[0] == '.':
+        return os.path.normpath(os.path.join(os.getcwd(), path))
+    else:
+        raise ValueError("path must be an absolute path (starts with /) or relative to the current working directory (starts with .)")
 
 def write_pkl(wobject: object, write_path: str):
     if '/' in write_path:
