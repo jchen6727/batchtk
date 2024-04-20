@@ -219,10 +219,10 @@ kwargs:
             return deserializers['eq'](self.handles.template)
 
 
-class SHSubmit(Submit):
+#class SHSubmit(Submit):
     #so actually ZSH and SH for the purposes of this are the EXACT SAME...
     #interpreter = os.getenv('SHELL', '/bin/bash') # defaults to /bin/bash
-    pass #TODO implement submit that identifies user shell.
+    #pass #TODO implement submit that identifies user shell.
 
 
 
@@ -266,7 +266,7 @@ class SHSubmitSFS(SHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command'}
     script_template = \
         """\
-#!/bin/zsh
+#!/bin/sh
 cd {project_path}
 export OUTFILE="{output_path}/{label}.out"
 export SGLFILE="{output_path}/{label}.sgl"
@@ -282,7 +282,7 @@ class SHSubmitSOCK(SHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'sockname'}
     script_template = \
         """\
-#!/bin/zsh
+#!/bin/sh
 cd {project_path}
 export SOCNAME="{sockname}"
 export JOBID=$$
