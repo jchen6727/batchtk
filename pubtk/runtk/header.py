@@ -1,12 +1,18 @@
 import json
 from collections import namedtuple
 
+
 GREPSTR = 'RUNTK'
 SUBMIT = 'submit'
 STDOUT = 'stdout'
-MSGOUT = 'msgout'
-SGLOUT = 'signal'
-SOCKET = 'socketname'
+
+#NOTE: changing the second value will change the environment variable name and is SAFE(?)
+# changing the 1st value will require a code refactor since it is referenced codewise in getattribute
+
+MSGOUT, MSGOUT_ENV = 'write_file' , 'MSGFILE'
+SGLOUT, SGLOUT_ENV = 'signal'     , 'SGLFILE'
+SOCKET, SOCKET_ENV = 'socket_name', 'SOCNAME'
+JOBID , JOBID_ENV  = 'jobid'      , 'JOBID'
 
 HANDLES = {SUBMIT: 'runtk.SUBMIT',
            STDOUT: 'runtk.STDOUT',
@@ -22,13 +28,11 @@ SUPPORTS = {
     'STR': staticmethod(lambda val: val),
 }
 
-
-ALIASES = namedtuple('ALIASES', 'SOCKET FILE')(
-    {'socketname': 'SOCNAME',
-     'jobid': 'JOBID'},
-    {'signalfile': 'SGLFILE',
-     'writefile': 'OUTFILE',
-     'jobid': 'JOBID'})
+SOCKET_ALIASES = {SOCKET: SOCKET_ENV,
+                  JOBID: JOBID_ENV}
+FILE_ALIASES = {SGLOUT: SGLOUT_ENV,
+                MSGOUT: MSGOUT_ENV,
+                JOBID : JOBID_ENV}
 
 EXTENSIONS = { #anything that can be found in a path name to be included.
     SUBMIT: '[a-zA-Z0-9\{\}_/\.]*\.[a-z]*sh', # sh, bash, csh, zsh, tcsh, etc. ask a sysadmin how they'd do this.
@@ -37,25 +41,3 @@ EXTENSIONS = { #anything that can be found in a path name to be included.
     SGLOUT: '[a-zA-Z0-9\{\}_/\.]*\.sgl', #TODO more like a lock file, would https://github.com/harlowja/fasteners be relevant?
     SOCKET: '(\{sockname\})',
 } # standardize names between EXTENSIONS and ALIASES?
-
-
-"""
-RUNNERS = {
-    'socket': SocketRunner,
-    'inet': SocketRunner,
-    'unix': SocketRunner,
-    'file': FileRunner,
-    's': SocketRunner,
-    'f': FileRunner,
-}
-
-[tuple(x.split('=')) for x in self.handles.template.split('\n')]
-"""
-
-"""
-DISPATCHERS = {
-    'inet': INET_Dispatcher,
-    'unix': UNIX_Dispatcher,
-    'sfs': SFS_Dispatcher,
-}
-"""

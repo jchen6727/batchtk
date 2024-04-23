@@ -174,9 +174,9 @@ label:
 {}
 
 env:
-{}""".format(self.label)
+{}""".format(self.label, self.env)
 
-class SH_Dispatcher(Dispatcher):
+class SHDispatcher(Dispatcher):
     """
     Extension of base Dispatcher that extends functionality to handle job generating shell script to submit jobs
     """
@@ -275,6 +275,8 @@ class SH_Dispatcher(Dispatcher):
 
         :return:
         """
+        if handles == 'all':
+            handles = self.handles
         if handles:
             for handle in handles:
                 if os.path.exists(self.handles[handle]):
@@ -289,7 +291,7 @@ submit:
 """.format(self.submit)
 
 
-class SFS_Dispatcher(SH_Dispatcher):
+class SFSDispatcher(SHDispatcher):
     """
     This class can be improved by implementing a single file communication system without a signal file and checking
     proc.readline() -- see threading course
@@ -319,39 +321,20 @@ class SFS_Dispatcher(SH_Dispatcher):
             data = self.get_run()
         return data
 
-
-
-
-class UNIX_Dispatcher(SH_Dispatcher):
+class SOCKETDispatcher(SHDispatcher):
     """
-    AF UNIX Dispatcher utilizing sockets (requires socket forwarding)
-    handles submitting the script to a Runner/Worker object
-
-    #TODO can we consolidate UNIX_Dispatcher and SOCKET_Dispatcher into a single class?
+    Base class for socket-based dispatchers
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.socket = None
-        self.server = None
 
-    def create_job(self, **kwargs):
-        super().create_job()
-        socket_name = "{}/{}.s".format(self.output_path, self.label)  # the socket file
-        try:
-            os.unlink(socket_name)
-        except OSError as e:
-            if os.path.exists(socket_name):
-                raise OSError("issue when creating socket {}:".format(socket_name), e)
-        self.socket = UNIXSocket(socket_name = socket_name)
-        self.socket.listen()
-        self.submit.create_job(label=self.label, project_path=self.project_path,
-                               output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
-        self.handles = self.submit.get_handles()
-
+    def submit_job(self):
+        self.job_id = self.submit.submit_job()
 
     def run(self, **kwargs):
         self.create_job(**kwargs)
-        self.job_id = self.submit.submit_job()
+        self.submit_job()
 
     def accept(self):
         """
@@ -377,15 +360,34 @@ class UNIX_Dispatcher(SH_Dispatcher):
         if self.socket:
             self.socket.close()
 
-class INET_Dispatcher(SH_Dispatcher):
+
+class UNIXDispatcher(SOCKETDispatcher):
+    """
+    AF UNIX Dispatcher utilizing sockets (requires socket forwarding)
+    handles submitting the script to a Runner/Worker object
+
+    #TODO can we consolidate UNIXDispatcher and INETDispatcher into a single class?
+    """
+    def create_job(self, **kwargs):
+        super().init_run(**kwargs)
+        socket_name = "{}/{}.s".format(self.output_path, self.label)  # the socket file
+        self.socket = UNIXSocket(socket_name = socket_name)
+        self.socket.listen()
+        self.submit.create_job(label=self.label, project_path=self.project_path,
+                               output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
+        self.handles = self.submit.get_handles()
+        #TODO if doing stale socket handling....
+        #try:
+        #    os.unlink(socket_name)
+        #except OSError as e:
+        #    if os.path.exists(socket_name):
+        #        raise OSError("issue when creating socket {}:".format(socket_name), e)
+
+class INETDispatcher(SOCKETDispatcher):
     """
     AF INET Dispatcher utilizing sockets
     handles submitting the script to a Runner/Worker object
     """
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.socket = None
-
     def create_job(self, **kwargs):
         super().init_run(**kwargs)
         self.socket = INETSocket()
@@ -394,40 +396,7 @@ class INET_Dispatcher(SH_Dispatcher):
                                output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
         self.handles = self.submit.get_handles()
 
-
-    def submit_job(self):
-        self.job_id = self.submit.submit_job()
-    
-    def run(self, **kwargs):
-        self.create_job(**kwargs)
-        self.job_id = self.submit.submit_job()
-
-    def accept(self):
-        """
-        accept incoming connection from runner
-        this function is blocking
-        """
-        connection, peer_address = self.socket.accept()  # actual blocking statement
-        return connection, peer_address
-
-    def recv(self):
-        """
-
-        Returns
-        -------
-
-        """
-        return self.socket.recv()
-
-    def send(self, data):
-        self.socket.send(data)
-    def clean(self, handles=None):
-        super().clean(handles)
-        if self.socket:
-            self.socket.close()
-
-
-class NOF_Dispatcher(Dispatcher):
+class NOFDispatcher(Dispatcher):
     """
     No File Dispatcher, everything is run without generation of shell scripts.
     ? utility of NOF_Dispatcher vs. UNIX ?
@@ -449,3 +418,26 @@ class NOF_Dispatcher(Dispatcher):
         self.proc = subprocess.run(self.cmdstr.split(), env=self.env, text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)
         return self.proc
+
+
+DISPATCHERS = {
+    'INET': INETDispatcher,
+    'UNIX': UNIXDispatcher,
+    'SFS': SFSDispatcher,
+    'NOF': NOFDispatcher
+}
+def create_dispatcher(dispatcher_type):
+    """
+    Factory function for creating a dispatcher constructor
+    Parameters
+    ----------
+    runner_type - a string specifying the type of dispatcher to be created, must be a key in runners
+    Returns
+    -------
+    DISPATCHERS[dispatcher_type] - a dispatcher constructor
+    """
+
+    if dispatcher_type in DISPATCHERS:
+        return DISPATCHERS[dispatcher_type]
+    else:
+        raise ValueError(dispatcher_type)

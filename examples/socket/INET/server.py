@@ -1,4 +1,4 @@
-from pubtk.runtk.dispatchers import INET_Dispatcher
+from pubtk.runtk.dispatchers import INETDispatcher
 from pubtk.runtk.submit import Submit
 import os
 
@@ -33,7 +33,7 @@ cwd = os.getcwd()
 env = {'foo': 'bar'}
 
 shrun = Submit(submit_template = "qsub {cwd}/{label}.sh", script_template = template)
-dispatcher = INET_Dispatcher(cwd = cwd, env = env, submit = shrun)
+dispatcher = INETDispatcher(cwd = cwd, env = env, submit = shrun)
 dispatcher.create_job()
 dispatcher.submit_job()
 dispatcher.accept()
@@ -45,6 +45,6 @@ dispatcher.clean('so')
 
 """
 shrun = Submit(submit_template = "zsh {cwd}/{label}.sh", script_template = template)
-dispatcher = AFU_Dispatcher(cwd = cwd, env = env, submit = shrun)
+dispatcher = AFUDispatcher(cwd = cwd, env = env, submit = shrun)
 dispatcher.create_job()
 """

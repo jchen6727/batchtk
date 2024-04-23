@@ -8,7 +8,7 @@ from ray import air
 from ray.air import session
 from ray.tune.search.basic_variant import BasicVariantGenerator
 
-from pubtk.runtk.dispatchers import SFS_Dispatcher
+from pubtk.runtk.dispatchers import SFSDispatcher
 from pubtk.runtk.submit import SGESubmitSFS
 
 import time
@@ -44,7 +44,7 @@ TARGET = pandas.Series(
 )
 def sge_run(config):
     gid = tune.get_trial_id()
-    dispatcher = SFS_Dispatcher(cwd = cwd, env = {}, submit = submit, gid = gid)
+    dispatcher = SFSDispatcher(cwd = cwd, env = {}, submit = submit, gid = gid)
     dispatcher.add_dict(value_type="FLOAT", dictionary = config)
     dispatcher.run()
     data = dispatcher.get_run()

@@ -195,11 +195,7 @@ class FileRunner(Runner):
     def __init__(self, **kwargs):
         'aliases' in kwargs or kwargs.update(
             {'aliases':
-                 {'signalfile': 'SGLFILE',
-                  'signal_file': 'SGLFILE',
-                  'writefile': 'OUTFILE',
-                  'write_file': 'OUTFILE',
-                  'jobid': 'JOBID'}
+                 runtk.FILE_ALIASES
             }
         )
         super().__init__(**kwargs)
@@ -236,17 +232,16 @@ class SocketRunner(Runner):
     def __init__(self, **kwargs):
         'aliases' in kwargs or kwargs.update(
             {'aliases':
-                {'socketname': 'SOCNAME',
-                 'socket_name': 'SOCNAME',
-                 'jobid': 'JOBID'}
+                runtk.SOCKET_ALIASES
             }
         )
         super().__init__(**kwargs)
         self.host_socket = None
         self.socket = None
 
-    def connect(self, socket_type=socket.AF_INET, timeout=None): #AF_INET == 2
+    def connect(self, socket_type=None, timeout=None): #AF_INET == 2
         #timeout = None (blocking), 0 (non-blocking), >0 (timeout in seconds)
+        socket_type = not socket_type and os.path.exists(self.socket_name) and socket.AF_UNIX or socket.AF_INET
         match socket_type:
             case socket.AF_INET:
                 ip, port = self.socket_name.split(',')
@@ -278,9 +273,10 @@ RUNNERS = {
     'socket': SocketRunner,
     'file': FileRunner,
 }
-def create_runner(runner_type):
+def get_class(runner_type = None):
     """
-    Factory function for creating a runner
+    Factory function for retrieving a runner class. if no runner_type is provided, it will check the environment to
+    determine the appropriate runner class.
     Parameters
     ----------
     runner_type - a string specifying the type of runner to be created, must be a key in runners
@@ -288,7 +284,13 @@ def create_runner(runner_type):
     -------
     runners[runner_type] - a runner instance
     """
-
+    if runner_type is None:
+        if runtk.SOCKET_ENV in os.environ:
+            return SocketRunner
+        elif runtk.MSGOUT_ENV in os.environ:
+            return FileRunner
+        else:
+            return Runner
     if runner_type in RUNNERS:
         return RUNNERS[runner_type]
     else:

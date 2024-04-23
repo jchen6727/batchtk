@@ -5,8 +5,17 @@ from collections import namedtuple
 from pubtk import runtk
 import re
 from pubtk.utils import path_open
-import json
+import os
 
+SOCKET_HANDLES = {runtk.SUBMIT: '{output_path}/{label}.sh',
+                  runtk.STDOUT: '{output_path}/{label}.run',
+                  runtk.SOCKET: '{sockname}'
+                  }
+
+FILE_HANDLES   = {runtk.SUBMIT: '{output_path}/{label}.sh',
+                  runtk.STDOUT: '{output_path}/{label}.run',
+                  runtk.MSGOUT: '{output_path}/{label}.out',
+                  runtk.SGLOUT: '{output_path}/{label}.sgl'}
 class Template(object):
 
     def __new__(cls, template = None, key_args = None, **kwargs):
@@ -210,11 +219,18 @@ kwargs:
             return deserializers['eq'](self.handles.template)
 
 
-class ZSHSubmit(Submit):
+#class SHSubmit(Submit):
+    #so actually ZSH and SH for the purposes of this are the EXACT SAME...
+    #interpreter = os.getenv('SHELL', '/bin/bash') # defaults to /bin/bash
+    #pass #TODO implement submit that identifies user shell.
+
+
+
+class SHSubmit(Submit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command'}
     script_template = \
         """\
-#!/bin/zsh
+#!/bin/sh
 cd {project_path}
 export JOBID=$$
 {env}
@@ -227,7 +243,7 @@ echo $pid >&1
         runtk.SUBMIT: '{output_path}/{label}.sh'}
     def __init__(self, **kwargs):
         super().__init__(
-            submit_template = Template(template="zsh {output_path}/{label}.sh",
+            submit_template = Template(template="sh {output_path}/{label}.sh",
                                        key_args={'project_path', 'output_path', 'label'}),
             script_template = Template(template=self.script_template,
                                        key_args=self.script_args),
@@ -246,11 +262,11 @@ echo $pid >&1
             raise(Exception("Job submission failed:\n{}\n{}\n{}\n{}".format(self.submit, self.script, proc.stdout, proc.stderr)))
         return self.job_id
 
-class ZSHSubmitSFS(ZSHSubmit):
+class SHSubmitSFS(SHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command'}
     script_template = \
         """\
-#!/bin/zsh
+#!/bin/sh
 cd {project_path}
 export OUTFILE="{output_path}/{label}.out"
 export SGLFILE="{output_path}/{label}.sgl"
@@ -260,16 +276,13 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    script_handles = {runtk.SUBMIT: '{output_path}/{label}.sh',
-                      runtk.STDOUT: '{output_path}/{label}.run',
-                      runtk.MSGOUT: '{output_path}/{label}.out',
-                      runtk.SGLOUT: '{output_path}/{label}.sgl'}
+    script_handles = FILE_HANDLES
 
-class ZSHSubmitSOCK(ZSHSubmit):
+class SHSubmitSOCK(SHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'sockname'}
     script_template = \
         """\
-#!/bin/zsh
+#!/bin/sh
 cd {project_path}
 export SOCNAME="{sockname}"
 export JOBID=$$
@@ -278,10 +291,11 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    script_handles = {runtk.SUBMIT: '{output_path}/{label}.sh',
-                      runtk.STDOUT: '{output_path}/{label}.run',
-                      runtk.SOCKET: '{sockname}'}
+    script_handles = SOCKET_HANDLES
 
+ZSHSubmitSOCK = SHSubmitSOCK
+ZSHSubmitSFS = SHSubmitSFS
+ZSHSubmit = SHSubmit
 class SGESubmit(Submit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', }
     script_template = \
@@ -336,11 +350,7 @@ export JOBID=$JOB_ID
 {env}
 {command}
 """
-    script_handles = {runtk.SUBMIT: '{output_path}/{label}.sh',
-                      runtk.STDOUT: '{output_path}/{label}.run',
-                      runtk.MSGOUT: '{output_path}/{label}.out',
-                      runtk.SGLOUT: '{output_path}/{label}.sgl',
-                      }
+    script_handles = FILE_HANDLES
 
 class SGESubmitSOCK(SGESubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', 'sockname'}
@@ -358,9 +368,5 @@ export JOBID=$JOB_ID
 {env}
 {command}
 """
-    script_handles = {runtk.SUBMIT: '{output_path}/{label}.sh',
-                      runtk.STDOUT: '{output_path}/{label}.run',
-                      runtk.SOCKET: '{sockname}'
-                      }
-SGESubmitINET = SGESubmitSOCK
-SGESubmitUNIX = SGESubmitSOCK
+    script_handles = SOCKET_HANDLES
+

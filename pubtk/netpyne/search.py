@@ -126,6 +126,10 @@ def ray_grid_search(dispatcher_constructor, submit_constructor, label = 'grid', 
         tid = int(tid.split('_')[-1]) #integer value for the trial
         dispatcher = dispatcher_constructor(cwd = cwd, submit = submit, gid = '{}_{}'.format(label, tid))
         dispatcher.update_env(dictionary = config)
+        dispatcher.update_env(dictionary = {
+            'saveFolder': output_path,
+            'simLabel': label,
+        })
         try:
             dispatcher.run()
             dispatcher.accept()

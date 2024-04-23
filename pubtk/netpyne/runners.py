@@ -2,8 +2,7 @@ import os
 import json
 from pubtk.runtk.utils import convert, set_map, create_script
 from pubtk import runtk
-from pubtk.runtk.runners import create_runner
-from pubkt.runtk import RUNNERS
+from pubtk.runtk.runners import Runner, create_runner
 import socket
 import logging
 import time
@@ -14,21 +13,54 @@ class NetpyneRunner(Runner):
     see class runner
     mappings <-
     """
-    def __new__(cls, inherit='file', **kwargs):
+    def __new__(cls, inherit='socket', **kwargs):
 
         _super = create_runner(inherit)
 
         def __init__(self, netParams=None, cfg=None, **kwargs):
+            """
+            NetpyneRunner constructor
+
+            Parameters
+            ----------
+            self - NetpyneRunner instance
+            netParams - optional netParams instance (defaults to None, created with method: get_NetParams)
+            cfg - optional SimConfig instance (defaults to None, created with method: get_SimConfig)
+                  N.B. requires cfg with the update_cfg method. see in get_SimConfig:
+                                   self.cfg = type("Runner_SimConfig", (specs.SimConfig,),
+                                   {'__mappings__': self.mappings,
+                                   'update_cfg': update_cfg})()
+            kwargs - Unused
+            """
             _super.__init__(self, **kwargs)
             self.netParams = netParams
             self.cfg = cfg
 
         def _set_inheritance(self, inherit):
+            """
+            Method for changing inheritance of NetpyneRunner
+            see runtk.RUNNERS
+            Parameters
+            ----------
+            self
+            inherit
+            """
             if inherit in runtk.RUNNERS:
                 cls = type(self)
                 cls.__bases__ = (runtk.RUNNERS[inherit],)
 
-        def get_NetParams(self): #change nomenclature to match NetPyNE
+        def get_NetParams(self):
+            """
+            Creates / Returns a NetParams instance
+            Parameters
+            ----------
+            self
+
+            Returns
+            -------
+            NetParams instance
+
+            """
             if self.netParams:
                 return self.netParams
             else:
@@ -37,6 +69,17 @@ class NetpyneRunner(Runner):
                 return self.netParams
 
         def update_cfg(self): #intended to take `cfg` instance as self
+            """
+            Updates the SimConfig instance with mappings to the runner, called from a SimConfig instance
+
+            Parameters
+            ----------
+            self - specs (NetpyneRunner) SimConfig instance
+
+            Returns
+            -------
+            None (updates SimConfig instance in place)
+            """
             for assign_path, value in self.__mappings__.items():
                 try:
                     set_map(self, assign_path, value)
@@ -44,6 +87,16 @@ class NetpyneRunner(Runner):
                     raise Exception("failed on mapping: cfg.{} with value: {}\n{}".format(assign_path, value, e))
 
         def get_SimConfig(self):
+            """
+            Creates / Returns a SimConfig instance
+            Parameters
+            ----------
+            self - NetpyneRunner instance
+
+            Returns
+            -------
+            SimConfig instance
+            """
             if self.cfg:
                 return self.cfg
             else:
@@ -54,6 +107,13 @@ class NetpyneRunner(Runner):
                 return self.cfg
 
         def set_SimConfig(self):
+            """
+            updates the SimConfig instance with mappings to the runner, called from a Runner instance
+
+            Parameters
+            ----------
+            self
+            """
             # assumes values are only in 'cfg'
             for assign_path, value in self.mappings.items():
                 try:
