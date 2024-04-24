@@ -29,7 +29,9 @@ class Socket(object):
         self.connection.settimeout(self.timeout)
         return self.connection, self.peer_address
 
-    def connect(self):
+    def connect(self, socket_name=None):
+        if socket_name:
+            self.name = socket_name
         self.peer_address = self.name
         self.connection = socket.socket(self.type, socket.SOCK_STREAM)
         self.connection.settimeout(self.timeout)

@@ -3,7 +3,7 @@ import os
 from collections import namedtuple
 from batchtk.runtk.dispatchers import Dispatcher, INETDispatcher, UNIXDispatcher
 from batchtk import runtk
-from batchtk.runtk.submits import ZSHSubmit, ZSHSubmitSOCK, ZSHSubmitSFS
+from batchtk.runtk.submits import SHSubmit, SHSubmitSOCK, SHSubmitSFS
 
 class TestDispatcher:
     @pytest.fixture
@@ -23,8 +23,8 @@ class TestDispatcher:
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit'])
 JOBS = [
-        Job(INETDispatcher, ZSHSubmitSOCK),
-        Job(UNIXDispatcher, ZSHSubmitSOCK)
+        Job(INETDispatcher, SHSubmitSOCK),
+        Job(UNIXDispatcher, SHSubmitSOCK)
         ]
 
 class TestJOBS:

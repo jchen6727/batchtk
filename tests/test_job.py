@@ -3,14 +3,14 @@ test_job.py
 this file runs a simple test between a dispatcher<->runner pair
 it does not start a subprocess but validates that the file is appropriate and the runner has imported the correct values
 to start bidirectional communication
-the created environment. for subprocess testing, use test_zsh.py.
+the created environment. for subprocess testing, use test_sh.py.
 """
 
 import pytest
 import os
 from batchtk import runtk
 from batchtk.runtk.dispatchers import INETDispatcher, UNIXDispatcher
-from batchtk.runtk.submits import ZSHSubmitSOCK
+from batchtk.runtk.submits import SHSubmitSOCK
 from batchtk.runtk.runners import SocketRunner
 from batchtk.utils import get_exports#TODO implement a more universal get_port_info
 import logging
@@ -20,8 +20,8 @@ from collections import namedtuple
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit'])
 JOBS = [
-        Job(INETDispatcher, ZSHSubmitSOCK),
-        Job(UNIXDispatcher, ZSHSubmitSOCK)
+        Job(INETDispatcher, SHSubmitSOCK),
+        Job(UNIXDispatcher, SHSubmitSOCK)
         ]
 
 logger = logging.getLogger('test')
@@ -64,7 +64,7 @@ class TestJOBS:
 
         logger.info(env)
         runner = SocketRunner(env=env)
-        logger.info("runner.socketname:\n{}".format(runner.socketname))
+        logger.info("runner.socket_name:\n{}".format(runner.socket_name))
         runner.connect()
         connection, peer_address = dispatcher.accept()
         #logger.info("port info (runner connect):\n{}".format(get_port_info(dispatcher.socket.name[1])))
