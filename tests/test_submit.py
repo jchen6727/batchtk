@@ -1,8 +1,8 @@
 import pytest
 import os
-from pubtk import runtk
-from pubtk.runtk.submits import Submit
-from pubtk.utils import get_port_info
+from batchtk import runtk
+from batchtk.runtk.submits import Submit
+from batchtk.utils import get_port_info
 import logging
 import json
 

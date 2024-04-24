@@ -8,11 +8,11 @@ the created environment. for subprocess testing, use test_zsh.py.
 
 import pytest
 import os
-from pubtk import runtk
-from pubtk.runtk.dispatchers import INETDispatcher, UNIXDispatcher
-from pubtk.runtk.submits import ZSHSubmitSOCK
-from pubtk.runtk.runners import SocketRunner
-from pubtk.utils import get_exports#TODO implement a more universal get_port_info
+from batchtk import runtk
+from batchtk.runtk.dispatchers import INETDispatcher, UNIXDispatcher
+from batchtk.runtk.submits import ZSHSubmitSOCK
+from batchtk.runtk.runners import SocketRunner
+from batchtk.utils import get_exports#TODO implement a more universal get_port_info
 import logging
 import json
 from collections import namedtuple

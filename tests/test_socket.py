@@ -1,6 +1,6 @@
 import pytest
 import logging
-from pubtk.runtk.sockets import INETSocket
+from batchtk.runtk.sockets import INETSocket
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.INFO)

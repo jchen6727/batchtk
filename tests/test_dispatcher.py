@@ -1,9 +1,9 @@
 import pytest
 import os
 from collections import namedtuple
-from pubtk.runtk.dispatchers import Dispatcher, INETDispatcher, UNIXDispatcher
-from pubtk import runtk
-from pubtk.runtk.submits import ZSHSubmit, ZSHSubmitSOCK, ZSHSubmitSFS
+from batchtk.runtk.dispatchers import Dispatcher, INETDispatcher, UNIXDispatcher
+from batchtk import runtk
+from batchtk.runtk.submits import ZSHSubmit, ZSHSubmitSOCK, ZSHSubmitSFS
 
 class TestDispatcher:
     @pytest.fixture

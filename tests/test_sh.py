@@ -1,8 +1,8 @@
 import pytest
 import os
-from pubtk import runtk
-from pubtk.runtk.dispatchers import INETDispatcher, UNIXDispatcher
-from pubtk.runtk.submits import ZSHSubmitSOCK
+from batchtk import runtk
+from batchtk.runtk.dispatchers import INETDispatcher, UNIXDispatcher
+from batchtk.runtk.submits import SHSubmitSOCK
 #from pubtk.utils import get_port_info #TODO implement a more universal get_port_info
 import logging
 import json
@@ -10,19 +10,19 @@ from collections import namedtuple
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit'])
 JOBS = [
-        Job(INETDispatcher, ZSHSubmitSOCK),
-        Job(UNIXDispatcher, ZSHSubmitSOCK)
+        Job(INETDispatcher, SHSubmitSOCK),
+        Job(UNIXDispatcher, SHSubmitSOCK)
         ]
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.INFO)
-handler = logging.FileHandler('test_zsh.log')
+handler = logging.FileHandler('test_sh.log')
 
 formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-class TestZSHINET:
+class TestSHINET:
     @pytest.fixture(params=JOBS)
     def setup(self, request):
         Submit = request.param.Submit
