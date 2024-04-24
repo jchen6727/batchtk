@@ -3,24 +3,42 @@
 batchtk is my (james.chen@downstate.edu) python package for handling custom remote job submissions
 ```
 .
-├── README.md
-├── batchtk ->python package<-
-│   ├── batchtk ->generate batch exploration csv based on exploration space<-
+├── batchtk
+│   ├── raytk <- integration with ray
 │   │   ├── __init__.py
-│   │   └── batchify.py 
-│   ├── ipynb ->jupyter notebooks to test out various things<-
-│   │   └── batchify.ipynb
-│   └── runtk ->a script with subprocess handling, with variable passing through the environment<-
+│   │   └── search.py
+│   ├── runtk <- tools for custom job submission
+│   │   ├── dispatchers.py
+│   │   ├── header.py
+│   │   ├── __init__.py
+│   │   ├── runners.py
+│   │   ├── sockets.py
+│   │   ├── submits.py
+│   │   └── utils.py
+│   └── utils <- utilities used by rest of the package
 │       ├── __init__.py
-│       ├── runners.py 
 │       └── utils.py
-├── avatk.egg-info ->python package stuff that allows for pip install -e .<-
-│   ├── PKG-INFO
-│   ├── SOURCES.txt
-│   ├── dependency_links.txt
-│   ├── requires.txt
-│   └── top_level.txt
-└── pyproject.toml
+├── examples
+│   └── colab <- examples of package usage
+│       ├── basic_runner.py
+│       ├── pubtk0.ipynb
+│       ├── pubtk1.ipynb
+│       ├── pubtk2.ipynb
+│       └── socket_runner.py
+├── LICENSE.md
+├── pyproject.toml
+├── README.md
+└── tests <- pytest checks
+    ├── cleanup.zsh
+    ├── runner_scripts
+    │   └── socket_py.py
+    ├── test_dispatcher.py
+    ├── test_job.py
+    ├── test_sh.py
+    ├── test_socket.py
+    └── test_submit.py
+
+9 directories, 26 files
 ```
 since this is a WIP, if you wish to use the code I would request that you fork it / branch it so that I can also see 
 what direction to take the code.

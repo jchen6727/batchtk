@@ -1,8 +1,8 @@
 import os
 import json
-from pubtk.runtk.utils import convert, set_map
-from pubtk import runtk
-from pubtk.runtk.sockets import INETSocket, UNIXSocket
+from batchtk.runtk.utils import convert, set_map
+from batchtk import runtk
+from batchtk.runtk.sockets import INETSocket, UNIXSocket
 import socket
 import logging
 import time

@@ -1,4 +1,4 @@
-from pubtk.runtk import SocketRunner
+from batchtk.runtk import SocketRunner
 import os
 import sys
 import json

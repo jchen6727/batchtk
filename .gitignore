@@ -1,15 +1,15 @@
 
 .idea/
 *.egg-info/
-pubtk/runtk/__pycache__/
+batchtk/runtk/__pycache__/
 
 *.log
 
 tests/__pycache__/
 
-pubtk/utils/__pycache__/
+batchtk/utils/__pycache__/
 
-pubtk/.DS_Store
+batchtk/.DS_Store
 
 examples/ca3_sfs/arm64/
 

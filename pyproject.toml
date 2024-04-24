@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "batchtk"
-version = "0.0.1a"
+version = "0.0.1b"
 authors = [
     { name = "James Chen", email = "jchen.6727@gmail.com" },
 ]

@@ -2,9 +2,9 @@
 import subprocess
 import logging
 from collections import namedtuple
-from pubtk import runtk
+from batchtk import runtk
 import re
-from pubtk.utils import path_open
+from batchtk.utils import path_open
 import os
 
 SOCKET_HANDLES = {runtk.SUBMIT: '{output_path}/{label}.sh',

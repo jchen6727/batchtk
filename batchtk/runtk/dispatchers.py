@@ -1,10 +1,10 @@
 import os
 import subprocess
 import hashlib
-from pubtk import runtk
-from pubtk.runtk.submits import Submit
-from pubtk.runtk.sockets import INETSocket, UNIXSocket
-from pubtk.utils import create_path
+from batchtk import runtk
+from batchtk.runtk.submits import Submit
+from batchtk.runtk.sockets import INETSocket, UNIXSocket
+from batchtk.utils import create_path
 import socket
 
 def format_env(dictionary, value_type=None, index=0):
@@ -186,7 +186,7 @@ class SHDispatcher(Dispatcher):
         project_path - current directory where the relevant files to run are located.
         output_path  - path to output directory, can be either relative if starting with '.' or absolute if starting
                        with '/'. defaults to current directory
-        submit       - Submit object (see pubtk.runk.submit)
+        submit       - Submit object (see batchtk.runk.submit)
         in **kwargs:
             gid      - string to identify dispatcher by the created runner
             env      - dictionary of environmental variables to be passed to the created runner

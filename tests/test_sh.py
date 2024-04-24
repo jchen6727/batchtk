@@ -3,7 +3,7 @@ import os
 from batchtk import runtk
 from batchtk.runtk.dispatchers import INETDispatcher, UNIXDispatcher
 from batchtk.runtk.submits import SHSubmitSOCK
-#from pubtk.utils import get_port_info #TODO implement a more universal get_port_info
+#from batchtk.utils import get_port_info #TODO implement a more universal get_port_info
 import logging
 import json
 from collections import namedtuple
