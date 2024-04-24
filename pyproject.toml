@@ -3,10 +3,10 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pubtk"
+name = "batchtk"
 version = "0.0.1"
 authors = [
     { name = "James Chen", email = "jchen.6727@gmail.com" },
 ]
-description = "A public version of my personal toolkit."
+description = "Batch submission toolkit for Python"
 dependencies = ['importlib-metadata; python_version>"3"']
