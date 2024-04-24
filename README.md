@@ -1,11 +1,10 @@
-# avatk
+# batchtk
 
-avatk is my (james.chen@downstate.edu) personal toolkit for python packages. it contains 2 very use-specific-tools and
-my jupyters.
+batchtk is my (james.chen@downstate.edu) python package for handling custom remote job submissions
 ```
 .
 ├── README.md
-├── avatk
+├── batchtk ->python package<-
 │   ├── batchtk ->generate batch exploration csv based on exploration space<-
 │   │   ├── __init__.py
 │   │   └── batchify.py 

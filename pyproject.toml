@@ -10,3 +10,4 @@ authors = [
 ]
 description = "Batch submission toolkit for Python"
 dependencies = ['importlib-metadata; python_version>"3"']
+readme = "README.md"
