@@ -1,4 +1,5 @@
 import os
+import json
 import subprocess
 import hashlib
 from batchtk import runtk
@@ -28,8 +29,14 @@ def format_env(dictionary, value_type=None, index=0):
     """
     cl = len(dictionary)
     get_type = staticmethod(lambda x: type(x).__name__)
+
+    def serialize(key, value): #what if someone creates a dictionary #TODO official global serialize, deserialize functions
+        if type(value) == dict:
+            return "{}={}".format(key, json.dumps(value))
+        else:
+            return "{}={}".format(key, value)
     return {"{}{}{}".format(value_type or get_type(value).upper(), runtk.GREPSTR, cl + i):
-                "{}={}".format(key, value) for i, (key, value) in enumerate(dictionary.items())}
+            serialize(key, value) for i, (key, value) in enumerate(dictionary.items())}
 
     # convert dictionary to proper elements
 class Dispatcher(object):

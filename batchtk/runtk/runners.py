@@ -95,7 +95,7 @@ class Runner(object):
         except:
             raise KeyError(k)
 
-    def convert(self, _type: str, val: object):
+    def convert(self, _type: str, val: object):#TODO fix nomenclature for convert
         """
         Internal function called during initialization for converting environment values to the appropriate type
         (see runtk.SUPPORTS)

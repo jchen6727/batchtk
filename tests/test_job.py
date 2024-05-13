@@ -16,6 +16,7 @@ from batchtk.utils import get_exports#TODO implement a more universal get_port_i
 import logging
 import json
 from collections import namedtuple
+from header import TEST_ENVIRONMENT
 
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit'])
@@ -41,9 +42,7 @@ class TestJOBS:
         dispatcher = Dispatcher(project_path=os.getcwd(),
                                      submit=Submit(),
                                      gid='test' + Dispatcher.__name__ + Submit.__name__)
-        dispatcher.update_env({'strvalue': '1',
-                               'intvalue': 2,
-                               'fltvalue': 3.0})
+        dispatcher.update_env(TEST_ENVIRONMENT)
         dispatcher.submit.update_templates(command='python test.py')
         return dispatcher
 
@@ -89,7 +88,6 @@ dispatcher sent              ---> runner recv
         #logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         dispatcher.clean()
         logger.info("runner.mappings:\n{}".format(json.dumps(runner.mappings)))
-        assert runner.mappings['strvalue'] == '1'
-        assert runner.mappings['intvalue'] == 2
-        assert runner.mappings['fltvalue'] == 3.0
+        for key, value in TEST_ENVIRONMENT.items():
+            assert runner.mappings[key] == value
         #logger.info("port info (dispatcher clean):\n{}".format(get_port_info(dispatcher.socket.name[1])))
