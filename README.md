@@ -21,9 +21,9 @@ batchtk is my (james.chen@downstate.edu) python package for handling custom remo
 ├── examples
 │   └── colab <- examples of package usage
 │       ├── basic_runner.py
-│       ├── pubtk0.ipynb
-│       ├── pubtk1.ipynb
-│       ├── pubtk2.ipynb
+│       ├── batchtk0.ipynb
+│       ├── batchtk1.ipynb
+│       ├── batchtk2.ipynb
 │       └── socket_runner.py
 ├── LICENSE.md
 ├── pyproject.toml

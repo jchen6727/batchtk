@@ -7,6 +7,7 @@ import socket
 import logging
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+import ast
 
 class Runner(object):
     """
@@ -95,7 +96,7 @@ class Runner(object):
         except:
             raise KeyError(k)
 
-    def convert(self, _type: str, val: object):
+    def convert(self, _type: str, val: object):#TODO fix nomenclature for convert
         """
         Internal function called during initialization for converting environment values to the appropriate type
         (see runtk.SUPPORTS)
@@ -109,6 +110,10 @@ class Runner(object):
             for _type in self.supports:
                 try:
                     return self.supports[_type](val)
+                except:
+                    pass
+                try:
+                    return ast.literal_eval(val)
                 except:
                     pass
         raise KeyError(_type)
