@@ -1,7 +1,7 @@
 import json
 import ast
 from collections import namedtuple
-
+import numpy
 
 GREPSTR = 'RUNTK'
 SUBMIT = 'submit'
@@ -28,7 +28,9 @@ SUPPORTS = { #TODO numpy handling? or binary serialization?
     'DICT': json.loads,
     'STR': staticmethod(lambda val: val),
     'LIST': ast.literal_eval, #TODO ast.literal_eval for each entry?
-    'TUPLE': ast.literal_eval
+    'TUPLE': ast.literal_eval,
+    'FLOAT64': float, #TODO what method encapsulate all other data type, 
+    'INT64': int,
 }
 
 SOCKET_ALIASES = {SOCKET: SOCKET_ENV,

@@ -7,6 +7,7 @@ import socket
 import logging
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+import ast
 
 class Runner(object):
     """
@@ -109,6 +110,10 @@ class Runner(object):
             for _type in self.supports:
                 try:
                     return self.supports[_type](val)
+                except:
+                    pass
+                try:
+                    return ast.literal_eval(val)
                 except:
                     pass
         raise KeyError(_type)
