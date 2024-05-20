@@ -24,11 +24,11 @@ HANDLES = {SUBMIT: 'runtk.SUBMIT',
 SUPPORTS = { #TODO numpy handling? or binary serialization?
     'INT': int,
     'FLOAT': float,
-    'JSON': json.loads,
-    'DICT': json.loads,
+    'JSON': eval, #json.loads
+    'DICT': eval, #json.loads
     'STR': staticmethod(lambda val: val),
-    'LIST': ast.literal_eval, #TODO ast.literal_eval for each entry?
-    'TUPLE': ast.literal_eval,
+    'LIST': eval, #TODO ast.literal_eval for each entry?
+    'TUPLE': eval,
     'FLOAT64': float, #TODO what method encapsulate all other data type, 
     'INT64': int,
 }

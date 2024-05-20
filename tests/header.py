@@ -16,6 +16,6 @@ TEST_ENVIRONMENT = {
     'strvalue': '1',
     'intvalue': 2,
     'fltvalue': 3.0,
-    #'dictvalue': {'key': 'value'}, #TODO serialization needs to json.dumps properly
+    'dictvalue': {'key': 'value'}, #TODO serialization needs to json.dumps properly
     'listvalue': [1, 2.0, "3, 4, 5"],
 }

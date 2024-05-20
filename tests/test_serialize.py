@@ -1,0 +1,35 @@
+import pytest
+import os
+from header import TEST_ENVIRONMENT
+from utils import get_exports
+from batchtk.runtk.dispatchers import Dispatcher
+from batchtk.runtk.runners import Runner
+from batchtk import runtk
+from collections import namedtuple
+import logging
+
+logger = logging.getLogger('test')
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler('test_serialize.log')
+
+formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+Job = namedtuple('Job', ['dispatcher', 'key', 'val'])
+class TestEnv:
+    @pytest.fixture(params=TEST_ENVIRONMENT.items())
+    def setup(self, request):
+        key, val = request.param[0], request.param[1]
+        dispatcher = Dispatcher(gid='test_serialize')
+        dispatcher.update_env({key: val})
+        logger.info("testing key: {} with {} value: {}".format(key, type(val).__name__, val))
+        return namedtuple('Setup', ['dispatcher', 'key', 'val'])(dispatcher, key, val)
+
+    def test_env(self, setup):
+        env = setup.dispatcher.env
+        logger.info("dispatcher.env:\n{}".format(env))
+        runner = Runner(env=env)
+        mappings = runner.get_mappings()
+        logger.info("runner.mappings:\n{}".format(mappings))
+        assert mappings[setup.key] == setup.val

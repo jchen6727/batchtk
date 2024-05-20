@@ -63,10 +63,7 @@ class Runner(object):
                          self.grepfunc(key)}
         # readability, greptups as the environment variables: (key,value) passed by runtk.GREPSTR environment variables
         # saved the environment variables TODO JSON vs. STRING vs. FLOAT
-        self.mappings = { # export JSONPMAP0="cfg.settings={...}" for instance would map the {...} as a json to cfg.settings
-            val[0].strip(): self.convert(key.split(self.grepstr)[0], val[1].strip())
-            for key, val in self.greptups.items()
-        }
+        self.mappings = self.load_env()
         if kwargs:
             self.log("Unused arguments were passed into base class Runner.__init__(): {}".format(kwargs), level='info')
 
@@ -96,7 +93,14 @@ class Runner(object):
         except:
             raise KeyError(k)
 
-    def convert(self, _type: str, val: object):#TODO fix nomenclature for convert
+    def load_env(self): #clarity, loads an entire environment, load_var loads a single variable from the environment
+        mappings = {
+            # export JSONPMAP0="cfg.settings={...}" for instance would map the {...} as a json to cfg.settings
+            val[0].strip(): self.load_var(key.split(self.grepstr)[0], val[1].strip())
+            for key, val in self.greptups.items()
+        }
+        return mappings
+    def load_var(self, _type: str, val: object):#NOTE, rename convert to
         """
         Internal function called during initialization for converting environment values to the appropriate type
         (see runtk.SUPPORTS)
@@ -113,7 +117,7 @@ class Runner(object):
                 except:
                     pass
                 try:
-                    return ast.literal_eval(val)
+                    return eval(val)
                 except:
                     pass
         raise KeyError(_type)

@@ -8,37 +8,6 @@ from batchtk.runtk.sockets import INETSocket, UNIXSocket
 from batchtk.utils import create_path
 import socket
 
-def format_env(dictionary, value_type=None, index=0):
-    """
-    Parameters
-    ----------
-    dictionary - the dictionary of variable_path: values to add to the environment
-    index (optional) - the index to start at for environment generation, defaults to 0
-    value_type (optional) - forces the type of values added to the dictionary, how the runner interprets the values
-                          - if not provided, the value_type will be based on the dictionary item's type per entry basis.
-    Returns
-    -------
-    dictionary of formatted environment variables
-
-    use:
-        format_env({'foo': 1, 'bar': 2.0, 'baz': 'three'})
-    returns:
-        {'INTRUNTK0': 'foo=1', 'FLOATRUNTK1': 'bar=2.0', 'STRRUNTK2': 'baz=three'}
-
-    with runtk.GREPSTR being defined in as 'RUNTK' (see ./header.py)
-    """
-    cl = len(dictionary)
-    get_type = staticmethod(lambda x: type(x).__name__)
-
-    def serialize(key, value): #what if someone creates a dictionary #TODO official global serialize, deserialize functions
-        if type(value) == dict:
-            return "{}={}".format(key, json.dumps(value))
-        else:
-            return "{}={}".format(key, value)
-    return {"{}{}{}".format(value_type or get_type(value).upper(), runtk.GREPSTR, cl + i):
-            serialize(key, value) for i, (key, value) in enumerate(dictionary.items())}
-
-    # convert dictionary to proper elements
 class Dispatcher(object):
     """
     base class for all Dispatcher classes
@@ -137,6 +106,7 @@ class Dispatcher(object):
 
         # convert dictionary to proper elements
 
+    create_env = format_env # alias (same function)
     def init_run(self, **kwargs):
         """
         Parameters

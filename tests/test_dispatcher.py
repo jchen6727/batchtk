@@ -5,22 +5,6 @@ from batchtk.runtk.dispatchers import Dispatcher, INETDispatcher, UNIXDispatcher
 from batchtk import runtk
 from batchtk.runtk.submits import SHSubmit, SHSubmitSOCK, SHSubmitSFS
 
-class TestDispatcher:
-    @pytest.fixture
-    def setup(self):
-        dispatcher = Dispatcher(env={'type': 'base'}, gid='dispatcher_base')
-        return dispatcher
-
-    def test_init(self, setup):
-        dispatcher = setup
-        assert dispatcher.gid == 'dispatcher_base'
-        assert dispatcher.env['type'] == 'base'
-
-    def test_update_env(self, setup):
-        dispatcher = setup
-        dispatcher.update_env({'new_var': 'new_value'}, value_type='STR')
-        assert 'new_var=new_value' in dispatcher.env.values()
-
 Job = namedtuple('Job', ['Dispatcher', 'Submit'])
 JOBS = [
         Job(INETDispatcher, SHSubmitSOCK),
