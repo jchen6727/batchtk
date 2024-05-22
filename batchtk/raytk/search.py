@@ -2,7 +2,7 @@ import ray
 import pandas
 from ray import train
 import types
-
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 def ray_trial(config, label, dispatcher_constructor, project_path, output_path, submit):
     tid = ray.train.get_context().get_trial_id()

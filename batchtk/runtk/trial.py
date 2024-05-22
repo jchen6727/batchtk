@@ -1,5 +1,7 @@
 import types
 import pandas
+
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 def trials(configs, label, gen, dispatcher_constructor, project_path, output_path, submit):
     results = []
     for tid, config in enumerate(configs):
