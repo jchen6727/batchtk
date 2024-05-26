@@ -3,6 +3,7 @@ import pandas
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 def trials(configs, label, gen, dispatcher_constructor, project_path, output_path, submit):
+    label = '{}_{}'.format(label, gen)
     results = []
     for tid, config in enumerate(configs):
         results.append(trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit))

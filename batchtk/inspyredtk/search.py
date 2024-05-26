@@ -4,34 +4,20 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from batchtk.utils import path_open, get_path
 import logging
-#per: https://aarongarrett.github.io/inspyred/troubleshooting.html
-"""
-my_seed = int(time.time())
-seedfile = open('randomseed.txt', 'w')
-seedfile.write('{0}'.format(my_seed))
-seedfile.close()
-prng = random.Random()
-prng.seed(my_seed)
-
-import logging
-logger = logging.getLogger('inspyred.ec')
-logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler('inspyred.log', mode='w')
-file_handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-"""
 
 # each ALGO has custom kwargs
 # see https://pythonhosted.org/inspyred/reference.html
-ALGO = {
-    'DEA': ec.DEA,
-    'EDA': ec.EDA,
-    'ES': ec.ES,
-    'GA': ec.GA,
-    'SA': ec.SA,
+ALGOS = {
+    'DEA': ec.DEA, #differential evolutionary algorithm: {num_selected, tournament_size, crossover_rate, mutation_rate, gaussian_mean, gaussian_stdev}
+    'EDA': ec.EDA, #estimation of distribution algorithm: {num_selected, num_offspring, num_elites}
+    'ES': ec.ES, #evolution strategy: {tau, tau_prime, epsilon}
+    'GA': ec.GA, #genetic algorithm: {num_selected, crossover_rate, num_crossover_points, mutation_rate, num_elites}
+    'SA': ec.SA, #simulated annealing: {temperature, cooling_rate, mutation_rate, gaussian_mean, gaussian_stdev}
 }
+
+def generator(random, args):
+    return [random.uniform(l, u) for l, u in zip(args.get('lower_bound'), args.get('upper_bound'))]
+
 
 def ec_search(dispatcher_constructor: Callable,
               submit_constructor: Callable,
@@ -58,9 +44,38 @@ def ec_search(dispatcher_constructor: Callable,
     """
     storage_path = get_path(output_path)
 
+    prng = random.Random()
+    if algorithm_config is None:
+        algorithm_config = {}
+    algorithm_config['pop_size'] = pop_size
+
     if seed is None:
         seed = int(time.time())
 
+    prng.seed(seed)
+    # per: https://aarongarrett.github.io/inspyred/troubleshooting.html
+    with path_open(path="{}/{}_ec.seed".format(label, storage_path), mode='w') as fptr:
+        fptr.write(str(seed))
+
+
+    if algorithm in ALGOS:
+        ea = ALGOS[algorithm](prng)
+        # default termination
+        # https://pythonhosted.org/inspyred/reference.html#inspyred.ec.terminators.generation_termination
+        ea.terminator = ec.terminators.generation_termination
+        terminator_kwargs = {'num_generations': generations}
+    else:
+        ea = algorithm
+        # if the user supplies the ea, they will generate the terminator.
+        terminator_kwargs = {}
+
+    # see: https://pythonhosted.org/inspyred/reference.html#inspyred.ec.observers.file_observer
+    # Optional keyword arguments in args:
+    # statistics_file – a file object (default: see text)
+    # individuals_file – a file object (default: see text)
+    ea.observer = [ec.observers.stats_observer, ec.observers.file_observer]
+
+    # per: https://aarongarrett.github.io/inspyred/troubleshooting.html
     if logger is None:
         logger = logging.getLogger('inspyred.ec')
         logger.setLevel(logging.DEBUG)
@@ -76,23 +91,25 @@ def ec_search(dispatcher_constructor: Callable,
         param_kwargs['lower_bounds'].append(bounds[0])
         param_kwargs['upper_bounds'].append(bounds[1])
 
-    file_kwargs = {
+    observer_kwargs = {
         'statistics_file': path_open(path = "{}/{}_ec_stats.csv".format(label, storage_path), mode='w'),
         'individuals_file': path_open(path = "{}/{}_ec_ind_stats.csv".format(label, storage_path), mode='w'),
     }
 
-    with path_open(path = "{}/{}_ec.seed".format(label, storage_path), mode='w') as fptr:
-        fptr.write(str(seed))
+    # kwarg resolution order:
+    # algorithm_config -> param_kwargs -> observer_kwargs -> kwargs
+    ea_kwargs = algorithm_config
+    for _kwargs in [param_kwargs, observer_kwargs, kwargs]:
+        ea_kwargs.update(_kwargs)
 
-    random.seed(seed)
-    prng = random.Random()
-    prng.seed(seed)
-
-    ea = ALGO[algorithm](prng)
-    ea.terminator = ec.terminators.generation_termination
     ea.observer = [ec.observers.stats_observer, ec.observers.file_observer]
-    ea.selector = ec.selectors.tournament_selection
-    ea.variator = [ec.variators.uniform_crossover, ec.variators.gaussian_mutation]
-    final_pop = ea.evolve(generator=ec.ec.generators.float_random, problem=problem, bounder=ec.ec.bounders.bounds, maximize=False, max_generations=generations, pop_size=pop_size, seed=seed, **kwargs)
+    final_pop = ea.evolve(
+        generator = generator,
+        problem   = run_config,
+                          , problem=
+                          , bounder=ec.ec.bounders.bounds,
+                          max_generations=generations, p
+                            op_size=pop_size, seed=seed,
+                            **ea_kwargs)
     return final_pop
 
