@@ -1,8 +1,10 @@
 from inspyred import ec
+import os
 import random
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from batchtk.utils import path_open, get_path
+from batchtk.runtk import trials
 import logging
 
 # each ALGO has custom kwargs
@@ -103,13 +105,36 @@ def ec_search(dispatcher_constructor: Callable,
         ea_kwargs.update(_kwargs)
 
     ea.observer = [ec.observers.stats_observer, ec.observers.file_observer]
+
+    global gen
+    gen = -1
+
+    submit = submit_constructor()
+    submit.update_templates(
+        **run_config
+    )
+    project_path = os.getcwd()
+    def eval_func(candidates, args):
+        gen += 1
+        results = trials(configs = candidates,
+                         label = label,
+                         gen = gen,
+                         dispatcher_constructor = dispatcher_constructor,
+                         project_path = project_path,
+                         output_path = output_path,
+                         submit = submit,
+               )
+        return results
+
+
+
     final_pop = ea.evolve(
         generator = generator,
-        problem   = run_config,
-                          , problem=
-                          , bounder=ec.ec.bounders.bounds,
-                          max_generations=generations, p
-                            op_size=pop_size, seed=seed,
-                            **ea_kwargs)
+        evaluator = eval_func,
+        bounder   = ec.ec.bounders.bounds,
+        max_generations=generations,
+        op_size=pop_size,
+        seed=seed,
+        **ea_kwargs)
     return final_pop
 

@@ -1,6 +1,5 @@
 import os
 import json
-from batchtk.runtk.utils import convert, set_map
 from batchtk import runtk
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
 import socket
