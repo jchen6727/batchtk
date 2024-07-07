@@ -7,6 +7,7 @@ import logging
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import ast
+import warnings
 
 class Runner(object):
     """
@@ -17,6 +18,27 @@ class Runner(object):
     contains placeholder (pass) functions inherited by child functions to allow for verbatim calls that are agnostic to
     the specific inherited class.
     """
+
+    _instance = None #singleton instance
+
+    def __new__(cls, *args, **kwargs):
+        """
+        Singleton implementation
+        Parameters
+        ----------
+        args - see __init__
+        kwargs - see __init__
+
+        Examples
+        --------
+        runner = get_runner()
+        runner_id = id(runner)
+        with get_runner() as comm:
+            id(comm) == runner_id
+        """
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
     def __init__(
         self,
         grepstr: Optional[str] = None, #expecting string, defaults to runtk.GREPSTR (header.py)
@@ -79,12 +101,19 @@ class Runner(object):
             return self.env[k]
         elif k in self.aliases:
             return self.env[self.aliases[k]]
-        elif k in ['__name__', '__origin__']: # to prevent issues with help() builtin, which for some reason calls
-            # __getattr__ without __getattribute. TODO better way to do this?
-            raise KeyError(k)
+#        elif k in ['__name__', '__origin__']: # to prevent issues with help() builtin, which for some reason calls
+#            # __getattr__ without __getattribute. TODO better way to do this?
+#            raise KeyError(k)
         else:
+            #warnings.warn("Attribute {} not found in environment".format(k))
             raise KeyError(k)
 
+    def __hasattr__(self, k):
+        try:
+            self.__getattr__(k)
+            return True
+        except:
+            return False
 
     def __getitem__(self, k):
         try:
@@ -182,6 +211,20 @@ class Runner(object):
         if self.logger:
             for handler in self.logger.handlers:
                 handler.close()
+
+    def __enter__(self):
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # note
+        # exc_type, exc_val, exc_tb are the exception type, value, and traceback
+        #if exc_type:
+        #    print("Exception: {}".format(exc_tb))
+        #    print("closing connection")
+        self.close()
+        #print("connection closed")
+
 
 
 class FileRunner(Runner):
@@ -303,3 +346,16 @@ def get_class(runner_type = None):
         return RUNNERS[runner_type]
     else:
         raise ValueError(runner_type)
+
+def get_runner(runner_type = None, **kwargs):
+    """
+    Factory function for retrieving a runner class. if no runner_type is provided, it will check the environment to
+    determine the appropriate runner class.
+    Parameters
+    ----------
+    runner_type - a string specifying the type of runner to be created, must be a key in runners
+    Returns
+    -------
+    runners[runner_type](**kwargs) - a runner instance
+    """
+    return get_class(runner_type)(**kwargs)

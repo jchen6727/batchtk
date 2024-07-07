@@ -4,7 +4,7 @@ import random
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from batchtk.utils import path_open, get_path
-from batchtk.runtk import trials
+from batchtk.runtk import trials, LABEL_POINTER
 import logging
 
 # each ALGO has custom kwargs
@@ -101,7 +101,7 @@ def ec_search(dispatcher_constructor: Callable,
     # kwarg resolution order:
     # algorithm_config -> param_kwargs -> observer_kwargs -> kwargs
     ea_kwargs = algorithm_config
-    for _kwargs in [param_kwargs, observer_kwargs, kwargs]:
+    for _kwargs in [observer_kwargs, param_kwargs, terminator_kwargs, kwargs]:
         ea_kwargs.update(_kwargs)
 
     ea.observer = [ec.observers.stats_observer, ec.observers.file_observer]
@@ -115,6 +115,7 @@ def ec_search(dispatcher_constructor: Callable,
     )
     project_path = os.getcwd()
     def eval_func(candidates, args):
+        candidates['output_path'] = LABEL_POINTER
         gen += 1
         results = trials(configs = candidates,
                          label = label,
@@ -126,15 +127,14 @@ def ec_search(dispatcher_constructor: Callable,
                )
         return results
 
-
-
     final_pop = ea.evolve(
-        generator = generator,
-        evaluator = eval_func,
-        bounder   = ec.ec.bounders.bounds,
-        max_generations=generations,
-        op_size=pop_size,
-        seed=seed,
+        generator      = generator,
+        evaluator      = eval_func,
+        bounder        = ec.ec.bounders.bounds,
+        max_generations= generations,
+        op_size        = pop_size,
+        seed           = seed,
         **ea_kwargs)
+
     return final_pop
 
