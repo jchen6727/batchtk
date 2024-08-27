@@ -38,6 +38,8 @@ def create_path(path0: str, path1 = ""):
         target = os.path.normpath(path1)
     else:
         target = os.path.normpath(os.path.join(path0, path1))
+    if '=' in target:
+        raise ValueError("error: the directory path created for your search results contains the special character =")
     try:
         os.makedirs(target, exist_ok=True)
         return target
@@ -101,3 +103,16 @@ def dcx(**kwargs):
     """
     for instance in itertools.product(*kwargs.values()):
         yield dict(zip(kwargs.keys(), instance))
+
+
+def format_val(val):
+    """
+    Nested objects with numpy or other data types?
+    Parameters
+    ----------
+    val
+
+    Returns
+    -------
+    """
+    return None

@@ -33,6 +33,4 @@ def trial(config, label, tid, dispatcher_constructor, project_path, output_path,
 
 
 LABEL_POINTER = lambda:trial.run_label
-
-
 PATH_POINTER = lambda:trial.output_path
