@@ -338,10 +338,9 @@ def get_class(runner_type = None):
     if runner_type is None:
         if runtk.SOCKET_ENV in os.environ:
             return SocketRunner
-        elif runtk.MSGOUT_ENV in os.environ:
+        if runtk.MSGOUT_ENV in os.environ:
             return FileRunner
-        else:
-            return Runner
+        return Runner
     if runner_type in RUNNERS:
         return RUNNERS[runner_type]
     else:

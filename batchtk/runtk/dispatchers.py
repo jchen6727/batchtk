@@ -1,3 +1,14 @@
+"""
+All Dispatcher classes are defined here:
+Dispatcher classes handle the submission and monitoring of jobs
+
+
+
+
+
+"""
+
+
 import os
 import json
 import subprocess
