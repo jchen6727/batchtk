@@ -16,6 +16,7 @@ FILE_HANDLES   = {runtk.SUBMIT: '{output_path}/{label}.sh',
                   runtk.STDOUT: '{output_path}/{label}.run',
                   runtk.MSGOUT: '{output_path}/{label}.out',
                   runtk.SGLOUT: '{output_path}/{label}.sgl'}
+
 class Template(object):
 
     def __new__(cls, template = None, key_args = None, **kwargs):
@@ -29,15 +30,15 @@ class Template(object):
             return #TODO why does this need to be here?, __init__ shouldn't be called if template
         self.template = template
         if key_args:
-            self.kwargs = {key: "{" + key + "}" for key in key_args}
+            self.key_args = {key: "{" + key + "}" for key in key_args}
         else:
-            self.kwargs = {key: "{" + key + "}" for key in self.get_args()}
+            self.key_args = {key: "{" + key + "}" for key in self.get_args()}
 
     def get_args(self):
         return re.findall(r'{(.*?)}', self.template)
 
 #    def __format__(self, **kwargs):
-#        mkwargs = self.kwargs | kwargs
+#        mkwargs = self.key_args | kwargs
 #        return self.template.format(mkwargs)
 
     def format(self, **kwargs):
@@ -47,7 +48,7 @@ class Template(object):
         :param kwargs:
         :return self.template.format(**kwargs) (str): template string formatted with kwargs.
         """
-        mkwargs = self.kwargs | kwargs
+        mkwargs = self.key_args | kwargs
         try:
             return self.template.format(**mkwargs)
         except KeyError as e:
@@ -70,7 +71,7 @@ class Template(object):
         :param template:
         :return:
         """
-        return [key for key in self.kwargs if key in template]
+        return [key for key in self.key_args if key in template]
 
 
     def __repr__(self):
@@ -101,12 +102,12 @@ class Submit(object):
         self.submit_template = Template(submit_template)
         self.script_template = Template(script_template)
         self.path_template = path_template or Template(self.submit_template.template.split(' ')[-1])
-        self.kwargs = self.submit_template.kwargs | self.script_template.kwargs | self.path_template.kwargs
+        self.key_args = self.submit_template.key_args | self.script_template.key_args | self.path_template.key_args
         if handles: #TODO need better serialization of handles
-            self.handles = Template(serializers['eq'](handles), key_args=self.kwargs)
+            self.handles = Template(serializers['eq'](handles), key_args=self.key_args)
         else:
             handles = self.create_handles()
-            self.handles = Template(serializers['eq'](handles), key_args=self.kwargs)
+            self.handles = Template(serializers['eq'](handles), key_args=self.key_args)
         self.templates = self._jtuple(self.submit_template, self.script_template, self.path_template, self.handles)
         self.job = None
         self.submit = None
@@ -145,7 +146,7 @@ class Submit(object):
         if self.logger:
             getattr(self.logger, level)(message)
 
-    def create_job(self, **kwargs):
+    def create_job(self, check=False, **kwargs):
         kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
         job = self.format_job(**kwargs) # doesn't update the templates
         self.job = job
@@ -153,11 +154,6 @@ class Submit(object):
         self.script = job.script
         self.path = job.path
         self.handles = job.handles
-        try:
-            with path_open(self.path, 'w') as fptr:
-                fptr.write(self.script)
-        except Exception as e:
-            raise Exception("Failed to write script to file: {}\n{}".format(self.path, e))
 
     def format_job(self, **kwargs):
         """
@@ -194,9 +190,20 @@ handles:
 
 kwargs:
 {}
-""".format(*ssph, self.kwargs)
+""".format(*ssph, self.key_args)
 
-    def submit_job(self):
+    def submit_job(self, check=False):
+        if self.job == None:
+            raise Exception("Job not created, call create_job() first")
+        if check:
+            if os.path.exists(self.path):
+                return False
+        try:
+            with path_open(self.path, 'w') as fptr:
+                fptr.write(self.script)
+                return True
+        except Exception as e:
+            raise Exception("Failed to write script to file: {}\n{}".format(self.path, e))
         self.proc = subprocess.run(self.job.submit.split(' '), text=True, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
         return self.proc
@@ -209,7 +216,7 @@ kwargs:
 
     def __format__(self, template = False, **kwargs): #dunder method, (self, spec)
         template = template or self.script_template
-        mkwargs = self.kwargs | kwargs
+        mkwargs = self.key_args | kwargs
         return template.format(**mkwargs)
 
     def get_handles(self):
@@ -217,14 +224,6 @@ kwargs:
             return deserializers['eq'](self.job.handles)
         else:
             return deserializers['eq'](self.handles.template)
-
-
-#class SHSubmit(Submit):
-    #so actually ZSH and SH for the purposes of this are the EXACT SAME...
-    #interpreter = os.getenv('SHELL', '/bin/bash') # defaults to /bin/bash
-    #pass #TODO implement submit that identifies user shell.
-
-
 
 class SHSubmit(Submit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command'}
@@ -244,7 +243,7 @@ echo $pid >&1
     def __init__(self, **kwargs):
         super().__init__(
             submit_template = Template(template="sh {output_path}/{label}.sh",
-                                       key_args={'project_path', 'output_path', 'label'}),
+                                       key_args={'output_path', 'label'}),
             script_template = Template(template=self.script_template,
                                        key_args=self.script_args),
             handles = self.script_handles,
@@ -290,83 +289,6 @@ export JOBID=$$
 nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
-"""
-    script_handles = SOCKET_HANDLES
-
-ZSHSubmitSOCK = SHSubmitSOCK
-ZSHSubmitSFS = SHSubmitSFS
-ZSHSubmit = SHSubmit
-class SGESubmit(Submit):
-    script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', }
-    script_template = \
-        """\
-#!/bin/bash
-#$ -N j{label}
-#$ -pe smp {cores}
-#$ -l h_vmem={vmem}
-#$ -o {output_path}/{label}.run
-cd {project_path}
-source ~/.bashrc
-export JOBID=$JOB_ID
-{env}
-{command}
-"""
-    script_handles = {runtk.SUBMIT: '{output_path}/{label}.sh',
-                      runtk.STDOUT: '{output_path}/{label}.run'}
-    def __init__(self, **kwargs):
-        super().__init__(
-            submit_template = Template(template="qsub {output_path}/{label}.sh",
-                                       key_args={'output_path',  'label'}),
-            script_template = Template(template=self.script_template,
-                                       key_args=self.script_args),
-            handles = self.script_handles,
-            )
-
-    def submit_job(self, **kwargs):
-        proc = super().submit_job()
-        try:
-            self.job_id = proc.stdout.split(' ')[2]
-        except Exception as e:
-            raise(Exception("{}\nJob submission failed:\n{}\n{}\n{}\n{}".format(e, self.submit, self.script, proc.stdout, proc.stderr)))
-        return self.job_id
-
-    def set_handles(self):
-        pass
-
-class SGESubmitSFS(SGESubmit):
-    script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', }
-    script_template = \
-        """\
-#!/bin/bash
-#$ -N j{label}
-#$ -pe smp {cores}
-#$ -l h_vmem={vmem}
-#$ -o {output_path}/{label}.run
-cd {project_path}
-source ~/.bashrc
-export OUTFILE="{output_path}/{label}.out"
-export SGLFILE="{output_path}/{label}.sgl"
-export JOBID=$JOB_ID
-{env}
-{command}
-"""
-    script_handles = FILE_HANDLES
-
-class SGESubmitSOCK(SGESubmit):
-    script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'cores', 'vmem', 'sockname'}
-    script_template = \
-        """\
-#!/bin/bash
-#$ -N j{label}
-#$ -pe smp {cores}
-#$ -l h_vmem={vmem}
-#$ -o {output_path}/{label}.run
-cd {project_path}
-source ~/.bashrc
-export SOCNAME="{sockname}"
-export JOBID=$JOB_ID
-{env}
-{command}
 """
     script_handles = SOCKET_HANDLES
 

@@ -1,4 +1,5 @@
 from batchtk.runtk.runners import get_runner
+import ast
 import collections
 
 def traverse(obj, path):
@@ -7,15 +8,15 @@ def traverse(obj, path):
         return obj
     if isinstance(obj, collections.abc.Mapping) and path[0] in obj: #access object in dictionary
         return traverse(obj[path[0]], path[1:])
-    if isinstance(obj, collections.abc.Mapping) and eval(path[0]) in obj: #access object in dictionary
+    if isinstance(obj, collections.abc.Mapping) and ast.literal_eval(path[0]) in obj: #access object in dictionary
         return traverse(obj[int(path[0])], path[1:])
-    if isinstance(obj, collections.abc.Sequence) and path[0].isdigit(): #access integer in list
+    if isinstance(obj, collections.abc.Sequence) and path[0].isdigit() and int(path[0]) < len(obj): #access int in list
         return traverse(obj[int(path[0])], path[1:])
     else:
         raise AssertionError("error accessing {}[{}]".format(obj, path[0]))
 
 def set_map(obj, assign_path, value):
-    if isinstance(assign_path, str) and '.' in assign_path:
+    if isinstance(assign_path, str): # 'string'.split('.') -> ['string'], 'string.split'.split('.') -> ['string', 'split]
         assigns = assign_path.split('.')
     else:
         assigns = assign_path # assume list
@@ -25,10 +26,10 @@ def set_map(obj, assign_path, value):
         raise ValueError("error setting {}={}, check that path {} exists within your object mapping".format(assign_path, value, assign_path))
 
 def create_map(obj, assign_path, value):
-    if isinstance(assign_path, str) and '.' in assign_path:
+    if isinstance(assign_path, str):
         assigns = assign_path.split('.')
     else:
-        assigns = assign_path # assume list
+        assigns = assign_path # assume list or string
     for assign in assigns[:-1]:
         if assign not in obj:
             obj[assign] = {}
@@ -66,4 +67,6 @@ class RunConfig(dict):
         create_config(self, *args)
 
     def update(self, *args, **kwargs):
+        kwargs = kwargs | self._mappings
         update_config(self, *args, **kwargs)
+

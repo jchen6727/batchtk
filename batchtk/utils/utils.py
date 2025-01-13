@@ -33,13 +33,18 @@ def path_open(path: str, mode: str):
     fptr = open(path, mode)
     return fptr
 
-def create_path(path0: str, path1 = ""):
+def path_check(path: str):
+    if '=' in path:
+        raise ValueError("error: the directory path created for your search results contains the special character =")
+
+def create_path(path0: str, path1 = "", makedirs = True):
     if path1 and path1[0] == '/':
         target = os.path.normpath(path1)
     else:
         target = os.path.normpath(os.path.join(path0, path1))
-    if '=' in target:
-        raise ValueError("error: the directory path created for your search results contains the special character =")
+    path_check(target)
+    if makedirs is not True:
+        return target
     try:
         os.makedirs(target, exist_ok=True)
         return target

@@ -43,7 +43,7 @@ class TestTRAILS:
         config['path'] = PATH_POINTER
         config['label'] = LABEL_POINTER
         submit = request.param.Submit()
-        submit.update_templates(command='python runner_scripts/rosenbrock_py.py')
+        submit.update_templates(command='python runner_scripts/rosenbrock0_py.py')
         kwargs = {
             'config': config,
             'label': "trial",

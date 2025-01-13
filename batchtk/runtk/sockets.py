@@ -6,7 +6,7 @@ class Socket(object):
     """
     socket class
     protocolized socket for communication between dispatchers <-> runners
-    #TODO: implement basic encryption for communication
+    #TODO: implement basic encryption for communication?
     """
     def __init__(self, socket_name=None, socket_type=socket.AF_INET, timeout=None):
         self.name = socket_name
@@ -17,6 +17,12 @@ class Socket(object):
         self.connection = None
         self.peer_address = None
         self.timeout = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
     def listen(self):
         self.socket.bind(self.name)

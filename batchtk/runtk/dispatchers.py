@@ -38,7 +38,7 @@ class Dispatcher(object):
     """ 
     #obj_count = 0 # persistent count N.B. may be shared between objects. TODO no utility for this
 
-    def __init__(self, env=None, json=None, grepstr=runtk.GREPSTR, gid = None, **kwargs):
+    def __init__(self, env=None, json=None, grepstr=runtk.GREPSTR, label = None, gid = None, **kwargs):
         """
         initializes base dispatcher class
         *Optional* Parameters
@@ -57,8 +57,14 @@ class Dispatcher(object):
         self.env = env or {} # if env is None, then set to empty dictionary
         self.grepstr = grepstr
         self.gid = gid
-        self.label = ''
+        self.label = label
         #Dispatcher.obj_count = Dispatcher.obj_count + 1 #TODO no utility for this
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.clean()
 
     def add_json(self):
         pass
@@ -164,6 +170,16 @@ label:
 
 env:
 {}""".format(self.label, self.env)
+
+    def clean(self, handles=None, **kwargs):
+        """
+        Method called at close of the script, cleans up any open file handles or sockets, etc. To be implemented by
+        inherited classes.
+        :param handles: see runtk.HANDLES, passing a list of handles will remove those associated files
+        :param kwargs:
+        :return:
+        """
+        pass
 
 class SHDispatcher(Dispatcher):
     """

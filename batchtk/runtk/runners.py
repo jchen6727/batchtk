@@ -138,17 +138,10 @@ class Runner(object):
         """
         if _type in self.supports:
             return self.supports[_type](val)
-        if _type == '':
-            for _type in self.supports:
-                try:
-                    return self.supports[_type](val)
-                except:
-                    pass
-                try:
-                    return eval(val)
-                except:
-                    pass
-        raise KeyError(_type)
+        try:
+            return ast.literal_eval(val)
+        except:
+            raise ValueError(val)
 
     def connect(self, **kwargs):
         """
@@ -350,6 +343,18 @@ def get_runner(runner_type = None, **kwargs):
     """
     Factory function for retrieving a runner class. if no runner_type is provided, it will check the environment to
     determine the appropriate runner class.
+    Parameters
+    ----------
+    runner_type - a string specifying the type of runner to be created, must be a key in runners
+    Returns
+    -------
+    runners[runner_type](**kwargs) - a runner instance
+    """
+    return get_class(runner_type)(**kwargs)
+
+def get_comm(runner_type = None, **kwargs):
+    """
+    equivalent to get_runner
     Parameters
     ----------
     runner_type - a string specifying the type of runner to be created, must be a key in runners
