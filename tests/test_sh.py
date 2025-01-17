@@ -29,7 +29,7 @@ class TestSHINET:
         Dispatcher = request.param.Dispatcher
         dispatcher = Dispatcher(project_path=os.getcwd(),
                                      submit=Submit(),
-                                     gid='test' + Dispatcher.__name__ + Submit.__name__)
+                                     label='test' + Dispatcher.__name__ + Submit.__name__)
         dispatcher.update_env({'strvalue': '1',
                                'intvalue': 2,
                                'fltvalue': 3.0})

@@ -7,6 +7,7 @@ import re
 from batchtk.utils import path_open
 import os
 
+#TODO, encapsulate file system, encapsulate connection.
 SOCKET_HANDLES = {runtk.SUBMIT: '{output_path}/{label}.sh',
                   runtk.STDOUT: '{output_path}/{label}.run',
                   runtk.SOCKET: '{sockname}'
@@ -192,11 +193,11 @@ kwargs:
 {}
 """.format(*ssph, self.key_args)
 
-    def submit_job(self, check=False):
+    def submit_job(self, fs=None, proc=None, check=False):
         if self.job == None:
             raise Exception("Job not created, call create_job() first")
         if check:
-            if os.path.exists(self.path):
+            if fs.exists(self.path):
                 return False
         try:
             with path_open(self.path, 'w') as fptr:

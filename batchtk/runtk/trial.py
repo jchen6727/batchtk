@@ -18,7 +18,7 @@ def trial(config, label, tid, dispatcher_constructor, project_path, output_path,
         if isinstance(v, types.FunctionType):
             config[k] = v()
     dispatcher = dispatcher_constructor(project_path=project_path, output_path=output_path, submit=submit,
-                                        gid=run_label)
+                                        label=run_label)
     dispatcher.update_env(dictionary=config)
     try:
         dispatcher.run()

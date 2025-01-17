@@ -21,7 +21,7 @@ class TestEnv:
     @pytest.fixture(params=TEST_ENVIRONMENT.items())
     def setup(self, request):
         key, val = request.param[0], request.param[1]
-        dispatcher = Dispatcher(gid='test_serialize')
+        dispatcher = Dispatcher(label='test_serialize')
         dispatcher.update_env({key: val})
         logger.info("testing key: {} with {} value: {}".format(key, type(val).__name__, val))
         return namedtuple('Setup', ['dispatcher', 'key', 'val'])(dispatcher, key, val)

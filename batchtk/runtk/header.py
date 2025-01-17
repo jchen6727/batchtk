@@ -8,17 +8,15 @@ DELIM = '.'
 SUBMIT = 'submit'
 STDOUT = 'stdout'
 
-STATUS = namedtuple('status', ['NOTFOUND', 'EXISTS', 'PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'SUCCESS'])(1,2,3,4,5,6, 7)
+STATUS = namedtuple('status', ['NOTFOUND', 'PENDING', 'RUNNING', 'COMPLETED', 'ERROR'])(1,2,3,4,5)
 #NOTE: changing the second value will change the environment variable name and is SAFE(?)
 # changing the 1st value will require a code refactor since it is referenced codewise in getattribute
 
 STATUS_HANDLES = {
     STATUS.NOTFOUND: 'NOTFOUND',
-    STATUS.EXISTS: 'EXISTS',
-    STATUS.PENDING: 'RUNNING',
+    STATUS.PENDING: 'PENDING',
+    STATUS.RUNNING: 'RUNNING',
     STATUS.COMPLETED: 'COMPLETED',
-    STATUS.FAILED: 'FAILED',
-    STATUS.SUCCESS: 'SUCCESS',
 }
 
 

@@ -317,6 +317,7 @@ RUNNERS = {
     'socket': SocketRunner,
     'file': FileRunner,
 }
+
 def get_class(runner_type = None):
     """
     Factory function for retrieving a runner class. if no runner_type is provided, it will check the environment to

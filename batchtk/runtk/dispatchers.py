@@ -8,16 +8,22 @@ Dispatcher classes handle the submission and monitoring of jobs
 
 """
 
-
+from abc import ABC, abstractmethod
 import os
+import fsspec
+import sshfs
 import json
 import subprocess
 import hashlib
 from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
-from batchtk.utils import create_path
+from batchtk.utils import create_path, BaseFS, LocalFS, RemoteFS
+
 import socket
+
+
+
 
 class Dispatcher(object):
     """
@@ -32,33 +38,31 @@ class Dispatcher(object):
     grepstr ->
         the string value used in label generation (specifically the environment dictionary)
         defaults to runtk.GREPSTR ('RUNTK') (see ./header.py)
-    gid ->
+    label ->
         an ID string that is unique to a Dispatcher <-> Runner pair. If it is not provided, it will be generated
         upon subprocess call by the environment dictionary and **kwargs
     """ 
     #obj_count = 0 # persistent count N.B. may be shared between objects. TODO no utility for this
 
-    def __init__(self, env=None, json=None, grepstr=runtk.GREPSTR, label = None, gid = None, **kwargs):
+    def __init__(self, label, env=None, json=None, grepstr=runtk.GREPSTR, **kwargs):
         """
         initializes base dispatcher class
         *Optional* Parameters
         ----------
         env     - any environmental variables to be passed to the created runner
         grepstr - the string ID for a subprocess to identify environment variables passed by the dispatcher
-        gid     - an ID string that is unique to the dispatcher <-> runner pair
+        label   - an ID string that is unique to the dispatcher <-> runner pair
         **kwargs are placed into a __dict__ item that can be accessed by __getattr__
 
-        initializes gid, will set if the argument is supplied, otherwise the value will be
+        initializes label, will set if the argument is supplied, otherwise the value will be
         created upon subprocess call.
         """
 
         #self.__dict__ = kwargs # the __dict__ has to come first or else env won't work...?
         #TODO what is the purpose of implementing a self.__dict__ in the FIRST place?
+        self.label = label
         self.env = env or {} # if env is None, then set to empty dictionary
         self.grepstr = grepstr
-        self.gid = gid
-        self.label = label
-        #Dispatcher.obj_count = Dispatcher.obj_count + 1 #TODO no utility for this
 
     def __enter__(self):
         return self
@@ -68,6 +72,7 @@ class Dispatcher(object):
 
     def add_json(self):
         pass
+
     def update_env(self, dictionary, value_type=None, format = True, **kwargs):
         """
         Function used to update the environment dictionary that will be passed to the Runner object
@@ -129,25 +134,22 @@ class Dispatcher(object):
         """
         Parameters
         ----------
-        **kwargs - of note, **kwargs here is used if necessary to help generate self.gid
+        **kwargs - of note, **kwargs here is used if necessary to help generate self.label
 
         handles any global tasks prior to running the subprocess
-            if self.gid = None, uses hashlib to generate alphanumeric for self.gid based on self.env and **kwargs then
-            sets self.label = self.gid
-            if self.gid already set, uses self.gid as self.label
+            if self.label = None, uses hashlib to generate alphanumeric for self.label based on self.env and **kwargs then
+            sets self.label = self.label
+            if self.label already set, uses self.label as self.label
         """
-        if not self.gid:
+        pass
+        """
+        if not self.label:
             gstr = str(self.env) + str(kwargs)
-            self.gid = hashlib.md5(gstr.encode()).hexdigest()
-            self.label = "{}_{}".format(self.grepstr.lower(), self.gid)
+            self.label = hashlib.md5(gstr.encode()).hexdigest() # use uuid instead.
+            self.label = "{}_{}".format(self.grepstr.lower(), self.label)
         else:
-            self.label = self.gid
-        # convert dictionary to proper elements
-
-    #def __getattr__(self, k):
-    #TODO see self.__dict__ in init... not sure of this function utility
-    #    # only called if __getattribute__ fails
-    #    return self.__dict__[k]
+            self.label = self.label
+        """
 
     def save_env(self, filename):
         """
@@ -181,11 +183,12 @@ env:
         """
         pass
 
+
 class SHDispatcher(Dispatcher):
     """
     Extension of base Dispatcher that extends functionality to handle job generating shell script to submit jobs
     """
-    def __init__(self, submit, project_path, output_path=".", **kwargs):
+    def __init__(self, submit, project_path, output_path=".", fs = None, proc = None, **kwargs):
         """
         initializes dispatcher
         project_path - current directory where the relevant files to run are located.
@@ -193,17 +196,28 @@ class SHDispatcher(Dispatcher):
                        with '/'. defaults to current directory
         submit       - Submit object (see batchtk.runk.submit)
         in **kwargs:
-            gid      - string to identify dispatcher by the created runner
+            label      - string to identify dispatcher by the created runner
             env      - dictionary of environmental variables to be passed to the created runner
         """
         super().__init__(**kwargs)
+        self.fs = None
+        if fs is None:
+            self.fs = LocalFS()
+        if isinstance(fs, BaseFS):
+            self.fs = fs
+        if self.fs is None:
+            raise ValueError("fs must either be a LocalFS or RemoteFS instance")
+        self.proc = None
+        if proc is None:
+            self.proc = subprocess
+        self.proc = proc # subprocess module, or something that implements .run()
         self.project_path = project_path
-        self.output_path = create_path(project_path, output_path)
+        self.output_path = create_path(project_path, output_path, fs)
         self.submit = submit
         self.handles = None
         self.job_id = -1
         # create a "self.target" that contains the output_path and label?
-        #self.label = self.gid
+        #self.label = self.label
 
     def create_job(self, **kwargs):
         """
@@ -284,8 +298,8 @@ class SHDispatcher(Dispatcher):
             handles = self.handles
         if handles:
             for handle in handles:
-                if os.path.exists(self.handles[handle]):
-                    os.remove(self.handles[handle])
+                if self.fs.exists(self.handles[handle]):
+                    self.fs.remove(self.handles[handle])
 
     def __repr__(self):
         repr = super().__repr__()

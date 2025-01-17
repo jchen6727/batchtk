@@ -5,6 +5,116 @@ import subprocess
 import shlex
 import pandas
 import itertools
+import fsspec
+import sshfs
+from abc import abstractmethod
+
+
+class BaseFS(fsspec.AbstractFileSystem):
+    """
+    Base class for fsspec filesystem abstraction
+    """
+    @abstractmethod
+    def __init__(self):
+        super().__init__()
+    @abstractmethod
+    def exists(self, *args, **kwargs):
+        pass
+    @abstractmethod
+    def makedirs(self, *args, **kwargs):
+        pass
+    @abstractmethod
+    def open(self, *args, **kwargs):
+        pass
+    @abstractmethod
+    def remove(self, *args, **kwargs):
+        pass
+    @abstractmethod
+    def close(self):
+        pass
+    def tail(self, file, n=1):
+        with self.open(file, 'r') as fptr:
+            return fptr.readlines()[-n:]
+
+class LocalFS(BaseFS):
+    """
+    Wrapper for fsspec filesystem abstraction
+    """
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def exists(*args, **kwargs):
+        return os.path.exists(*args, **kwargs) # this and open() are the only two...
+
+    @staticmethod
+    def makedirs(*args, **kwargs):
+        return os.makedirs(*args, **kwargs)
+
+    @staticmethod
+    def open(*args, **kwargs):
+        return open(*args, **kwargs)
+
+    @staticmethod
+    def remove(*args, **kwargs):
+        return os.remove(*args, **kwargs)
+
+    def close(self):
+        pass
+
+class RemoteFS(BaseFS):
+    def __init__(self, fs = None, host = None):
+        super().__init__()
+        self.fs = None
+        if fs and isinstance(fs, fsspec.AbstractFileSystem):
+            self.fs = fs
+        if self.fs is None and host:
+            self.fs = sshfs.SSHFileSystem(host)
+        if not self.fs:
+            raise ValueError("no fsspec valid filesystem or host provided")
+
+    def exists(self, *args, **kwargs):
+        return self.fs.exists(*args, **kwargs)
+
+    def makedirs(self, *args, **kwargs):
+        return self.fs.makedirs(*args, **kwargs)
+
+    def open(self, *args, **kwargs):
+        return self.fs.open(*args, **kwargs) #the user has to remember to either call w/ context manager or close...
+
+    def remove(self, *args, **kwargs):
+        return self.fs.rm(*args, **kwargs)
+
+    def close(self):
+        self.fs.clear_instance_cache()
+
+class AbstractCmd(object):
+    @abstractmethod
+    def __init__(self):
+        self.proc = None
+    @abstractmethod
+    def run(self, command):
+        pass
+
+class LocalCmd(AbstractCmd):
+    def __init__(self):
+        super().__init__()
+        self.proc = None
+
+    def run(self, command):
+        self.proc = subprocess.run(command.split(' '), text=True, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        return self.proc
+
+class RemoteCmd(AbstractCmd):
+    def __init__(self, connection):
+        super().__init__()
+        self.connection = connection
+        self.proc = None
+
+    def run(self, command):
+        self.proc = self.connection.run(command, warn=True, hide=True)
+        return self.proc
 
 def get_path(path):
     if path[0] == '/':
@@ -27,29 +137,35 @@ def read_pkl(read_path: str):
     return robject
 
 
-def path_open(path: str, mode: str):
+def path_open(path: str, mode: str, fs = None):
+    if fs is None:
+        fs = LocalFS()
     if '/' in path:
-        os.makedirs(path.rsplit('/', 1)[0], exist_ok=True)
+        fs.makedirs(path.rsplit('/', 1)[0], exist_ok=True)
     fptr = open(path, mode)
     return fptr
 
-def path_check(path: str):
+def validate_path(path: str):
     if '=' in path:
         raise ValueError("error: the directory path created for your search results contains the special character =")
 
-def create_path(path0: str, path1 = "", makedirs = True):
+def create_path(path0: str, path1 = "", fs = os):
     if path1 and path1[0] == '/':
         target = os.path.normpath(path1)
     else:
         target = os.path.normpath(os.path.join(path0, path1))
-    path_check(target)
-    if makedirs is not True:
+    validate_path(target)
+    if fs is None:
         return target
-    try:
-        os.makedirs(target, exist_ok=True)
-        return target
-    except Exception as e:
-        raise Exception("attempted to create from ({},{}) path: {} and failed with exception: {}".format(path0, path1, target, e))
+    if hasattr(fs, 'makedirs'):
+        try:
+            fs.makedirs(target, exist_ok=True)
+            return target
+        except Exception as e:
+            raise Exception("attempted to create from ({},{}) path: {} and failed with exception: {}".format(path0, path1, target, e))
+    else:
+        raise ValueError("user provided a fs without a makedirs method, please provide a valid implementation of fsspec")
+
 
 def get_exports(filename):
     with open(filename, 'r') as fptr:

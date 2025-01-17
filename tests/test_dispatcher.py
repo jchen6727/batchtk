@@ -20,13 +20,13 @@ class TestJOBS:
         dispatcher = Dispatcher(project_path=os.getcwd(),
                                               submit=submit,
                                               env={'test': 'value'},
-                                              gid='test' + Dispatcher.__name__ + Submit.__name__)
+                                              label='test' + Dispatcher.__name__ + Submit.__name__)
         return namedtuple('Setup', ['dispatcher', 'submit'])(dispatcher, submit)
 
     def test_init(self, setup):
         dispatcher = setup.dispatcher
         assert dispatcher.env == {'test': 'value'}
-        assert dispatcher.gid == 'test' + type(dispatcher).__name__ + type(setup.submit).__name__
+        assert dispatcher.label == 'test' + type(dispatcher).__name__ + type(setup.submit).__name__
 
     def test_add_command(self, setup):
         dispatcher, submit = setup
