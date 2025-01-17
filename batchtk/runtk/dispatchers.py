@@ -18,7 +18,7 @@ import hashlib
 from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
-from batchtk.utils import create_path, BaseFS, LocalFS, RemoteFS
+from batchtk.utils import create_path, BaseFS, LocalFS, RemoteFS, LocalCmd, BaseCmd
 
 import socket
 
@@ -188,7 +188,7 @@ class SHDispatcher(Dispatcher):
     """
     Extension of base Dispatcher that extends functionality to handle job generating shell script to submit jobs
     """
-    def __init__(self, submit, project_path, output_path=".", fs = None, proc = None, **kwargs):
+    def __init__(self, submit, project_path, output_path=".", fs = None, cmd = None, **kwargs):
         """
         initializes dispatcher
         project_path - current directory where the relevant files to run are located.
@@ -207,12 +207,15 @@ class SHDispatcher(Dispatcher):
             self.fs = fs
         if self.fs is None:
             raise ValueError("fs must either be a LocalFS or RemoteFS instance")
-        self.proc = None
-        if proc is None:
-            self.proc = subprocess
-        self.proc = proc # subprocess module, or something that implements .run()
+        self.cmd = None
+        if cmd is None:
+            self.cmd = LocalCmd()
+        if isinstance(cmd, BaseCmd):
+            self.cmd = cmd
+        if self.cmd is None:
+            raise ValueError("cmd must either be a LocalCmd or RemoteCmd instance") #less rigid checking? just look for run()?
         self.project_path = project_path
-        self.output_path = create_path(project_path, output_path, fs)
+        self.output_path = create_path(project_path, output_path, self.fs)
         self.submit = submit
         self.handles = None
         self.job_id = -1
@@ -240,7 +243,7 @@ class SHDispatcher(Dispatcher):
         """
         submits the job through the submit instance
         """
-        self.job_id = self.submit.submit_job()
+        self.job_id = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
 
     def run(self, **kwargs):
         """
@@ -250,7 +253,7 @@ class SHDispatcher(Dispatcher):
         :return:
         """
         self.create_job(**kwargs)
-        self.job_id = self.submit.submit_job()
+        self.job_id = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
 
     def accept(self, **kwargs):
         """

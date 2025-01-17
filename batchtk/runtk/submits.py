@@ -4,7 +4,7 @@ import logging
 from collections import namedtuple
 from batchtk import runtk
 import re
-from batchtk.utils import path_open
+from batchtk.utils import path_open, LocalFS, LocalCmd
 import os
 
 #TODO, encapsulate file system, encapsulate connection.
@@ -147,7 +147,7 @@ class Submit(object):
         if self.logger:
             getattr(self.logger, level)(message)
 
-    def create_job(self, check=False, **kwargs):
+    def create_job(self, **kwargs):
         kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
         job = self.format_job(**kwargs) # doesn't update the templates
         self.job = job
@@ -193,20 +193,21 @@ kwargs:
 {}
 """.format(*ssph, self.key_args)
 
-    def submit_job(self, fs=None, proc=None, check=False):
-        if self.job == None:
+    def submit_job(self, fs=None, cmd=None, check=False):
+        if fs is None:
+            fs = LocalFS()
+        if cmd is None:
+            cmd = LocalCmd()
+        if self.job is None:
             raise Exception("Job not created, call create_job() first")
-        if check:
-            if fs.exists(self.path):
-                return False
+        if check and fs.exists(self.path):
+            return None
         try:
-            with path_open(self.path, 'w') as fptr:
+            with fs.path_open(self.path, 'w') as fptr:
                 fptr.write(self.script)
-                return True
         except Exception as e:
             raise Exception("Failed to write script to file: {}\n{}".format(self.path, e))
-        self.proc = subprocess.run(self.job.submit.split(' '), text=True, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
+        self.proc = cmd.run(self.job.submit)
         return self.proc
 
     def check_job(self):

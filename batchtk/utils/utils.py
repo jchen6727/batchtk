@@ -32,9 +32,16 @@ class BaseFS(fsspec.AbstractFileSystem):
     @abstractmethod
     def close(self):
         pass
+
     def tail(self, file, n=1):
         with self.open(file, 'r') as fptr:
             return fptr.readlines()[-n:]
+
+    def path_open(self, path, mode):
+        if '/' in path:
+            self.makedirs(path.rsplit('/', 1)[0], exist_ok=True)
+        fptr = self.open(path, mode)
+        return fptr
 
 class LocalFS(BaseFS):
     """
@@ -88,7 +95,7 @@ class RemoteFS(BaseFS):
     def close(self):
         self.fs.clear_instance_cache()
 
-class AbstractCmd(object):
+class BaseCmd(object):
     @abstractmethod
     def __init__(self):
         self.proc = None
@@ -96,7 +103,7 @@ class AbstractCmd(object):
     def run(self, command):
         pass
 
-class LocalCmd(AbstractCmd):
+class LocalCmd(BaseCmd):
     def __init__(self):
         super().__init__()
         self.proc = None
@@ -106,7 +113,7 @@ class LocalCmd(AbstractCmd):
                                    stderr=subprocess.PIPE)
         return self.proc
 
-class RemoteCmd(AbstractCmd):
+class RemoteCmd(BaseCmd):
     def __init__(self, connection):
         super().__init__()
         self.connection = connection
@@ -137,11 +144,9 @@ def read_pkl(read_path: str):
     return robject
 
 
-def path_open(path: str, mode: str, fs = None):
-    if fs is None:
-        fs = LocalFS()
+def path_open(path: str, mode: str):#TODO eventually get rid of this function (see classes)
     if '/' in path:
-        fs.makedirs(path.rsplit('/', 1)[0], exist_ok=True)
+        os.makedirs(path.rsplit('/', 1)[0], exist_ok=True)
     fptr = open(path, mode)
     return fptr
 
