@@ -10,9 +10,10 @@ import sshfs
 from abc import abstractmethod
 
 
-class BaseFS(fsspec.AbstractFileSystem):
+class BaseFS(object):
     """
     Base class for fsspec filesystem abstraction
+    don't inherit from fsspec, otherwise encounters caching issues
     """
     @abstractmethod
     def __init__(self):
@@ -70,15 +71,10 @@ class LocalFS(BaseFS):
         pass
 
 class RemoteFS(BaseFS):
-    def __init__(self, fs = None, host = None):
+    def __init__(self, host = None):
         super().__init__()
-        self.fs = None
-        if fs and isinstance(fs, fsspec.AbstractFileSystem):
-            self.fs = fs
-        if self.fs is None and host:
-            self.fs = sshfs.SSHFileSystem(host)
-        if not self.fs:
-            raise ValueError("no fsspec valid filesystem or host provided")
+        self.fs = sshfs.SSHFileSystem(host)
+        self.fs.cachable = False
 
     def exists(self, *args, **kwargs):
         return self.fs.exists(*args, **kwargs)
@@ -93,6 +89,7 @@ class RemoteFS(BaseFS):
         return self.fs.rm(*args, **kwargs)
 
     def close(self):
+        self.fs.client.close()
         self.fs.clear_instance_cache()
 
 class BaseCmd(object):

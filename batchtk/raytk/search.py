@@ -9,3 +9,4 @@ def ray_trial(config, label, dispatcher_constructor, project_path, output_path, 
     tid = tid.split('_')[-1]  # value for trial (can be int/string)
     return trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit)
 
+def ray_

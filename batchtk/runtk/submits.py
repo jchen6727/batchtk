@@ -1,22 +1,12 @@
 ### Submit class ###
-import subprocess
 import logging
 from collections import namedtuple
 from batchtk import runtk
 import re
-from batchtk.utils import path_open, LocalFS, LocalCmd
-import os
+from batchtk.utils import LocalFS, LocalCmd
 
-#TODO, encapsulate file system, encapsulate connection.
-SOCKET_HANDLES = {runtk.SUBMIT: '{output_path}/{label}.sh',
-                  runtk.STDOUT: '{output_path}/{label}.run',
-                  runtk.SOCKET: '{sockname}'
-                  }
 
-FILE_HANDLES   = {runtk.SUBMIT: '{output_path}/{label}.sh',
-                  runtk.STDOUT: '{output_path}/{label}.run',
-                  runtk.MSGOUT: '{output_path}/{label}.out',
-                  runtk.SGLOUT: '{output_path}/{label}.sgl'}
+#TODO, encapsulate file system #DONE, encapsulate connection #DONE
 
 class Template(object):
 
@@ -97,9 +87,10 @@ def serialize(args, var ='env', serializer ='sh'):
     return args # not necessary to return
 
 
+_Job = namedtuple('job', 'submit script path handles')
+
 class Submit(object):
     def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None, **kwargs):
-        self._jtuple = namedtuple('job', 'submit script path handles')
         self.submit_template = Template(submit_template)
         self.script_template = Template(script_template)
         self.path_template = path_template or Template(self.submit_template.template.split(' ')[-1])
@@ -109,11 +100,12 @@ class Submit(object):
         else:
             handles = self.create_handles()
             self.handles = Template(serializers['eq'](handles), key_args=self.key_args)
-        self.templates = self._jtuple(self.submit_template, self.script_template, self.path_template, self.handles)
+        self.templates = _Job(self.submit_template, self.script_template, self.path_template, self.handles)
         self.job = None
         self.submit = None
         self.script = None
         self.path = None
+        self.proc = None
         self.logger = log
         if isinstance(log, str): ## TODO move into a logging object, then inherit?.
             self.logger = logging.getLogger(log)
@@ -163,8 +155,8 @@ class Submit(object):
         else:
             templates = self.templates
         """
-        _jtuple = [template.format(**kwargs) for template in self.templates]
-        return self._jtuple(*_jtuple)
+        _tuple = [template.format(**kwargs) for template in self.templates]
+        return _Job(*_tuple)
 
     def update_templates(self, **kwargs):
         #kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
@@ -189,7 +181,7 @@ path:
 handles:
 {}
 
-kwargs:
+key_args:
 {}
 """.format(*ssph, self.key_args)
 
@@ -227,10 +219,12 @@ kwargs:
         else:
             return deserializers['eq'](self.handles.template)
 
-class SHSubmit(Submit):
-    script_args = {'label', 'project_path', 'output_path', 'env', 'command'}
-    script_template = \
-        """\
+default_submit = Template(template="sh {output_path}/{label}.sh",
+                          key_args={'output_path', 'label'})
+
+default_script = Template(
+    template= \
+"""\
 #!/bin/sh
 cd {project_path}
 export JOBID=$$
@@ -238,22 +232,34 @@ export JOBID=$$
 nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
-"""
-    script_handles = {
+""",
+    key_args={'label', 'project_path', 'output_path', 'env', 'command'}
+)
+
+default_handles = {
         runtk.STDOUT: '{output_path}/{label}.run',
         runtk.SUBMIT: '{output_path}/{label}.sh'}
-    def __init__(self, **kwargs):
+
+class SHSubmit(Submit):
+    def __init__(self,
+                 submit_template = None,
+                 script_template = None,
+                 handles = None,
+                 **kwargs):
+        #check for class attributes first, then passed arguments, then default values
+        submit_template = hasattr(self, 'submit_template') and self.submit_template or submit_template or default_submit
+        script_template = hasattr(self, 'script_template') and self.script_template or script_template or default_script
+        handles = hasattr(self, 'handles') and self.handles or handles or default_handles
         super().__init__(
-            submit_template = Template(template="sh {output_path}/{label}.sh",
-                                       key_args={'output_path', 'label'}),
-            script_template = Template(template=self.script_template,
-                                       key_args=self.script_args),
-            handles = self.script_handles,
+            submit_template = submit_template,
+            script_template = script_template,
+            handles = handles,
+            **kwargs
         )
     def set_handles(self):
         pass
 
-    def submit_job(self):
+    def submit_job(self, **kwargs):
         proc = super().submit_job()
         try:
             self.job_id = int(proc.stdout)
@@ -263,6 +269,8 @@ echo $pid >&1
             raise(Exception("Job submission failed:\n{}\n{}\n{}\n{}".format(self.submit, self.script, proc.stdout, proc.stderr)))
         return self.job_id
 
+# reference classes used as examples.
+#TODO make sure to
 class SHSubmitSFS(SHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command'}
     script_template = \
@@ -277,7 +285,7 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    script_handles = FILE_HANDLES
+    script_handles = runtk.FILE_HANDLES
 
 class SHSubmitSOCK(SHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'sockname'}
@@ -292,5 +300,5 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    script_handles = SOCKET_HANDLES
+    script_handles = runtk.SOCKET_HANDLES
 
