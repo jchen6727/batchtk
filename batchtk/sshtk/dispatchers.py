@@ -4,7 +4,7 @@ from paramiko.ssh_exception import SSHException
 from batchtk.sshtk.utils import _deploy_project
 from collections import namedtuple
 from batchtk import runtk
-from batchtk.utils import create_path, RemoteCmd, RemoteFS, BaseFS
+from batchtk.utils import create_path, RemoteCmd
 
 class _Status(namedtuple('status', ['status', 'msg'])):
     def __repr__(self):
@@ -16,8 +16,8 @@ class SSHDispatcher(SHDispatcher):
     SSH Dispatcher, for running jobs on remote machines
     uses fabric, paramiko
     """
-    def __init__(self, submit=None, host=None, remote_dir=None, fs=None,
-                 remote_out='.', connection=None, config_path='~/.ssh/config',
+    def __init__(self, host=None, connection=None, fs=None, cmd=None, submit=None, remote_dir=None, fs=None,
+                 remote_out='.', config_path='~/.ssh/config',
                  fabric_config=None, env=None, label=None, **kwargs):
         """
         Parameters
@@ -29,17 +29,9 @@ class SSHDispatcher(SHDispatcher):
         self.init_connections(connection=connection, host=host, config_path=config_path, fabric_config=fabric_config, fs=fs)
         super().__init__(submit=submit, project_path=remote_dir, output_path=remote_out, label=label, env=env,
                          fs=RemoteFS(host=host), cmd=RemoteCmd(self.connection), **kwargs)
-        #self.fs = RemoteFS(host=host)
-        #self.cmd = RemoteCmd(self.connection)
-        #self.host = host
-        #self.project_path = remote_dir
-        #self.local_dir = local_dir
         self.output_path = create_path(remote_dir, remote_out, self.fs)
-        #self.ssh_config = fabric_config or Config(user_ssh_path=config_path)
-        #self.connection = Connection(host, config=self.ssh_config)
         self.handles = None
         self.job_id = -1
-        #self._stuple = namedtuple('status', ['status', 'msg'])
 
     def init_connections(self, connection=None, host=None, config_path='~/.ssh/config', fabric_config=None, fs=None):
         self.init_args = locals()
@@ -53,8 +45,8 @@ class SSHDispatcher(SHDispatcher):
             self.connection = Connection(host, config=config)
         if self.connection is None:
             raise ValueError('no SSH connection was established')
-        if isinstance(fs, BaseFS):
-            self.fs = fs
+        if isinstance(fs, FS_Protocol):
+            self.fs = CustomFS(fs)
         if fs is None:
             self.fs = RemoteFS(host=host)
         if self.fs is None:
@@ -117,3 +109,4 @@ class SSHDispatcher(SHDispatcher):
             self.job_id = proc.stdout
             return self.check_status()
         return status
+

@@ -3,7 +3,7 @@ import logging
 from collections import namedtuple
 from batchtk import runtk
 import re
-from batchtk.utils import LocalFS, LocalCmd
+from batchtk.utils import LocalFS, LocalProcCmd
 
 
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
@@ -189,7 +189,7 @@ key_args:
         if fs is None:
             fs = LocalFS()
         if cmd is None:
-            cmd = LocalCmd()
+            cmd = LocalProcCmd()
         if self.job is None:
             raise Exception("Job not created, call create_job() first")
         if check and fs.exists(self.path):

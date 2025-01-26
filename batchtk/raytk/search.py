@@ -8,5 +8,3 @@ def ray_trial(config, label, dispatcher_constructor, project_path, output_path, 
     tid = ray.train.get_context().get_trial_id()
     tid = tid.split('_')[-1]  # value for trial (can be int/string)
     return trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit)
-
-def ray_

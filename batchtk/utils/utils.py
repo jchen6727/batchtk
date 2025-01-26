@@ -5,94 +5,192 @@ import subprocess
 import shlex
 import pandas
 import itertools
-import fsspec
-import sshfs
+#import fsspec
+#import sshfs
 from abc import abstractmethod
+from typing import Protocol, runtime_checkable
+import io
+import paramiko
 
+@runtime_checkable
+class FS_Protocol(Protocol):
+    def exists(self, path, *args, **kwargs) -> bool:
+        # check if a path maps to a resource
+        pass
+    def makedirs(self, path, *args, **kwargs) -> bool:
+        # creates a directory path, should create intermediate directories and ignore existing directories
+        # i.e. exist_ok / recreate is True
+        pass
+    def open(self, path, mode, *args, **kwargs) -> io.IOBase:
+        # opens the file handle at path in mode where mode is 'r', 'w'
+        pass
+    def remove(self, path, *args, **kwargs) -> bool:
+        # removes the file at path
+        pass
+    def close(self) -> None:
+        # closes / unmounts the filesystem
+        pass
 
-class BaseFS(object):
+class BaseFS(FS_Protocol):
     """
-    Base class for fsspec filesystem abstraction
-    don't inherit from fsspec, otherwise encounters caching issues
+    Base class for filesystem abstraction
     """
     @abstractmethod
     def __init__(self):
         super().__init__()
     @abstractmethod
-    def exists(self, *args, **kwargs):
+    def exists(self, path, *args, **kwargs):
         pass
     @abstractmethod
-    def makedirs(self, *args, **kwargs):
+    def makedirs(self, path, *args, **kwargs):
         pass
     @abstractmethod
-    def open(self, *args, **kwargs):
+    def open(self, path, mode, *args, **kwargs):
         pass
     @abstractmethod
     def remove(self, *args, **kwargs):
         pass
     @abstractmethod
-    def close(self):
+    def close(self): # PyFileSystem2 uses .close(), while fsspec uses .clear_instance_cache() and .client.close()...
         pass
 
     def tail(self, file, n=1):
         with self.open(file, 'r') as fptr:
             return fptr.readlines()[-n:]
 
-    def path_open(self, path, mode):
+    def path_open(self, path, mode): # makedirs up to a file, then open file.
         if '/' in path:
-            self.makedirs(path.rsplit('/', 1)[0], exist_ok=True)
+            self.makedirs(path.rsplit('/', 1)[0])
         fptr = self.open(path, mode)
         return fptr
 
 class LocalFS(BaseFS):
     """
-    Wrapper for fsspec filesystem abstraction
+    Wrapper for FS protocol using os and local filesystem
     """
     def __init__(self):
         super().__init__()
 
     @staticmethod
-    def exists(*args, **kwargs):
-        return os.path.exists(*args, **kwargs) # this and open() are the only two...
+    def exists(path, *args, **kwargs):
+        return os.path.exists(path) # this and open() are the only two...
 
     @staticmethod
-    def makedirs(*args, **kwargs):
-        return os.makedirs(*args, **kwargs)
+    def makedirs(path, *args, **kwargs):
+        return os.makedirs(path, exist_ok=True)
 
     @staticmethod
-    def open(*args, **kwargs):
-        return open(*args, **kwargs)
+    def open(path, *args, **kwargs):
+        return open(path, *args, **kwargs)
 
     @staticmethod
-    def remove(*args, **kwargs):
-        return os.remove(*args, **kwargs)
+    def remove(path, *args, **kwargs):
+        return os.remove(path, *args, **kwargs)
 
     def close(self):
         pass
 
-class RemoteFS(BaseFS):
+class RemoteSSHFS(BaseFS):
     def __init__(self, host = None):
         super().__init__()
+        import sshfs
         self.fs = sshfs.SSHFileSystem(host)
         self.fs.cachable = False
 
-    def exists(self, *args, **kwargs):
-        return self.fs.exists(*args, **kwargs)
+    def exists(self, path, *args, **kwargs):
+        return self.fs.exists(path, *args, **kwargs)
 
-    def makedirs(self, *args, **kwargs):
-        return self.fs.makedirs(*args, **kwargs)
+    def makedirs(self, path, *args, **kwargs):
+        return self.fs.makedirs( path, exist_ok=True, *args, **kwargs)
 
-    def open(self, *args, **kwargs):
-        return self.fs.open(*args, **kwargs) #the user has to remember to either call w/ context manager or close...
+    def open(self, path, mode, *args, **kwargs):
+        return self.fs.open(path, mode, *args, **kwargs) #the user has to remember to either call w/ context manager or close...
 
-    def remove(self, *args, **kwargs):
-        return self.fs.rm(*args, **kwargs)
+    def remove(self, path, *args, **kwargs):
+        return self.fs.rm(path, *args, **kwargs)
 
     def close(self):
         self.fs.client.close()
         self.fs.clear_instance_cache()
 
-class BaseCmd(object):
+class RemoteConnFS(BaseFS): # use threading lock?
+    def __init__(self, connection):
+        super().__init__()
+        self.connection = connection
+        self.connection.open()
+        self.fs = connection.sftp()
+
+    def exists(self, path, *args, **kwargs):
+        try:
+            return self.connection.run('[ -e {} ]'.format(path), warn=True).return_code == 0
+        except (EOFError, paramiko.ssh_exception.SSHException, OSError) as e:
+            self.connection.open()
+            return self.connection.run('[ -e {} ]'.format(path), warn=True).return_code == 0
+
+    def makedirs(self, path, *args, **kwargs):
+        try:
+            return self.connection.run('mkdir -p {}'.format(path), warn=True).return_code == 0
+        except (EOFError, paramiko.ssh_exception.SSHException, OSError) as e:
+            self.connection.open()
+            return self.connection.run('mkdir -p {}'.format(path), warn=True).return_code == 0
+
+    def open(self, path, mode, *args, **kwargs):
+        if self.fs is None:
+            self.fs = self.connection.sftp()
+        try:
+            return self.fs.file(path, mode)
+        except (EOFError, paramiko.ssh_exception.SSHException, OSError) as e:
+            self.connection._sftp = None
+            self.connection.open()
+            self.fs = self.connection.sftp()
+            return self.fs.file(path, mode)
+        except Exception as e:
+            raise e
+
+    def remove(self, path, *args, **kwargs):
+        try:
+            return self.connection.run('rm {}'.format(path), warn=True).return_code == 0
+        except (EOFError, paramiko.ssh_exception.SSHException, OSError) as e:
+            self.connection.open()
+            return self.connection.run('rm {}'.format(path), warn=True).return_code == 0
+    def close(self):
+        self.fs.close()
+        self.fs = None
+        self.connection._sftp = None
+        self.connection.close() # keep self.connection
+
+class CustomFS(BaseFS):
+    def __new__(cls, fs: FS_Protocol):
+        if isinstance(fs, BaseFS): # returns the same object if it is properly subclassed
+            return fs
+        if not isinstance(fs, FS_Protocol):
+            raise TypeError("fs does not fully implement FS_Protocol (see batchtk/utils/utils")
+        return super().__new__(cls)
+    def __init__(self, fs: FS_Protocol):
+        self.fs = fs
+
+    def exists(self, path, *args, **kwargs):
+        return self.fs.exists(path, *args, **kwargs)
+
+    def makedirs(self, path, *args, **kwargs):
+        return self.fs.makedirs(path, *args, **kwargs)
+
+    def open(self, path, mode, *args, **kwargs):
+        return self.fs.open(path, mode, *args, **kwargs)
+
+    def remove(self, path, *args, **kwargs):
+        return self.fs.remove(path, *args, **kwargs)
+
+    def close(self):
+        return self.fs.close()
+
+@runtime_checkable
+class Cmd_Protocol(Protocol):
+    proc: object
+    def run(self, command: str) -> object:
+        pass
+
+class BaseCmd(Cmd_Protocol):
     @abstractmethod
     def __init__(self):
         self.proc = None
@@ -100,7 +198,7 @@ class BaseCmd(object):
     def run(self, command):
         pass
 
-class LocalCmd(BaseCmd):
+class LocalProcCmd(BaseCmd):
     def __init__(self):
         super().__init__()
         self.proc = None
@@ -110,7 +208,7 @@ class LocalCmd(BaseCmd):
                                    stderr=subprocess.PIPE)
         return self.proc
 
-class RemoteCmd(BaseCmd):
+class RemoteConnCmd(BaseCmd):
     def __init__(self, connection):
         super().__init__()
         self.connection = connection
@@ -119,6 +217,22 @@ class RemoteCmd(BaseCmd):
     def run(self, command):
         self.proc = self.connection.run(command, warn=True, hide=True)
         return self.proc
+
+class CustomCmd(BaseCmd):
+    def __new__(cls, cmd: Cmd_Protocol):
+        if isinstance(cmd, BaseCmd):
+            return cmd
+        if not isinstance(cmd, Cmd_Protocol):
+            raise TypeError("cmd does not fully implement Cmd_Protocol (see batchtk/utils/utils")
+        return super().__new__(cls)
+    def __init__(self, cmd: Cmd_Protocol):
+        super().__init__()
+        self.cmd = cmd
+        self.proc = None
+
+    def run(self, command):
+        self.proc = self.cmd.run(command)
+        return self.cmd.run(command)
 
 def get_path(path):
     if path[0] == '/':
@@ -141,7 +255,7 @@ def read_pkl(read_path: str):
     return robject
 
 
-def path_open(path: str, mode: str):#TODO eventually get rid of this function (see classes)
+def local_open(path: str, mode: str): # renamed, avoid confusion with the fs.path_open
     if '/' in path:
         os.makedirs(path.rsplit('/', 1)[0], exist_ok=True)
     fptr = open(path, mode)
@@ -151,7 +265,7 @@ def validate_path(path: str):
     if '=' in path:
         raise ValueError("error: the directory path created for your search results contains the special character =")
 
-def create_path(path0: str, path1 = "", fs = os):
+def create_path(path0: str, path1 = "", fs = LocalFS()):
     if path1 and path1[0] == '/':
         target = os.path.normpath(path1)
     else:
@@ -159,14 +273,14 @@ def create_path(path0: str, path1 = "", fs = os):
     validate_path(target)
     if fs is None:
         return target
-    if hasattr(fs, 'makedirs'):
+    if isinstance(fs, FS_Protocol):
         try:
-            fs.makedirs(target, exist_ok=True)
+            fs.makedirs(target)
             return target
         except Exception as e:
             raise Exception("attempted to create from ({},{}) path: {} and failed with exception: {}".format(path0, path1, target, e))
     else:
-        raise ValueError("user provided a fs without a makedirs method, please provide a valid implementation of fsspec")
+        raise TypeError("user provided a fs that does not implement FS_Protocol")
 
 
 def get_exports(filename):

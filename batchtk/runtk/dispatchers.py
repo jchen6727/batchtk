@@ -10,6 +10,7 @@ Dispatcher classes handle the submission and monitoring of jobs
 
 from abc import ABC, abstractmethod
 import os
+from collections import namedtuple
 import fsspec
 import sshfs
 import json
@@ -18,12 +19,9 @@ import hashlib
 from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
-from batchtk.utils import create_path, BaseFS, LocalFS, RemoteFS, LocalCmd, BaseCmd
+from batchtk.utils import create_path, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
 
 import socket
-
-
-
 
 class Dispatcher(object):
     """
@@ -44,7 +42,7 @@ class Dispatcher(object):
     """ 
     #obj_count = 0 # persistent count N.B. may be shared between objects. TODO no utility for this
 
-    def __init__(self, label, env=None, json=None, grepstr=runtk.GREPSTR, **kwargs):
+    def __init__(self, label=None, env=None, grepstr=runtk.GREPSTR, **kwargs):
         """
         initializes base dispatcher class
         *Optional* Parameters
@@ -68,10 +66,11 @@ class Dispatcher(object):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.clean()
+        self.close() # close any connections
+        self.clean() # clean any files that are no longer necessary
 
-    def add_json(self):
-        pass
+#    def set_instances(self, **kwargs):
+#        self.instance_kwargs = kwargs
 
     def update_env(self, dictionary, value_type=None, format = True, **kwargs):
         """
@@ -173,6 +172,11 @@ label:
 env:
 {}""".format(self.label, self.env)
 
+    def close(self):
+        """
+        closes the dispatcher
+        """
+        pass
     def clean(self, handles=None, **kwargs):
         """
         Method called at close of the script, cleans up any open file handles or sockets, etc. To be implemented by
@@ -183,12 +187,14 @@ env:
         """
         pass
 
+def _get_obj_args(self, **kwargs):
+    return kwargs
 
 class SHDispatcher(Dispatcher):
     """
-    Extension of base Dispatcher that extends functionality to handle job generating shell script to submit jobs
+    Extension of base Dispatcher that extends functionality to handle shell script submissions, fs, and cmd objects
     """
-    def __init__(self, submit, project_path, output_path=".", fs = None, cmd = None, **kwargs):
+    def __init__(self, submit=None, project_path=None, output_path=".", fs = None, cmd = None, instance_kwargs = None, **kwargs):
         """
         initializes dispatcher
         project_path - current directory where the relevant files to run are located.
@@ -199,21 +205,13 @@ class SHDispatcher(Dispatcher):
             label      - string to identify dispatcher by the created runner
             env      - dictionary of environmental variables to be passed to the created runner
         """
+        kwargs = _get_obj_args(**locals())
         super().__init__(**kwargs)
-        self.fs = None
-        if fs is None:
-            self.fs = LocalFS()
-        if isinstance(fs, BaseFS):
-            self.fs = fs
-        if self.fs is None:
-            raise ValueError("fs must either be a LocalFS or RemoteFS instance")
-        self.cmd = None
-        if cmd is None:
-            self.cmd = LocalCmd()
-        if isinstance(cmd, BaseCmd):
-            self.cmd = cmd
-        if self.cmd is None:
-            raise ValueError("cmd must either be a LocalCmd or RemoteCmd instance") #less rigid checking? just look for run()?
+        # check all instances are set properly
+        if not hasattr(self, 'instance_kwargs') and not hasattr(self, 'fs') and not hasattr(self, 'cmd'):
+            self.instance_kwargs = instance_kwargs or {}
+            self.instance_kwargs.update({'fs': fs, 'cmd': cmd})
+            self.set_instances(**self.instance_kwargs)
         self.project_path = project_path
         self.output_path = create_path(project_path, output_path, self.fs)
         self.submit = submit
@@ -221,6 +219,22 @@ class SHDispatcher(Dispatcher):
         self.job_id = -1
         # create a "self.target" that contains the output_path and label?
         #self.label = self.label
+
+    def set_instances(self, fs, cmd, **kwargs):
+        """
+        creates/assigns any instances to the class
+        """
+        if not hasattr(self, 'instance_kwargs'):
+            kwargs = _get_obj_args(**locals())
+            self.instance_kwargs = kwargs
+        self.fs = CustomFS(fs)
+        self.cmd = CustomCmd(cmd)
+
+    def reset_instances(self):
+        """
+        resets instances
+        """
+        self.set_instances(**self.instance_kwargs)
 
     def create_job(self, **kwargs):
         """
@@ -313,6 +327,106 @@ submit:
 """.format(self.submit)
 
 
+class _Status(namedtuple('status', ['status', 'msg'])):
+    def __repr__(self):
+        return 'status={}, msg={}'.format(self.status, self.msg)
+
+
+class SSHDispatcher(SHDispatcher):
+    """
+    SSH Dispatcher, for running jobs on remote machines
+    uses fabric, paramiko
+    """
+    def __init__(self, connection=None, fs=None, cmd=None, submit=None, remote_dir=None,
+                 remote_out='.', env=None, label=None, **kwargs):
+        """
+        Parameters
+        ----------
+        host - the ssh host
+        cmdstr - the command to run on the remote machine
+        env - any environmental variables to be inherited by the created runner
+        """
+        self.fs = None
+        self.connection = None
+        self.cmd = None
+        self.instance_kwargs = None
+        self.set_instances(connection=connection, fs=fs, cmd=cmd)
+        super().__init__(submit=submit, project_path=remote_dir, output_path=remote_out, label=label, env=env,
+                         fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, connection=self.connection, **kwargs)
+
+    def set_instances(self, connection, fs=None, cmd=None, **kwargs):
+        from batchtk.utils import RemoteConnFS, RemoteConnCmd
+        kwargs = _get_obj_args(**locals())
+        self.instance_kwargs = kwargs
+        self.connection = connection
+        if fs is None:
+            self.fs = RemoteConnFS(self.connection)
+        else:
+            self.fs = fs
+        if cmd is None:
+            self.cmd = RemoteConnCmd(self.connection)
+        else:
+            self.cmd = cmd
+        super().set_instances(fs=self.fs, cmd=self.cmd, connection=self.connection)
+
+    def open(self):
+        self.set_instances(**self.instance_kwargs)
+
+    def close(self):
+        self.fs.close()
+        self.connection.close()
+        self.fs = None
+        self.connection = None # keep self.connection
+
+    def reset_connections(self):
+        self.close()
+        self.open()
+
+    def get_handles(self):
+        if not self.handles:
+            self.create_job()
+        return self.handles
+
+    def check_status(self):
+        handles = self.get_handles()
+        submit, msgout, sglout = handles[runtk.SUBMIT], handles[runtk.MSGOUT], handles[runtk.SGLOUT]
+        if not self.fs.exists(submit):
+            return _Status(runtk.STATUS.NOTFOUND, None)
+        if not self.fs.exists(msgout):
+            return _Status(runtk.STATUS.PENDING, None)
+        msg = self.fs.tail(msgout)
+        if self.fs.exists(sglout):
+            return _Status(runtk.STATUS.COMPLETED, msg)
+        return _Status(runtk.STATUS.RUNNING, msg)
+
+    def create_job(self, **kwargs):
+        """
+        creates a job through the submit instance
+        the `label` is created, and the relevant commands and scripts are created,
+        then the handles are retrieved from the submit instance
+
+        :param kwargs: #TODO use this format in all docstrings :/
+        :return:
+        """
+        super().init_run()
+        self.submit.create_job(label=self.label,
+                               project_path=self.project_path,
+                               output_path=self.output_path,
+                               env=self.env,
+                               **kwargs)
+        self.handles = self.submit.get_handles()
+
+    def submit_job(self):
+        status = self.check_status()
+        if status.status in [runtk.STATUS.PENDING, runtk.STATUS.RUNNING, runtk.STATUS.COMPLETED]:
+            return status
+        if status.status is runtk.STATUS.NOTFOUND:
+            proc = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
+            self.job_id = proc.stdout
+            return self.check_status()
+        return status
+
+
 class SFSDispatcher(SHDispatcher):
     """
     This class can be improved by implementing a single file communication system without a signal file and checking
@@ -377,6 +491,12 @@ class SOCKETDispatcher(SHDispatcher):
 
     def send(self, data):
         self.socket.send(data)
+
+    def close(self):
+        if self.socket:
+            self.socket.close()
+        self.socket = None
+
     def clean(self, handles=None):
         super().clean(handles)
         if self.socket:
@@ -442,12 +562,20 @@ class NOFDispatcher(Dispatcher):
         return self.proc
 
 
+
+
+
+
+
+
 DISPATCHERS = {
     'INET': INETDispatcher,
     'UNIX': UNIXDispatcher,
     'SFS': SFSDispatcher,
-    'NOF': NOFDispatcher
+    'NOF': NOFDispatcher,
+    'SSH': SSHDispatcher,
 }
+
 def create_dispatcher(dispatcher_type):
     """
     Factory function for creating a dispatcher constructor
@@ -463,3 +591,5 @@ def create_dispatcher(dispatcher_type):
         return DISPATCHERS[dispatcher_type]
     else:
         raise ValueError(dispatcher_type)
+
+
