@@ -1,16 +1,17 @@
 import types
 import pandas
-
+import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-def trials(configs, label, gen, dispatcher_constructor, project_path, output_path, submit):
+def trials(configs, label, gen, dispatcher_constructor, project_path, output_path, submit, dispatcher_kwargs=None, interval=60):
     label = '{}_{}'.format(label, gen)
     results = []
     for tid, config in enumerate(configs):
-        results.append(trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit))
+        results.append(trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit, dispatcher_kwargs, interval))
     return results
 
 
-def trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit):
+def trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit, dispatcher_kwargs=None, interval=60):
+    dispatcher_kwargs = dispatcher_kwargs or {}
     run_label = '{}_{}'.format(label, tid)
     trial.run_label = run_label
     trial.output_path = output_path
@@ -18,12 +19,12 @@ def trial(config, label, tid, dispatcher_constructor, project_path, output_path,
         if isinstance(v, types.FunctionType):
             config[k] = v()
     dispatcher = dispatcher_constructor(project_path=project_path, output_path=output_path, submit=submit,
-                                        label=run_label)
+                                        label=run_label, **dispatcher_kwargs)
     dispatcher.update_env(dictionary=config)
     try:
         dispatcher.run()
         dispatcher.accept()
-        data = dispatcher.recv()
+        data = dispatcher.recv(interval=interval)
         dispatcher.clean()
     except Exception as e:
         dispatcher.clean()

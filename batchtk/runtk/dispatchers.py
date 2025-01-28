@@ -11,6 +11,7 @@ Dispatcher classes handle the submission and monitoring of jobs
 from abc import ABC, abstractmethod
 import os
 from collections import namedtuple
+import time
 import fsspec
 import sshfs
 import json
@@ -58,6 +59,8 @@ class Dispatcher(object):
 
         #self.__dict__ = kwargs # the __dict__ has to come first or else env won't work...?
         #TODO what is the purpose of implementing a self.__dict__ in the FIRST place?
+        if label is None:
+            raise ValueError("label must be provided")
         self.label = label
         self.env = env or {} # if env is None, then set to empty dictionary
         self.grepstr = grepstr
@@ -66,11 +69,8 @@ class Dispatcher(object):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close() # close any connections
         self.clean() # clean any files that are no longer necessary
-
-#    def set_instances(self, **kwargs):
-#        self.instance_kwargs = kwargs
+        self.close() # close any connections
 
     def update_env(self, dictionary, value_type=None, format = True, **kwargs):
         """
@@ -129,6 +129,7 @@ class Dispatcher(object):
 
 
     create_env = format_env # alias (same function)
+
     def init_run(self, **kwargs):
         """
         Parameters
@@ -177,6 +178,7 @@ env:
         closes the dispatcher
         """
         pass
+
     def clean(self, handles=None, **kwargs):
         """
         Method called at close of the script, cleans up any open file handles or sockets, etc. To be implemented by
@@ -187,7 +189,8 @@ env:
         """
         pass
 
-def _get_obj_args(self, **kwargs):
+def _get_obj_args(self, __class__, **kwargs):
+    kwargs.update(kwargs.pop('kwargs'))
     return kwargs
 
 class SHDispatcher(Dispatcher):
@@ -227,8 +230,8 @@ class SHDispatcher(Dispatcher):
         if not hasattr(self, 'instance_kwargs'):
             kwargs = _get_obj_args(**locals())
             self.instance_kwargs = kwargs
-        self.fs = CustomFS(fs)
-        self.cmd = CustomCmd(cmd)
+        self.fs = CustomFS(fs) #passthrough if valid BaseFS
+        self.cmd = CustomCmd(cmd) #passthrough if valid BaseCmd
 
     def reset_instances(self):
         """
@@ -280,7 +283,6 @@ class SHDispatcher(Dispatcher):
         """
         pass
 
-
     def recv(self, **kwargs):
         """
         Method for receiving data from the host (dispatcher). To be implemented by inherited classes.
@@ -301,14 +303,18 @@ class SHDispatcher(Dispatcher):
         """
         pass
 
+    def close(self):
+        """
+        closes any relevant dispatcher instances
+        """
+        self.fs.close()
+
     def clean(self, handles = None, **kwargs):
         """
         Method called at close of the script, cleans up any open file handles or sockets, etc. To be implemented by
         inherited classes.
         :param handles: see runtk.HANDLES, passing a list of handles will remove those associated files
         :param kwargs:
-
-
         :return:
         """
         if handles == 'all':
@@ -331,8 +337,59 @@ class _Status(namedtuple('status', ['status', 'msg'])):
     def __repr__(self):
         return 'status={}, msg={}'.format(self.status, self.msg)
 
+class FSDispatcher(SHDispatcher):
+    """
+    Base class for all Dispatcher classes that utilize a file system
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not hasattr(self, 'fs') and not isinstance(self.fs, BaseFS):
+            raise ValueError("fs either not created or is not a subclass of BaseFS")
+        if not hasattr(self, 'cmd') and not isinstance(self.cmd, BaseCmd):
+            raise ValueError("cmd either not created or is not a subclass of BaseCmd")
 
-class SSHDispatcher(SHDispatcher):
+    def get_handles(self):
+        if not self.handles:
+            self.create_job()
+        return self.handles
+
+    def check_status(self):
+        handles = self.get_handles()
+        submit, msgout, sglout = handles[runtk.SUBMIT], handles[runtk.MSGOUT], handles[runtk.SGLOUT]
+        if not self.fs.exists(submit):
+            return _Status(runtk.STATUS.NOTFOUND, None)
+        if not self.fs.exists(msgout):
+            return _Status(runtk.STATUS.PENDING, None)
+        msg = self.fs.tail(msgout)
+        if self.fs.exists(sglout):
+            return _Status(runtk.STATUS.COMPLETED, msg)
+        return _Status(runtk.STATUS.RUNNING, msg)
+
+    def submit_job(self):
+        status = self.check_status()
+        if status.status in [runtk.STATUS.PENDING, runtk.STATUS.RUNNING, runtk.STATUS.COMPLETED]:
+            return status
+        if status.status is runtk.STATUS.NOTFOUND:
+            proc = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
+            self.job_id = proc.stdout
+            return self.check_status()
+        return status
+
+    def get_run(self):
+        status = self.check_status()
+        if status.status == runtk.STATUS.COMPLETED:
+            return status.msg
+        return False
+
+    def recv(self, interval=60, **kwargs):
+        data = False
+        while not data:
+            data = self.get_run()
+            time.sleep(interval)
+        return data
+
+
+class SSHDispatcher(FSDispatcher, SHDispatcher):
     """
     SSH Dispatcher, for running jobs on remote machines
     uses fabric, paramiko
@@ -356,8 +413,8 @@ class SSHDispatcher(SHDispatcher):
 
     def set_instances(self, connection, fs=None, cmd=None, **kwargs):
         from batchtk.utils import RemoteConnFS, RemoteConnCmd
-        kwargs = _get_obj_args(**locals())
-        self.instance_kwargs = kwargs
+        #kwargs = _get_obj_args(**locals())
+        #self.instance_kwargs = kwargs
         self.connection = connection
         if fs is None:
             self.fs = RemoteConnFS(self.connection)
@@ -426,8 +483,105 @@ class SSHDispatcher(SHDispatcher):
             return self.check_status()
         return status
 
+    def get_run(self):
+        status = self.check_status()
+        if status.status == runtk.STATUS.COMPLETED:
+            return status.msg
+        return False
 
-class SFSDispatcher(SHDispatcher):
+    def recv(self, interval=60, **kwargs):
+        data = False
+        while not data:
+            data = self.get_run()
+            time.sleep(interval)
+        return data
+
+class LocalDispatcher(SHDispatcher):
+    """
+    SSH Dispatcher, for running jobs on remote machines
+    uses fabric, paramiko
+    """
+    def __init__(self, fs=None, cmd=None, submit=None, remote_dir=None,
+                 remote_out='.', env=None, label=None, **kwargs):
+        """
+        Parameters
+        ----------
+        cmdstr - the command to run on the remote machine
+        env - any environmental variables to be inherited by the created runner
+        """
+        self.fs = None
+        self.connection = None
+        self.cmd = None
+        self.instance_kwargs = None
+        self.set_instances(fs=fs, cmd=cmd)
+        super().__init__(submit=submit, project_path=remote_dir, output_path=remote_out, label=label, env=env,
+                         fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, connection=self.connection, **kwargs)
+
+    def set_instances(self, fs=None, cmd=None, **kwargs):
+        from batchtk.utils import LocalProcCmd, LocalFS
+        kwargs = _get_obj_args(**locals())
+        self.instance_kwargs = kwargs
+        if fs is None:
+            self.fs = LocalFS()
+        else:
+            self.fs = fs
+        if cmd is None:
+            self.cmd = LocalProcCmd()
+        else:
+            self.cmd = cmd
+        super().set_instances(fs=self.fs, cmd=self.cmd)
+
+    def open(self):
+        self.set_instances(**self.instance_kwargs)
+
+    def close(self):
+        self.fs.close()
+        self.connection.close()
+        self.fs = None
+        self.connection = None # keep self.connection
+
+    def reset_connections(self):
+        self.close()
+        self.open()
+
+    def get_handles(self):
+        if not self.handles:
+            self.create_job()
+        return self.handles
+
+    def create_job(self, **kwargs):
+        """
+        creates a job through the submit instance
+        the `label` is created, and the relevant commands and scripts are created,
+        then the handles are retrieved from the submit instance
+
+        :param kwargs: #TODO use this format in all docstrings :/
+        :return:
+        """
+        super().init_run()
+        self.submit.create_job(label=self.label,
+                               project_path=self.project_path,
+                               output_path=self.output_path,
+                               env=self.env,
+                               **kwargs)
+        self.handles = self.submit.get_handles()
+
+    def submit_job(self):
+        proc = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
+        self.job_id = proc.stdout
+        return _Status(runtk.STATUS.PENDING, proc.stdout)
+
+    def get_run(self):
+        return True
+
+    def recv(self, interval=60):
+        data = False
+        while not data:
+            data = self.get_run()
+            time.sleep(interval)
+        return data
+
+class SFSDispatcher(FSDispatcher, LocalDispatcher):
     """
     This class can be improved by implementing a single file communication system without a signal file and checking
     proc.readline() -- see threading course
@@ -451,10 +605,23 @@ class SFSDispatcher(SHDispatcher):
             return data # what if data itself is False equivalence
         return False
 
-    def recv(self, **kwargs): # blocking function,
+    def check_status(self):
+        handles = self.get_handles()
+        submit, msgout, sglout = handles[runtk.SUBMIT], handles[runtk.MSGOUT], handles[runtk.SGLOUT]
+        if not self.fs.exists(submit):
+            return _Status(runtk.STATUS.NOTFOUND, None)
+        if not self.fs.exists(msgout):
+            return _Status(runtk.STATUS.PENDING, None)
+        msg = self.fs.tail(msgout)
+        if self.fs.exists(sglout):
+            return _Status(runtk.STATUS.COMPLETED, msg)
+        return _Status(runtk.STATUS.RUNNING, msg)
+
+    def recv(self, interval=60, **kwargs): # blocking function,
         data = False
         while not data:
             data = self.get_run()
+            time.sleep(interval)
         return data
 
 class SOCKETDispatcher(SHDispatcher):

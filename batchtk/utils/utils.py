@@ -136,6 +136,7 @@ class RemoteConnFS(BaseFS): # use threading lock?
 
     def open(self, path, mode, *args, **kwargs):
         if self.fs is None:
+            self.connection.open()
             self.fs = self.connection.sftp()
         try:
             return self.fs.file(path, mode)
@@ -157,7 +158,7 @@ class RemoteConnFS(BaseFS): # use threading lock?
         self.fs.close()
         self.fs = None
         self.connection._sftp = None
-        self.connection.close() # keep self.connection
+        #self.connection.close() # keep self.connection open.
 
 class CustomFS(BaseFS):
     def __new__(cls, fs: FS_Protocol):
@@ -215,8 +216,13 @@ class RemoteConnCmd(BaseCmd):
         self.proc = None
 
     def run(self, command):
-        self.proc = self.connection.run(command, warn=True, hide=True)
-        return self.proc
+        try:
+            self.proc = self.connection.run(command, warn=True, hide=True)
+            return self.proc
+        except (EOFError, paramiko.ssh_exception.SSHException, OSError) as e:
+            self.connection.open()
+            self.proc = self.connection.run(command, warn=True, hide=True)
+            return self.proc
 
 class CustomCmd(BaseCmd):
     def __new__(cls, cmd: Cmd_Protocol):
