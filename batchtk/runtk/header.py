@@ -9,7 +9,7 @@ GREPSTR = 'RUNTK' #string highlighting relevant environment variables for runner
 DELIM = '.' #delimiter for nesting environment variables (similar to "__getattribute__()" python method)
 
 """
-STATUS HANDLING -> see sshtk/dispatchers.py
+STATUS HANDLING -> see runtk/dispatchers.py
 used in communicating the status of a job
 """
 class STATUS(Enum):
