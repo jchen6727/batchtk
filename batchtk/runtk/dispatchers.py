@@ -353,6 +353,13 @@ class FSDispatcher(SHDispatcher):
             self.create_job()
         return self.handles
 
+    def run(self, rerun=False, **kwargs):
+        if rerun:
+            self.create_job(**kwargs)
+            self.job_id = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
+        else:
+            self.job_id = self.submit_job()
+
     def check_status(self):
         handles = self.get_handles()
         submit, msgout, sglout = handles[runtk.SUBMIT], handles[runtk.MSGOUT], handles[runtk.SGLOUT]
@@ -413,8 +420,6 @@ class SSHDispatcher(FSDispatcher, SHDispatcher):
 
     def set_instances(self, connection, fs=None, cmd=None, **kwargs):
         from batchtk.utils import RemoteConnFS, RemoteConnCmd
-        #kwargs = _get_obj_args(**locals())
-        #self.instance_kwargs = kwargs
         self.connection = connection
         if fs is None:
             self.fs = RemoteConnFS(self.connection)
@@ -438,63 +443,6 @@ class SSHDispatcher(FSDispatcher, SHDispatcher):
     def reset_connections(self):
         self.close()
         self.open()
-
-    def get_handles(self):
-        if not self.handles:
-            self.create_job()
-        return self.handles
-
-    def check_status(self):
-        handles = self.get_handles()
-        submit, msgout, sglout = handles[runtk.SUBMIT], handles[runtk.MSGOUT], handles[runtk.SGLOUT]
-        if not self.fs.exists(submit):
-            return _Status(runtk.STATUS.NOTFOUND, None)
-        if not self.fs.exists(msgout):
-            return _Status(runtk.STATUS.PENDING, None)
-        msg = self.fs.tail(msgout)
-        if self.fs.exists(sglout):
-            return _Status(runtk.STATUS.COMPLETED, msg)
-        return _Status(runtk.STATUS.RUNNING, msg)
-
-    def create_job(self, **kwargs):
-        """
-        creates a job through the submit instance
-        the `label` is created, and the relevant commands and scripts are created,
-        then the handles are retrieved from the submit instance
-
-        :param kwargs: #TODO use this format in all docstrings :/
-        :return:
-        """
-        super().init_run()
-        self.submit.create_job(label=self.label,
-                               project_path=self.project_path,
-                               output_path=self.output_path,
-                               env=self.env,
-                               **kwargs)
-        self.handles = self.submit.get_handles()
-
-    def submit_job(self):
-        status = self.check_status()
-        if status.status in [runtk.STATUS.PENDING, runtk.STATUS.RUNNING, runtk.STATUS.COMPLETED]:
-            return status
-        if status.status is runtk.STATUS.NOTFOUND:
-            proc = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
-            self.job_id = proc.stdout
-            return self.check_status()
-        return status
-
-    def get_run(self):
-        status = self.check_status()
-        if status.status == runtk.STATUS.COMPLETED:
-            return status.msg
-        return False
-
-    def recv(self, interval=60, **kwargs):
-        data = False
-        while not data:
-            data = self.get_run()
-            time.sleep(interval)
-        return data
 
 class LocalDispatcher(SHDispatcher):
     """
@@ -591,38 +539,6 @@ class SFSDispatcher(FSDispatcher, LocalDispatcher):
     handles submitting the script to a Runner/Worker object
     """
 
-    def create_job(self, **kwargs):
-        super().create_job(**kwargs)
-
-    def run(self, **kwargs):
-        super().run(**kwargs)
-
-    def get_run(self):
-        # if file exists, return data, otherwise return False
-        if os.path.exists(self.handles[runtk.SGLOUT]):
-            with open(self.handles[runtk.MSGOUT], 'r') as fptr:
-                data = fptr.read()
-            return data # what if data itself is False equivalence
-        return False
-
-    def check_status(self):
-        handles = self.get_handles()
-        submit, msgout, sglout = handles[runtk.SUBMIT], handles[runtk.MSGOUT], handles[runtk.SGLOUT]
-        if not self.fs.exists(submit):
-            return _Status(runtk.STATUS.NOTFOUND, None)
-        if not self.fs.exists(msgout):
-            return _Status(runtk.STATUS.PENDING, None)
-        msg = self.fs.tail(msgout)
-        if self.fs.exists(sglout):
-            return _Status(runtk.STATUS.COMPLETED, msg)
-        return _Status(runtk.STATUS.RUNNING, msg)
-
-    def recv(self, interval=60, **kwargs): # blocking function,
-        data = False
-        while not data:
-            data = self.get_run()
-            time.sleep(interval)
-        return data
 
 class SOCKETDispatcher(SHDispatcher):
     """
