@@ -5,12 +5,9 @@ import subprocess
 import shlex
 import pandas
 import itertools
-#import fsspec
-#import sshfs
 from abc import abstractmethod
 from typing import Protocol, runtime_checkable
 import io
-import paramiko
 
 @runtime_checkable
 class FS_Protocol(Protocol):
@@ -116,21 +113,25 @@ class RemoteSSHFS(BaseFS):
 class RemoteConnFS(BaseFS): # use threading lock?
     def __init__(self, connection):
         super().__init__()
+        from paramiko.ssh_exception import SSHException
         self.connection = connection
         self.connection.open()
         self.fs = connection.sftp()
+        self._exception = SSHException
+
+
 
     def exists(self, path, *args, **kwargs):
         try:
             return self.connection.run('[ -e {} ]'.format(path), warn=True).return_code == 0
-        except (EOFError, paramiko.ssh_exception.SSHException, OSError) as e:
+        except (EOFError, self._exception, OSError) as e:
             self.connection.open()
             return self.connection.run('[ -e {} ]'.format(path), warn=True).return_code == 0
 
     def makedirs(self, path, *args, **kwargs):
         try:
             return self.connection.run('mkdir -p {}'.format(path), warn=True).return_code == 0
-        except (EOFError, paramiko.ssh_exception.SSHException, OSError) as e:
+        except (EOFError, self._exception, OSError) as e:
             self.connection.open()
             return self.connection.run('mkdir -p {}'.format(path), warn=True).return_code == 0
 
@@ -140,7 +141,7 @@ class RemoteConnFS(BaseFS): # use threading lock?
             self.fs = self.connection.sftp()
         try:
             return self.fs.file(path, mode)
-        except (EOFError, paramiko.ssh_exception.SSHException, OSError) as e:
+        except (EOFError, self._exception, OSError) as e:
             self.connection._sftp = None
             self.connection.open()
             self.fs = self.connection.sftp()
@@ -151,7 +152,7 @@ class RemoteConnFS(BaseFS): # use threading lock?
     def remove(self, path, *args, **kwargs):
         try:
             return self.connection.run('rm {}'.format(path), warn=True).return_code == 0
-        except (EOFError, paramiko.ssh_exception.SSHException, OSError) as e:
+        except (EOFError, self._exception, OSError) as e:
             self.connection.open()
             return self.connection.run('rm {}'.format(path), warn=True).return_code == 0
     def close(self):
