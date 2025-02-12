@@ -333,9 +333,9 @@ class _Status(namedtuple('status', ['status', 'msg'])):
     def __repr__(self):
         return 'status={}, msg={}'.format(self.status, self.msg)
 
-class FSDispatcher(SHDispatcher):
+class FCDispatcher(SHDispatcher):
     """
-    Base class for all Dispatcher classes that utilize a file system
+    Base class for all Dispatcher classes that utilize a file system instance and cmd instance
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -392,7 +392,7 @@ class FSDispatcher(SHDispatcher):
         return data
 
 
-class SSHDispatcher(FSDispatcher, SHDispatcher):
+class SSHDispatcher(FCDispatcher, SHDispatcher):
     """
     SSH Dispatcher, for running jobs on remote machines
     uses fabric, paramiko
@@ -442,11 +442,10 @@ class SSHDispatcher(FSDispatcher, SHDispatcher):
 
 class LocalDispatcher(SHDispatcher):
     """
-    SSH Dispatcher, for running jobs on remote machines
-    uses fabric, paramiko
+    SSH Dispatcher, for running jobs on local machines (LocalProcCmd and LocalFS)
     """
-    def __init__(self, fs=None, cmd=None, submit=None, remote_dir=None,
-                 remote_out='.', env=None, label=None, **kwargs):
+    def __init__(self, fs=None, cmd=None, submit=None, project_path=None,
+                 output_path='.', env=None, label=None, **kwargs):
         """
         Parameters
         ----------
@@ -458,7 +457,7 @@ class LocalDispatcher(SHDispatcher):
         self.cmd = None
         self.instance_kwargs = None
         self.set_instances(fs=fs, cmd=cmd)
-        super().__init__(submit=submit, project_path=remote_dir, output_path=remote_out, label=label, env=env,
+        super().__init__(submit=submit, project_path=project_path, output_path=output_path, label=label, env=env,
                          fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, connection=self.connection, **kwargs)
 
     def set_instances(self, fs=None, cmd=None, **kwargs):
@@ -525,7 +524,7 @@ class LocalDispatcher(SHDispatcher):
             time.sleep(interval)
         return data
 
-class SFSDispatcher(FSDispatcher, LocalDispatcher):
+class SFSDispatcher(FCDispatcher, LocalDispatcher):
     """
     This class can be improved by implementing a single file communication system without a signal file and checking
     proc.readline() -- see threading course
@@ -536,7 +535,7 @@ class SFSDispatcher(FSDispatcher, LocalDispatcher):
     """
 
 
-class SOCKETDispatcher(SHDispatcher):
+class SOCKETDispatcher(LocalDispatcher):
     """
     Base class for socket-based dispatchers
     """

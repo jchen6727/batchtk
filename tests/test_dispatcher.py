@@ -14,13 +14,13 @@ JOBS = [
 class TestJOBS:
     @pytest.fixture(params=JOBS)
     def setup(self, request):
-        Submit = request.param.Submit
-        submit = Submit()
-        Dispatcher = request.param.Dispatcher
-        dispatcher = Dispatcher(project_path=os.getcwd(),
+        _Submit = request.param.Submit
+        submit = _Submit()
+        _Dispatcher = request.param.Dispatcher
+        dispatcher = _Dispatcher(project_path=os.getcwd(),
                                               submit=submit,
                                               env={'test': 'value'},
-                                              label='test' + Dispatcher.__name__ + Submit.__name__)
+                                              label='test' + _Dispatcher.__name__ + _Submit.__name__)
         return namedtuple('Setup', ['dispatcher', 'submit'])(dispatcher, submit)
 
     def test_init(self, setup):
@@ -43,6 +43,7 @@ class TestJOBS:
     def test_create_job(self, setup):
         dispatcher = setup.dispatcher
         dispatcher.create_job()
+        print(dispatcher.handles[runtk.SUBMIT])
         assert os.path.exists(dispatcher.handles[runtk.SUBMIT])
         with open(dispatcher.handles[runtk.SUBMIT], 'r') as fptr:
             script = fptr.read()
