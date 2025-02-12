@@ -9,7 +9,7 @@ from batchtk.utils import LocalFS, LocalProcCmd
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
 
 class Template(object):
-
+""""""
     def __new__(cls, template = None, key_args = None, **kwargs):
         if isinstance(template, Template):
             return template
@@ -18,7 +18,7 @@ class Template(object):
 
     def __init__(self, template, key_args = None, **kwargs):
         if isinstance(template, Template): # passthrough if already a Template
-            return #TODO why does this need to be here?, __init__ shouldn't be called if template
+            return
         self.template = template
         if key_args:
             self.key_args = {key: "{" + key + "}" for key in key_args}
@@ -185,6 +185,8 @@ key_args:
 {}
 """.format(*ssph, self.key_args)
 
+    def deploy_job(self, fs=None):
+
     def submit_job(self, fs=None, cmd=None, check=False):
         if fs is None:
             fs = LocalFS()
@@ -219,10 +221,10 @@ key_args:
         else:
             return deserializers['eq'](self.handles.template)
 
-default_submit = Template(template="sh {output_path}/{label}.sh",
+_default_submit = Template(template="sh {output_path}/{label}.sh",
                           key_args={'output_path', 'label'})
 
-default_script = Template(
+_default_script = Template(
     template= \
 """\
 #!/bin/sh
@@ -236,7 +238,7 @@ echo $pid >&1
     key_args={'label', 'project_path', 'output_path', 'env', 'command'}
 )
 
-default_handles = {
+_default_handles = {
         runtk.STDOUT: '{output_path}/{label}.run',
         runtk.SUBMIT: '{output_path}/{label}.sh'}
 
@@ -247,9 +249,9 @@ class SHSubmit(Submit):
                  handles = None,
                  **kwargs):
         #check for class attributes first, then passed arguments, then default values
-        submit_template = hasattr(self, 'submit_template') and self.submit_template or submit_template or default_submit
-        script_template = hasattr(self, 'script_template') and self.script_template or script_template or default_script
-        handles = hasattr(self, 'handles') and self.handles or handles or default_handles
+        submit_template = hasattr(self, 'submit_template') and self.submit_template or submit_template or _default_submit
+        script_template = hasattr(self, 'script_template') and self.script_template or script_template or _default_script
+        handles = hasattr(self, 'handles') and self.handles or handles or _default_handles
         super().__init__(
             submit_template = submit_template,
             script_template = script_template,
@@ -269,7 +271,7 @@ class SHSubmit(Submit):
             raise(Exception("Job submission failed:\n{}\n{}\n{}\n{}".format(self.submit, self.script, proc.stdout, proc.stderr)))
         return self.job_id
 
-# reference classes used as examples.
+# reference classes used as examples and for testing.
 #TODO make sure to
 class SHSubmitSFS(SHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command'}
@@ -301,4 +303,3 @@ pid=$!
 echo $pid >&1
 """
     script_handles = runtk.SOCKET_HANDLES
-

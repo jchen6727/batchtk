@@ -14,6 +14,11 @@ import paramiko
 
 @runtime_checkable
 class FS_Protocol(Protocol):
+    """
+    Protocol for all filesystem abstractions,
+    any custom filesystem class must implement this protocol (runtime check)
+    to be used by the dispatcher.
+    """
     def exists(self, path, *args, **kwargs) -> bool:
         # check if a path maps to a resource
         pass
@@ -167,7 +172,10 @@ class CustomFS(BaseFS):
         if not isinstance(fs, FS_Protocol):
             raise TypeError("fs does not fully implement FS_Protocol (see batchtk/utils/utils")
         return super().__new__(cls)
+
     def __init__(self, fs: FS_Protocol):
+        if isinstance(fs, BaseFS):
+            return
         self.fs = fs
 
     def exists(self, path, *args, **kwargs):
@@ -232,6 +240,8 @@ class CustomCmd(BaseCmd):
             raise TypeError("cmd does not fully implement Cmd_Protocol (see batchtk/utils/utils")
         return super().__new__(cls)
     def __init__(self, cmd: Cmd_Protocol):
+        if isinstance(cmd, BaseCmd):
+            return
         super().__init__()
         self.cmd = cmd
         self.proc = None
