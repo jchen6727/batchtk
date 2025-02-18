@@ -4,7 +4,7 @@ import collections
 
 def traverse(obj, path):
     if len(path) == 1: #access object in dictionary
-        assert path[0] in obj
+        assert path[0] in obj or ast.literal_eval(path[0]) in obj, "error accessing {}[{}]".format(obj, path[0])
         return obj
     if isinstance(obj, collections.abc.Mapping) and path[0] in obj: #access object in dictionary
         return traverse(obj[path[0]], path[1:])
@@ -21,9 +21,14 @@ def set_map(obj, assign_path, value):
     else:
         assigns = assign_path # assume list
     try:
-        traverse(obj, assigns)[assigns[-1]] = value
+        container = traverse(obj, assigns)
     except AssertionError:
         raise ValueError("error setting {}={}, check that path {} exists within your object mapping".format(assign_path, value, assign_path))
+    try:
+        container[assigns[-1]] = value
+    except TypeError:
+        container[ast.literal_eval(assigns[-1])] = value
+
 
 def create_map(obj, assign_path, value):
     if isinstance(assign_path, str):
@@ -53,8 +58,6 @@ def create_config(obj, *args, **kwargs):
         else:
             create_map(obj, arg[:-1], arg[-1])
 
-
-
 class RunConfig(dict):
     def __init__(self, *args, **kwargs):
         if args and isinstance(args[0], dict):
@@ -70,3 +73,63 @@ class RunConfig(dict):
         kwargs = kwargs | self._mappings
         update_config(self, *args, **kwargs)
 
+    def __getattr__(self, k):
+        try:
+            # Throws exception if not in prototype chain
+            return object.__getattribute__(self, k)
+        except AttributeError:
+            try:
+                return self[k]
+            except KeyError:
+                raise AttributeError(k)
+
+    def __setattr__(self, k, v):
+        try:
+            # Throws exception if not in prototype chain
+            object.__getattribute__(self, k)
+        except AttributeError:
+            try:
+                self[k] = v
+            except:
+                raise AttributeError(k)
+        else:
+            object.__setattr__(self, k, v)
+
+    def __delattr__(self, k):
+        try:
+            # Throws exception if not in prototype chain
+            object.__getattribute__(self, k)
+        except AttributeError:
+            try:
+                del self[k]
+            except KeyError:
+                raise AttributeError(k)
+        else:
+            object.__delattr__(self, k)
+
+    @property
+    def __dict__(self):
+        return {key: value for key, value in self.items() if not key.startswith('_')}
+
+class Comm(object):
+    def __init__(self, runner=None):
+        self._runner = runner or get_runner()
+
+    def connect(self):
+        self._runner.connect()
+
+    def send(self, data):
+        self._runner.send(data)
+
+    def receive(self):
+        return self._runner.receive()
+
+    def close(self):
+        self._runner.close()
+
+    def __enter__(self):
+        self.connect()
+        return self
+
+    def __exit__(self, *args):
+        self.close()

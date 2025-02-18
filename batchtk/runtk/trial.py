@@ -22,8 +22,8 @@ def trial(config, label, tid, dispatcher_constructor, project_path, output_path,
                                         label=run_label, **dispatcher_kwargs)
     dispatcher.update_env(dictionary=config)
     try:
-        dispatcher.run()
-        dispatcher.accept()
+        dispatcher.start()
+        dispatcher.connect()
         data = dispatcher.recv(interval=interval)
         dispatcher.clean()
     except Exception as e:

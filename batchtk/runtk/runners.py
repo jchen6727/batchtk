@@ -20,7 +20,7 @@ class Runner(object):
     """
 
     _instance = None #singleton instance
-
+    _initialized = False
     def __new__(cls, *args, **kwargs):
         """
         Singleton implementation
@@ -64,6 +64,11 @@ class Runner(object):
         **kwargs - unused placeholder
         """
         # Initialize logger
+        if self._initialized:
+            if grepstr or env or aliases or supports or log:
+                warnings.warn("Runner has already been initialized, ignoring new arguments")
+            return
+        self._initialized = True
         self.logger = log
         if isinstance(log, str):
             self.logger = logging.getLogger(log)
@@ -80,7 +85,7 @@ class Runner(object):
         self.supports = supports or runtk.SUPPORTS
         self.grepstr = grepstr or runtk.GREPSTR
         self.grepfunc = staticmethod(lambda key: self.grepstr in key )
-        self.greptups = {key: self.env[key].split('=') for key in self.env if
+        self.greptups = {key: self.env[key].split(runtk.EQDELIM) for key in self.env if
                          self.grepfunc(key)}
         # readability, greptups as the environment variables: (key,value) passed by runtk.GREPSTR environment variables
         # saved the environment variables TODO JSON vs. STRING vs. FLOAT

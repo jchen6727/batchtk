@@ -3,16 +3,16 @@ import logging
 from collections import namedtuple
 from batchtk import runtk
 import re
-from batchtk.utils import LocalFS, LocalProcCmd
-
 
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
 
 class Template(object):
-""""""
+    """
+    Class for Template objects
+    """
     def __new__(cls, template = None, key_args = None, **kwargs):
         if isinstance(template, Template):
-            return template
+            return template # any template object can be passed through -> see __init__
         else:
             return super().__new__(cls)
 
@@ -34,7 +34,7 @@ class Template(object):
 
     def format(self, **kwargs):
         """
-        formats the template with the supplied kwargs, returns the formatted string. The template value itself is
+        formats the template with the supplied kwargs, returns the formatted string. The template itself is
         unchanged
         :param kwargs:
         :return self.template.format(**kwargs) (str): template string formatted with kwargs.
@@ -186,11 +186,14 @@ key_args:
 """.format(*ssph, self.key_args)
 
     def deploy_job(self, fs=None):
+        pass
 
     def submit_job(self, fs=None, cmd=None, check=False):
         if fs is None:
+            from batchtk.utils import LocalFS
             fs = LocalFS()
         if cmd is None:
+            from batchtk.utils import LocalProcCmd
             cmd = LocalProcCmd()
         if self.job is None:
             raise Exception("Job not created, call create_job() first")
@@ -279,7 +282,7 @@ class SHSubmitSFS(SHSubmit):
         """\
 #!/bin/sh
 cd {project_path}
-export OUTFILE="{output_path}/{label}.out"
+export MSGFILE="{output_path}/{label}.out"
 export SGLFILE="{output_path}/{label}.sgl"
 export JOBID=$$
 {env}
@@ -287,7 +290,7 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    script_handles = runtk.FILE_HANDLES
+    handles = runtk.FILE_HANDLES
 
 class SHSubmitSOCK(SHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'sockname'}
@@ -302,4 +305,4 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    script_handles = runtk.SOCKET_HANDLES
+    handles = runtk.SOCKET_HANDLES

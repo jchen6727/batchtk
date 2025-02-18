@@ -16,7 +16,7 @@ import subprocess
 from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
-from batchtk.utils import create_path, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
+from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
 
 import socket
 
@@ -44,7 +44,7 @@ class Dispatcher(object):
         initializes base dispatcher class
         *Optional* Parameters
         ----------
-        env     - any environmental variables to be passed to the created runner
+        env     - any environmental variables to be passed to the created runner -> note that they will not undergo the formatting for parse by the opposite runner
         grepstr - the string ID for a subprocess to identify environment variables passed by the dispatcher
         label   - an ID string that is unique to the dispatcher <-> runner pair
         **kwargs are placed into a __dict__ item that can be accessed by __getattr__
@@ -117,34 +117,29 @@ class Dispatcher(object):
 
         with runtk.GREPSTR being defined in as 'RUNTK' (see ./header.py)
         """
-        get_type = staticmethod(lambda x: type(x).__name__)
-        return {"{}{}{}".format(value_type or get_type(value).upper(), self.grepstr, index + i):
-                      "{}={}".format(key, value) for i, (key, value) in enumerate(dictionary.items())}
-
+        return format_env(dictionary=dictionary, value_type=value_type, index=index, grepstr=self.grepstr, eqdelim=runtk.EQDELIM)
+        #get_type = staticmethod(lambda x: type(x).__name__)
+        #return {"{}{}{}".format(value_type or get_type(value).upper(), self.grepstr, index + i):
+        #              "{}{}{}".format(key, runtk.EQDELIM, value) for i, (key, value) in enumerate(dictionary.items())}
         # convert dictionary to proper elements
 
 
     create_env = format_env # alias (same function)
 
-    def init_run(self, **kwargs):
+    def start(self):
         """
-        Parameters
-        ----------
-        **kwargs - of note, **kwargs here is used if necessary to help generate self.label
+        starts the Runner process (job)
+        """
 
-        handles any global tasks prior to running the subprocess
-            if self.label = None, uses hashlib to generate alphanumeric for self.label based on self.env and **kwargs then
-            sets self.label = self.label
-            if self.label already set, uses self.label as self.label
+    def connect(self):
+        """
+        connects to the started Runner process (job)
         """
         pass
+
+    def recv(self):
         """
-        if not self.label:
-            gstr = str(self.env) + str(kwargs)
-            self.label = hashlib.md5(gstr.encode()).hexdigest() # use uuid instead.
-            self.label = "{}_{}".format(self.grepstr.lower(), self.label)
-        else:
-            self.label = self.label
+        receives data from the Runner process
         """
 
     def save_env(self, filename):
@@ -161,7 +156,6 @@ class Dispatcher(object):
             fptr.close()
 
     def __repr__(self):
-        self.init_run()
         return """
 label:
 {}
@@ -208,9 +202,10 @@ class SHDispatcher(Dispatcher):
         super().__init__(**kwargs)
         # check all instances are set properly
         if not hasattr(self, 'instance_kwargs') and not hasattr(self, 'fs') and not hasattr(self, 'cmd'):
-            self.instance_kwargs = instance_kwargs or {}
-            self.instance_kwargs.update({'fs': fs, 'cmd': cmd})
-            self.set_instances(**self.instance_kwargs)
+            self.cmd, self.fs = None, None
+            self.instance_kwargs = instance_kwargs or {} # set the kwargs to initialize any instances
+            self.instance_kwargs.update({'fs': fs, 'cmd': cmd}) # provide the filesystem and command instances
+            self.set_instances(**self.instance_kwargs) # set the instance attributes
         self.project_path = project_path
         self.output_path = create_path(project_path, output_path, self.fs)
         self.submit = submit
@@ -229,10 +224,19 @@ class SHDispatcher(Dispatcher):
         self.fs = CustomFS(fs) #passthrough if valid BaseFS
         self.cmd = CustomCmd(cmd) #passthrough if valid BaseCmd
 
+    def unset_instances(self):
+        """
+        unsets instances
+        """
+        self.fs.close()
+        self.cmd.close()
+        self.fs, self.cmd = None, None
+
     def reset_instances(self):
         """
         resets instances
         """
+        self.unset_instances()
         self.set_instances(**self.instance_kwargs)
 
     def create_job(self, **kwargs):
@@ -244,7 +248,6 @@ class SHDispatcher(Dispatcher):
         :param kwargs: #TODO use this format in all docstrings :/
         :return:
         """
-        super().init_run()
         self.submit.create_job(label=self.label,
                                project_path=self.project_path,
                                output_path=self.output_path,
@@ -258,7 +261,8 @@ class SHDispatcher(Dispatcher):
         """
         self.job_id = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
 
-    def run(self, **kwargs):
+
+    def start(self, **kwargs):
         """
         creates and submits a job through the submit instance
         (calls .create_job() and .submit_job())
@@ -268,7 +272,7 @@ class SHDispatcher(Dispatcher):
         self.create_job(**kwargs)
         self.job_id = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
 
-    def accept(self, **kwargs):
+    def connect(self, **kwargs):
         """
         Method for accepting a connection from a peer (runner) if bidirectional communication is implemented
         (see runtk.UNIX_Dispatcher, runtk.INET_Dispatcher, runtk.SocketRunner)
@@ -333,9 +337,9 @@ class _Status(namedtuple('status', ['status', 'msg'])):
     def __repr__(self):
         return 'status={}, msg={}'.format(self.status, self.msg)
 
-class FCDispatcher(SHDispatcher):
+class QSDispatcher(SHDispatcher):
     """
-    Base class for all Dispatcher classes that utilize a file system instance and cmd instance
+    Base class for all Query Status Dispatcher classes that utilize a file system instance to query status and cmd instance
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -348,13 +352,6 @@ class FCDispatcher(SHDispatcher):
         if not self.handles:
             self.create_job()
         return self.handles
-
-    def run(self, rerun=False, **kwargs):
-        if rerun:
-            self.create_job(**kwargs)
-            self.job_id = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
-        else:
-            self.job_id = self.submit_job()
 
     def check_status(self):
         handles = self.get_handles()
@@ -369,30 +366,43 @@ class FCDispatcher(SHDispatcher):
         return _Status(runtk.STATUS.RUNNING, msg)
 
     def submit_job(self):
+        """
+        Method for submitting a job that performs a status query first --
+        if the job is not found,
+        """
         status = self.check_status()
         if status.status in [runtk.STATUS.PENDING, runtk.STATUS.RUNNING, runtk.STATUS.COMPLETED]:
             return status
         if status.status is runtk.STATUS.NOTFOUND:
             proc = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
-            self.job_id = proc.stdout
+            self.job_id = proc
             return self.check_status()
         return status
 
-    def get_run(self):
+    def check_msg(self):
         status = self.check_status()
         if status.status == runtk.STATUS.COMPLETED:
-            return status.msg
+            return status.msg[0]
         return False
+
+    def start(self, restart=False, **kwargs):
+        if restart:
+            # manually create job, then ensure call to submit.submit_job
+            self.create_job(**kwargs)
+            self.job_id = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
+        else:
+            self.job_id = self.submit_job()
 
     def recv(self, interval=60, **kwargs):
         data = False
         while not data:
-            data = self.get_run()
+            data = self.check_msg()
+            if data:
+                return data
             time.sleep(interval)
-        return data
 
 
-class SSHDispatcher(FCDispatcher, SHDispatcher):
+class SSHDispatcher(QSDispatcher):
     """
     SSH Dispatcher, for running jobs on remote machines
     uses fabric, paramiko
@@ -417,32 +427,24 @@ class SSHDispatcher(FCDispatcher, SHDispatcher):
     def set_instances(self, connection, fs=None, cmd=None, **kwargs):
         from batchtk.utils import RemoteConnFS, RemoteConnCmd
         self.connection = connection
-        if fs is None:
-            self.fs = RemoteConnFS(self.connection)
-        else:
-            self.fs = fs
-        if cmd is None:
-            self.cmd = RemoteConnCmd(self.connection)
-        else:
-            self.cmd = cmd
+        self.fs = fs or RemoteConnFS(self.connection)
+        self.cmd = cmd or RemoteConnCmd(self.connection)
         super().set_instances(fs=self.fs, cmd=self.cmd, connection=self.connection)
 
-    def open(self):
-        self.set_instances(**self.instance_kwargs)
-
-    def close(self):
-        self.fs.close()
+    def unset_instances(self):
+        super().unset_instances()
         self.connection.close()
-        self.fs = None
         self.connection = None # keep self.connection
 
-    def reset_connections(self):
-        self.close()
-        self.open()
+def _set_local_instances(self, fs=None, cmd=None, **kwargs):
+    from batchtk.utils import LocalProcCmd, LocalFS
+    self.fs = fs or LocalFS()
+    self.cmd = cmd or LocalProcCmd()
+    SHDispatcher.set_instances(self, fs=self.fs, cmd=self.cmd)
 
-class LocalDispatcher(SHDispatcher):
+class LocalDispatcher(QSDispatcher):
     """
-    SSH Dispatcher, for running jobs on local machines (LocalProcCmd and LocalFS)
+    SH Dispatcher, for running jobs on local machines (LocalProcCmd and LocalFS)
     """
     def __init__(self, fs=None, cmd=None, submit=None, project_path=None,
                  output_path='.', env=None, label=None, **kwargs):
@@ -461,96 +463,27 @@ class LocalDispatcher(SHDispatcher):
                          fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, connection=self.connection, **kwargs)
 
     def set_instances(self, fs=None, cmd=None, **kwargs):
-        from batchtk.utils import LocalProcCmd, LocalFS
-        kwargs = _get_obj_args(**locals())
-        self.instance_kwargs = kwargs
-        if fs is None:
-            self.fs = LocalFS()
-        else:
-            self.fs = fs
-        if cmd is None:
-            self.cmd = LocalProcCmd()
-        else:
-            self.cmd = cmd
-        super().set_instances(fs=self.fs, cmd=self.cmd)
+        _set_local_instances(self, fs=fs, cmd=cmd, **kwargs)
 
-    def open(self):
-        self.set_instances(**self.instance_kwargs)
-
-    def close(self):
-        self.fs.close()
-        self.connection.close()
-        self.fs = None
-        self.connection = None # keep self.connection
-
-    def reset_connections(self):
-        self.close()
-        self.open()
-
-    def get_handles(self):
-        if not self.handles:
-            self.create_job()
-        return self.handles
-
-    def create_job(self, **kwargs):
-        """
-        creates a job through the submit instance
-        the `label` is created, and the relevant commands and scripts are created,
-        then the handles are retrieved from the submit instance
-
-        :param kwargs: #TODO use this format in all docstrings :/
-        :return:
-        """
-        super().init_run()
-        self.submit.create_job(label=self.label,
-                               project_path=self.project_path,
-                               output_path=self.output_path,
-                               env=self.env,
-                               **kwargs)
-        self.handles = self.submit.get_handles()
-
-    def submit_job(self):
-        proc = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
-        self.job_id = proc.stdout
-        return _Status(runtk.STATUS.PENDING, proc.stdout)
-
-    def get_run(self):
-        return True
-
-    def recv(self, interval=60):
-        data = False
-        while not data:
-            data = self.get_run()
-            time.sleep(interval)
-        return data
-
-class SFSDispatcher(FCDispatcher, LocalDispatcher):
-    """
-    This class can be improved by implementing a single file communication system without a signal file and checking
-    proc.readline() -- see threading course
-
-    what about grep for a specific run string?
-    Shared File System Dispatcher utilizing file operations to submit jobs and collect results
-    handles submitting the script to a Runner/Worker object
-    """
-
-
-class SOCKETDispatcher(LocalDispatcher):
+class SOCKETDispatcher(SHDispatcher):
     """
     Base class for socket-based dispatchers
     """
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        self.fs = None
+        self.cmd = None
+        self.instance_kwargs = None
         self.socket = None
+        self.set_instances()
 
-    def submit_job(self):
-        self.job_id = self.submit.submit_job()
+    def set_instances(self, fs=None, cmd=None, **kwargs):
+        _set_local_instances(self, fs=fs, cmd=cmd, **kwargs)
 
-    def run(self, **kwargs):
+    def start(self, **kwargs):
         self.create_job(**kwargs)
         self.submit_job()
 
-    def accept(self):
+    def connect(self):
         """
         accept incoming connection from client
         this function is blocking
@@ -589,7 +522,6 @@ class UNIXDispatcher(SOCKETDispatcher):
     #TODO can we consolidate UNIXDispatcher and INETDispatcher into a single class?
     """
     def create_job(self, **kwargs):
-        super().init_run(**kwargs)
         socket_name = "{}/{}.s".format(self.output_path, self.label)  # the socket file
         self.socket = UNIXSocket(socket_name = socket_name)
         self.socket.listen()
@@ -609,7 +541,6 @@ class INETDispatcher(SOCKETDispatcher):
     handles submitting the script to a Runner/Worker object
     """
     def create_job(self, **kwargs):
-        super().init_run(**kwargs)
         self.socket = INETSocket()
         socket_name = self.socket.listen() # one server <-> one client
         self.submit.create_job(label=self.label, project_path=self.project_path,
@@ -634,22 +565,14 @@ class NOFDispatcher(Dispatcher):
         self.env.update(os.environ.copy())
 
     def run(self):
-        super().init_run()
         self.proc = subprocess.run(self.cmdstr.split(), env=self.env, text=True, stdout=subprocess.PIPE, \
             stderr=subprocess.PIPE)
         return self.proc
 
-
-
-
-
-
-
-
 DISPATCHERS = {
     'INET': INETDispatcher,
     'UNIX': UNIXDispatcher,
-    'SFS': SFSDispatcher,
+    'SFS': LocalDispatcher,
     'NOF': NOFDispatcher,
     'SSH': SSHDispatcher,
 }

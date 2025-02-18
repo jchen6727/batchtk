@@ -7,7 +7,7 @@ used in creating and extracting values from the environment
 """
 GREPSTR = 'RUNTK' #string highlighting relevant environment variables for runner process
 DELIM = '.' #delimiter for nesting environment variables (similar to "__getattribute__()" python method)
-
+EQDELIM = '*=' #delimiter for assigning environment variables
 """
 STATUS HANDLING -> see runtk/dispatchers.py
 used in communicating the status of a job
@@ -22,6 +22,7 @@ class STATUS(Enum):
 """
 HANDLES W/ ALIASES -> see dispatchers.py, runners.py
 used for environment variables relevant for Dispatcher -> Runner communication
+i.e. make sure that MSGFILE, SGLFILE, SOCNAME, JOBID are assigned in the relevant Submit
 """
 MSGOUT, MSGOUT_ENV = 'write_file'  , 'MSGFILE'
 SGLOUT, SGLOUT_ENV = 'signal_file' , 'SGLFILE'

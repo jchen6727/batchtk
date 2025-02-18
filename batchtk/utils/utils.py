@@ -8,7 +8,7 @@ import itertools
 from abc import abstractmethod
 from typing import Protocol, runtime_checkable
 import io
-
+from batchtk.runtk.header import GREPSTR, EQDELIM
 @runtime_checkable
 class FS_Protocol(Protocol):
     """
@@ -199,14 +199,17 @@ class Cmd_Protocol(Protocol):
     proc: object
     def run(self, command: str) -> object:
         pass
+    def close(self) -> None:
+        pass
 
 class BaseCmd(Cmd_Protocol):
-    @abstractmethod
     def __init__(self):
         self.proc = None
     @abstractmethod
     def run(self, command):
         pass
+    def close(self):
+        self.proc = None
 
 class LocalProcCmd(BaseCmd):
     def __init__(self):
@@ -220,15 +223,17 @@ class LocalProcCmd(BaseCmd):
 
 class RemoteConnCmd(BaseCmd):
     def __init__(self, connection):
+        from paramiko.ssh_exception import SSHException
         super().__init__()
         self.connection = connection
         self.proc = None
+        self._exception = SSHException
 
     def run(self, command):
         try:
             self.proc = self.connection.run(command, warn=True, hide=True)
             return self.proc
-        except (EOFError, paramiko.ssh_exception.SSHException, OSError) as e:
+        except (EOFError, self._exception, OSError) as e:
             self.connection.open()
             self.proc = self.connection.run(command, warn=True, hide=True)
             return self.proc
@@ -250,6 +255,12 @@ class CustomCmd(BaseCmd):
     def run(self, command):
         self.proc = self.cmd.run(command)
         return self.cmd.run(command)
+
+def format_env(dictionary: dict, value_type= None, index = 0, grepstr = GREPSTR, eqdelim = EQDELIM):
+    get_type = staticmethod(lambda x: type(x).__name__)
+    return {"{}{}{}".format(value_type or get_type(value).upper(), grepstr, index + i):
+                "{}{}{}".format(key, eqdelim, value) for i, (key, value) in enumerate(dictionary.items())}
+
 
 def get_path(path):
     if path[0] == '/':
@@ -279,8 +290,7 @@ def local_open(path: str, mode: str): # renamed, avoid confusion with the fs.pat
     return fptr
 
 def validate_path(path: str):
-    if '=' in path:
-        raise ValueError("error: the directory path created for your search results contains the special character =")
+    return #now using updated EQDELIM --
 
 def create_path(path0: str, path1 = "", fs = LocalFS()):
     if path1 and path1[0] == '/':
@@ -302,7 +312,7 @@ def create_path(path0: str, path1 = "", fs = LocalFS()):
 
 def get_exports(filename):
     with open(filename, 'r') as fptr:
-        items = re.findall(r'export (.*?)="(.*?)"', fptr.read())
+        items = re.findall(r'export (.*?)\*="(.*?)"', fptr.read())
         return {key: val for key, val in items}
 
 def get_port_info(port):
@@ -357,16 +367,3 @@ def dcx(**kwargs):
     """
     for instance in itertools.product(*kwargs.values()):
         yield dict(zip(kwargs.keys(), instance))
-
-
-def format_val(val):
-    """
-    Nested objects with numpy or other data types?
-    Parameters
-    ----------
-    val
-
-    Returns
-    -------
-    """
-    return None
