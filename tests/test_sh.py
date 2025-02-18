@@ -39,20 +39,17 @@ class TestSHINET:
     def test_job(self, setup):
         dispatcher = setup
         dispatcher.create_job()
-        assert os.path.exists(dispatcher.handles[runtk.SUBMIT])
         logger.info("dispatcher.env:\n{}".format(json.dumps(dispatcher.env)))
         logger.info("dispatcher.socket.name:\n{}".format(dispatcher.socket.name))
         logger.info("dispatcher.handles[runtk.SUBMIT]:\n{}".format(dispatcher.handles[runtk.SUBMIT]))
-        #print(dispatcher.shellfile)
-        with open(dispatcher.handles[runtk.SUBMIT], 'r') as fptr:
-            script = fptr.read()
+        script = dispatcher.submit.script
             #print(script)
         logger.info("script:\n{}".format(script))
         #logger.info("port info (dispatcher listen):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         assert 'python runner_scripts/socket_py' in script
         dispatcher.submit_job()
         logger.info("job id:\n{}".format(dispatcher.job_id))
-        connection, peer_address = dispatcher.accept()
+        connection, peer_address = dispatcher.connect()
         logger.info("""\
         connection:   {}
         peer_address: {}""".format(connection, peer_address))

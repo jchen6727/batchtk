@@ -29,5 +29,5 @@ class TestCONFIGS:
     def test_init(self, setup):
         cfg = setup.cfg
         cfg.update(*setup.update)
-        print(json.dumps(cfg))
+        print(json.dumps(cfg.__dict__))
         print(cfg == setup.result)

@@ -204,8 +204,10 @@ class Runner(object):
     def close(self, **kwargs):
         """
         Method called at close of the script, cleans up any open file handles or sockets, etc. To be implemented by
-        inherited classes.
+        inherited classes. Also resets the script to allow for reinitialization of a new Runner
         """
+        self._instance = None
+        self._initialized = False
         if self.logger:
             for handler in self.logger.handlers:
                 handler.close()

@@ -9,6 +9,7 @@ from abc import abstractmethod
 from typing import Protocol, runtime_checkable
 import io
 from batchtk.runtk.header import GREPSTR, EQDELIM
+from warnings import warn
 @runtime_checkable
 class FS_Protocol(Protocol):
     """
@@ -310,10 +311,17 @@ def create_path(path0: str, path1 = "", fs = LocalFS()):
         raise TypeError("user provided a fs that does not implement FS_Protocol")
 
 
-def get_exports(filename):
-    with open(filename, 'r') as fptr:
-        items = re.findall(r'export (.*?)\*="(.*?)"', fptr.read())
+def get_exports(filename=None, script=None):
+    if filename and script:
+        warn("both filename and script provided, using script")
+    if script:
+        items = re.findall(r'export (.*?)="(.*?)"', script)
         return {key: val for key, val in items}
+    if filename:
+        with open(filename, 'r') as fptr:
+            items = re.findall(r'export (.*?)="(.*?)"', fptr.read())
+            return {key: val for key, val in items}
+    raise ValueError("either filename or script must be provided")
 
 def get_port_info(port):
     output = subprocess.run(shlex.split('lsof -i :{}'.format(port)), capture_output=True, text=True)

@@ -475,6 +475,7 @@ class SOCKETDispatcher(SHDispatcher):
         self.instance_kwargs = None
         self.socket = None
         self.set_instances()
+        super().__init__(**kwargs)
 
     def set_instances(self, fs=None, cmd=None, **kwargs):
         _set_local_instances(self, fs=fs, cmd=cmd, **kwargs)
@@ -491,9 +492,9 @@ class SOCKETDispatcher(SHDispatcher):
         connection, peer_address = self.socket.accept()  # actual blocking statement
         return connection, peer_address
 
-    def recv(self):
+    def recv(self, interval=0):
         """
-
+        # interval does nothing, used to generalize interfaces...
         Returns
         -------
 

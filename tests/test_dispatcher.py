@@ -21,7 +21,7 @@ class TestJOBS:
         key_uid = 'j_'+uid[:4]
         env = {key_uid: uid}
         dispatcher = _Dispatcher(project_path=os.getcwd(),
-                                 output_path='./tests_output',
+                                 output_path='./tests/test_dispatcher',
                                               submit=submit,
                                               env=env,
                                               label='test' + _Dispatcher.__name__ + _Submit.__name__)
@@ -45,7 +45,7 @@ class TestJOBS:
     def test_update_env(self, setup):
         dispatcher = setup.dispatcher
         dispatcher.update_env({'new_var': 'new_value'}, value_type='STR')
-        assert 'new_var=new_value' in dispatcher.env.values()
+        assert 'new_var{}new_value'.format(runtk.EQDELIM) in dispatcher.env.values()
 
     def test_create_job(self, setup):
         dispatcher = setup.dispatcher
