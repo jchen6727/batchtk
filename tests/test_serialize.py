@@ -33,3 +33,4 @@ class TestEnv:
         mappings = runner.get_mappings()
         logger.info("runner.mappings:\n{}".format(mappings))
         assert mappings[setup.key] == setup.val
+        runner.close()

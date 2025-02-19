@@ -8,7 +8,7 @@ import itertools
 from abc import abstractmethod
 from typing import Protocol, runtime_checkable
 import io
-from batchtk.runtk.header import GREPSTR, EQDELIM
+from batchtk.header import GREPSTR, EQDELIM
 from warnings import warn
 @runtime_checkable
 class FS_Protocol(Protocol):
