@@ -1,5 +1,6 @@
 import re
 import subprocess
+import shlex
 
 def get_exports(filename):
     with open(filename, 'r') as fptr:

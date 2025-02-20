@@ -1,0 +1,74 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+Actor User
+participant trial
+participant Dispatcher
+participant Submit
+participant run_label.sh
+participant Runner
+participant RunConfig
+participant Job
+
+'autonumber
+
+group configure_run
+Dispatcher -> User: import **Dispatcher** class
+Submit -> User: import Submit class
+group preformat submit
+rnote over User
+**submit** <- Submit()
+<b>submit</b>.update_templates(**kwargs)
+endrnote
+Submit <-> User
+end
+group trial(...)
+User -> trial:\
+\l1) specify **config**\
+\l2) specify label, \
+\l    trial id (tid)\
+\l3) provide **Dispatcher**\
+\l    __constructor__\
+\l4) specify project_path\
+\l5) specify output_path\
+\l6) provide **submit**
+Dispatcher -> trial:
+Submit -> trial:
+end
+group prepare run
+rnote over trial
+run_label <- label + tid
+endrnote
+group dispatcher = **Dispatcher**(...)
+Dispatcher <-> trial:\
+\l1) provide project_path\
+\l2) provide output_path\
+\l3) provide **submit**\
+\l4) provide run_label
+end
+rnote over Dispatcher, Submit
+dispatcher.update_env(**config**)
+endrnote
+Dispatcher -> Submit
+
+end
+group start job
+Dispatcher -> Submit: dispatcher.run()
+Submit -> run_label.sh:\
+1) write **config** to\
+\l    **environment**\
+\l2) write __comm handles__\
+\l    to **environment**\
+\l3) call run_label.sh
+group job
+run_label.sh -> Runner:\
+Runner loads\
+\l**config**, __comm handles__\
+\lfrom **environment**
+Runner -> RunConfig:\
+RunConfig\
+\lupdated\
+\lwith **config**
+end
+end
+@enduml
