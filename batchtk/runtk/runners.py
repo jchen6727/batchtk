@@ -21,6 +21,7 @@ class Runner(object):
 
     _instance = None #singleton instance
     _initialized = False
+    _reinstance = False
     def __new__(cls, *args, **kwargs):
         """
         Singleton implementation
@@ -36,7 +37,7 @@ class Runner(object):
         with get_runner() as comm:
             id(comm) == runner_id
         """
-        if cls._instance is None:
+        if cls._instance is None or cls._reinstance is not False:
             cls._instance = super().__new__(cls)
         return cls._instance
     def __init__(
@@ -64,11 +65,11 @@ class Runner(object):
         **kwargs - unused placeholder
         """
         # Initialize logger
-        if self._initialized:
-            if grepstr or env or aliases or supports or log:
-                warnings.warn("Runner has already been initialized, ignoring new arguments")
+        if self._initialized and not self._reinstance:
+            if grepstr or aliases or supports or log or env:
+                warnings.warn("Runner has already been initialized, ignoring grepstr, aliases, supports, log, env args.")
             return
-        self._initialized = True
+        self._initialized = not self._reinstance
         self.logger = log
         if isinstance(log, str):
             self.logger = logging.getLogger(log)
@@ -102,23 +103,12 @@ class Runner(object):
         return self.mappings
 
     def __getattr__(self, k): # if __getattribute__ fails, check for k in env, aliases
-        if k in self.env:
+        if k in self.env:#
             return self.env[k]
         elif k in self.aliases:
             return self.env[self.aliases[k]]
-#        elif k in ['__name__', '__origin__']: # to prevent issues with help() builtin, which for some reason calls
-#            # __getattr__ without __getattribute. TODO better way to do this?
-#            raise KeyError(k)
         else:
-            #warnings.warn("Attribute {} not found in environment".format(k))
             raise KeyError(k)
-
-    def __hasattr__(self, k):
-        try:
-            self.__getattr__(k)
-            return True
-        except:
-            return False
 
     def __getitem__(self, k):
         try:
