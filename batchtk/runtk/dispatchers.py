@@ -455,12 +455,11 @@ class LocalDispatcher(QSDispatcher):
         env - any environmental variables to be inherited by the created runner
         """
         self.fs = None
-        self.connection = None
         self.cmd = None
         self.instance_kwargs = None
         self.set_instances(fs=fs, cmd=cmd)
         super().__init__(submit=submit, project_path=project_path, output_path=output_path, label=label, env=env,
-                         fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, connection=self.connection, **kwargs)
+                         fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, **kwargs)
 
     def set_instances(self, fs=None, cmd=None, **kwargs):
         _set_local_instances(self, fs=fs, cmd=cmd, **kwargs)
