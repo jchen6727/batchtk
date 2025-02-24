@@ -5,11 +5,11 @@ from batchtk.runtk.dispatchers import INETDispatcher, UNIXDispatcher
 from batchtk.runtk.submits import SHSubmitSOCK
 from batchtk.runtk.trial import trial, LABEL_POINTER, PATH_POINTER
 
-from batchtk.utils import get_exports#TODO implement a more universal get_port_info
+from batchtk.utils import create_path
 import logging
 import json
 from collections import namedtuple
-from header import TEST_ENVIRONMENT
+from header import TEST_ENVIRONMENT, LOG_PATH, OUTPUT_PATH, CLEAN_OUTPUTS
 
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit', 'config'])
@@ -27,7 +27,7 @@ TRIALS = [Job(INETDispatcher, SHSubmitSOCK, config) for config in CONFIGS]
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.INFO)
-handler = logging.FileHandler('test_job.log')
+handler = logging.FileHandler(LOG_PATH(__file__))
 
 formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
 handler.setFormatter(formatter)
@@ -49,11 +49,12 @@ class TestTRAILS:
             'label': "trial",
             'tid': "{}{}".format(config['x0'], config['x1']),
             'dispatcher_constructor': request.param.Dispatcher,
-            'project_path': os.getcwd(),
-            'output_path': "output",
+            'project_path': __file__.rsplit('/', 1)[0],
+            'output_path': OUTPUT_PATH(__file__),
             'submit': submit,
         }
-        return kwargs
+        yield kwargs
+        #os.rmdir(create_path(kwargs['project_path'], kwargs['output_path']))
 
     def test_trial(self, setup):
         kwargs = setup
