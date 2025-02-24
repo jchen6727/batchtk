@@ -16,4 +16,11 @@ jobs:
       run: pip install .[test]
     - name: Run tests
       run: |
-        pytest tests/test_*.py
+        pytest tests/test_config.py
+        pytest tests/test_dispatcher.py
+        pytest tests/test_job.py
+        pytest tests/test_serialize.py
+        pytest tests/test_sh.py
+        pytest tests/test_socket.py
+        pytest tests/test_submit.py
+        pytest tests/test_trial.py
