@@ -1,4 +1,4 @@
-# used in test_job, test_serialize and test_trial0.py
+# used in test_job, test_serialize and test_trial.py
 
 TEST_ENVIRONMENT = {
     'strvalue': '1',
