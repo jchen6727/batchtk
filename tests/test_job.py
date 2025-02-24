@@ -16,7 +16,7 @@ from batchtk.utils import get_exports#TODO implement a more universal get_port_i
 import logging
 import json
 from collections import namedtuple
-from header import TEST_ENVIRONMENT
+from header import TEST_ENVIRONMENT, OUTPUT_PATH, LOG_PATH, CLEAN_OUTPUTS
 
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit'])
@@ -27,7 +27,7 @@ JOBS = [
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.INFO)
-handler = logging.FileHandler('test_job.log')
+handler = logging.FileHandler(LOG_PATH(__file__))
 
 formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
 handler.setFormatter(formatter)
@@ -39,12 +39,15 @@ class TestJOBS:
     def setup(self, request):
         Submit = request.param.Submit
         Dispatcher = request.param.Dispatcher
-        dispatcher = Dispatcher(project_path=os.getcwd(),
+        dispatcher = Dispatcher(project_path=__file__.rsplit('/', 1)[0],
+                                output_path=OUTPUT_PATH(__file__),
                                      submit=Submit(),
                                      label='test' + Dispatcher.__name__ + Submit.__name__)
         dispatcher.update_env(TEST_ENVIRONMENT)
         dispatcher.submit.update_templates(command='python test.py')
         yield dispatcher
+        #CLEAN_OUTPUTS(dispatcher)
+
 
 
     def test_job(self, setup):
@@ -85,7 +88,7 @@ dispatcher sent              ---> runner recv
         assert test_message == recv_message
         mappings = runner.mappings
 
-        runner.close()
+        runner.close() # also de-initializes the runner (and removes singleton properties)
         #runner._instance = None
         #runner._initialized = None
         #logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.socket.name[1])))

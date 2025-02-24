@@ -1,4 +1,4 @@
-from batchtk.runtk.runners import get_runner
+from batchtk.runtk.runners import Runner, get_runner
 import ast
 import collections
 
@@ -59,13 +59,14 @@ def create_config(obj, *args, **kwargs):
             create_map(obj, arg[:-1], arg[-1])
 
 class RunConfig(dict):
-    def __init__(self, runner=None, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         if args and isinstance(args[0], dict):
             super().__init__(args[0], **kwargs)
             args = args[1:]
+            self._runner = get_runner()
         else:
             super().__init__(**kwargs)
-        self._runner = runner or get_runner()
+        self._runner = 'runner' in kwargs and kwargs['runner'] or get_runner()
         self._mappings = self._runner.get_mappings()
         create_config(self, *args)
 

@@ -11,7 +11,14 @@ authors = [
 description = "Batch submission toolkit for Python"
 dependencies = [
     'importlib-metadata; python_version>"3"',
-    'numpy',
-    'pandas',
+    'numpy>2',
+    'pandas>2',
 ]
+
 readme = "README.md"
+
+[project.optional-dependencies]
+ssh = ['fabric>3',
+]
+test = ['python-dotenv>1',
+        'pytest>7']

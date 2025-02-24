@@ -318,11 +318,12 @@ class SHDispatcher(Dispatcher):
         :return:
         """
         if handles == 'all':
-            handles = self.handles
+            handles = list(self.handles.keys())
         if handles:
             for handle in handles:
                 if self.fs.exists(self.handles[handle]):
                     self.fs.remove(self.handles[handle])
+                #self.handles.pop(handle)
 
     def __repr__(self):
         repr = super().__repr__()
@@ -474,6 +475,7 @@ class SOCKETDispatcher(SHDispatcher):
         self.instance_kwargs = None
         self.socket = None
         self.set_instances()
+        self.handles = None
         super().__init__(**kwargs)
 
     def set_instances(self, fs=None, cmd=None, **kwargs):
@@ -504,14 +506,17 @@ class SOCKETDispatcher(SHDispatcher):
         self.socket.send(data)
 
     def close(self):
+        super().close()
         if self.socket:
             self.socket.close()
         self.socket = None
 
+    def get_handles(self):
+        return self.handles
+
     def clean(self, handles=None):
-        super().clean(handles)
-        if self.socket:
-            self.socket.close()
+        self.close()
+        super().clean(handles=handles)
 
 
 class UNIXDispatcher(SOCKETDispatcher):

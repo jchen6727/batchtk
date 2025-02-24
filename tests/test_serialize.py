@@ -1,7 +1,6 @@
 import pytest
 import os
-from header import TEST_ENVIRONMENT
-from utils import get_exports
+from header import TEST_ENVIRONMENT, LOG_PATH, CLEAN_OUTPUTS
 from batchtk.runtk.dispatchers import Dispatcher
 from batchtk.runtk.runners import Runner
 from batchtk import runtk
@@ -10,7 +9,7 @@ import logging
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.INFO)
-handler = logging.FileHandler('test_serialize.log')
+handler = logging.FileHandler(LOG_PATH(__file__))
 
 formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
 handler.setFormatter(formatter)
@@ -24,7 +23,8 @@ class TestEnv:
         dispatcher = Dispatcher(label='test_serialize')
         dispatcher.update_env({key: val})
         logger.info("testing key: {} with {} value: {}".format(key, type(val).__name__, val))
-        return namedtuple('Setup', ['dispatcher', 'key', 'val'])(dispatcher, key, val)
+        yield namedtuple('Setup', ['dispatcher', 'key', 'val'])(dispatcher, key, val)
+
 
     def test_env(self, setup):
         env = setup.dispatcher.env
