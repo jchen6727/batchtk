@@ -45,13 +45,15 @@ class TestJOBS:
                                      label='test' + Dispatcher.__name__ + Submit.__name__)
         dispatcher.update_env(TEST_ENVIRONMENT)
         dispatcher.submit.update_templates(command='python test.py')
-        yield dispatcher
+        R = SocketRunner
+        R._reinstance = True
+        yield namedtuple('Setup', ['dispatcher', 'Runner'])(dispatcher, R)
         #CLEAN_OUTPUTS(dispatcher)
 
 
 
     def test_job(self, setup):
-        dispatcher = setup
+        dispatcher = setup.dispatcher
         dispatcher.create_job()
         logger.info("dispatcher.env:\n{}".format(json.dumps(dispatcher.env)))
         logger.info("dispatcher.socket.name:\n{}".format(dispatcher.socket.name))
@@ -64,7 +66,7 @@ class TestJOBS:
         env = get_exports(script=script)
 
         logger.info(env)
-        runner = SocketRunner(env=env)
+        runner = setup.Runner(env=env)
         logger.info("runner.socket_name:\n{}".format(runner.socket_name))
         runner.connect()
         connection, peer_address = dispatcher.connect()
@@ -88,7 +90,8 @@ dispatcher sent              ---> runner recv
         assert test_message == recv_message
         mappings = runner.mappings
 
-        runner.close() # also de-initializes the runner (and removes singleton properties)
+        runner.close() #TODO, should also de-initializes the runner (and removes singleton properties)
+        #TODO somehow shared state in pytest?
         #runner._instance = None
         #runner._initialized = None
         #logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.socket.name[1])))
