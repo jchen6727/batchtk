@@ -1,10 +1,10 @@
-from batchtk.runtk.runners import get_runner
+from batchtk.runtk.runners import Runner, get_runner
 import ast
 import collections
 
 def traverse(obj, path):
     if len(path) == 1: #access object in dictionary
-        assert path[0] in obj or ast.literal_eval(path[0]) in obj, "error accessing {}[{}]".format(obj, path[0])
+        assert path[0] in obj or ast.literal_eval(path[0]) in obj or int(path[0]) < len(obj), "error accessing {}[{}]".format(obj, path[0])
         return obj
     if isinstance(obj, collections.abc.Mapping) and path[0] in obj: #access object in dictionary
         return traverse(obj[path[0]], path[1:])
@@ -63,9 +63,10 @@ class RunConfig(dict):
         if args and isinstance(args[0], dict):
             super().__init__(args[0], **kwargs)
             args = args[1:]
+            self._runner = get_runner()
         else:
             super().__init__(**kwargs)
-        self._runner = get_runner()
+        self._runner = 'runner' in kwargs and kwargs['runner'] or get_runner()
         self._mappings = self._runner.get_mappings()
         create_config(self, *args)
 

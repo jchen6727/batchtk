@@ -1,12 +1,12 @@
 from batchtk.runtk import RunConfig
 import pytest
-import os
 from collections import namedtuple
-from batchtk.runtk.dispatchers import Dispatcher, INETDispatcher, UNIXDispatcher
-from batchtk import runtk
-from batchtk.runtk.submits import SHSubmit, SHSubmitSOCK, SHSubmitSFS
+
 import json
 Config = namedtuple('Config', ['initial', 'update', 'result'])
+# the first entry is what the RunConfig looks like initially
+# the second entry is what update string is called
+# the third entry is what we expect the RunConfig to look like after the update result
 CONFIGS = [
     Config(
         [{'a': {'b': {'c': False}}}],

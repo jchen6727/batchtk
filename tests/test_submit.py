@@ -5,11 +5,11 @@ from batchtk.runtk.submits import Submit
 from batchtk.utils import get_port_info
 import logging
 import json
-
+from header import CLEAN_OUTPUTS, LOG_PATH
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.INFO)
-handler = logging.FileHandler('test_submit.log')
+handler = logging.FileHandler(LOG_PATH(__file__))
 
 formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
 handler.setFormatter(formatter)
@@ -32,7 +32,7 @@ class TestSubmit:
             submit_template = "sh /tmp/foo/bar.sh",
             script_template = script_template,
         )
-        return submit
+        yield submit
 
     def test_submit(self, submit_setup):
         submit = submit_setup

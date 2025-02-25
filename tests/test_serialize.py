@@ -1,16 +1,15 @@
 import pytest
 import os
-from header import TEST_ENVIRONMENT
-from utils import get_exports
+from header import TEST_ENVIRONMENT, LOG_PATH, CLEAN_OUTPUTS
 from batchtk.runtk.dispatchers import Dispatcher
-from batchtk.runtk.runners import Runner
+from batchtk.runtk.runners import get_class
 from batchtk import runtk
 from collections import namedtuple
 import logging
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.INFO)
-handler = logging.FileHandler('test_serialize.log')
+handler = logging.FileHandler(LOG_PATH(__file__))
 
 formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
 handler.setFormatter(formatter)
@@ -24,12 +23,14 @@ class TestEnv:
         dispatcher = Dispatcher(label='test_serialize')
         dispatcher.update_env({key: val})
         logger.info("testing key: {} with {} value: {}".format(key, type(val).__name__, val))
-        return namedtuple('Setup', ['dispatcher', 'key', 'val'])(dispatcher, key, val)
+        R = get_class()
+        R._reinstance = True
+        yield namedtuple('Setup', ['dispatcher', 'key', 'val', 'Runner'])(dispatcher, key, val, R)
 
     def test_env(self, setup):
         env = setup.dispatcher.env
         logger.info("dispatcher.env:\n{}".format(env))
-        runner = Runner(env=env)
+        runner = setup.Runner(env=env)
         mappings = runner.get_mappings()
         logger.info("runner.mappings:\n{}".format(mappings))
         assert mappings[setup.key] == setup.val

@@ -5,6 +5,8 @@ from batchtk.runtk.dispatchers import Dispatcher, LocalDispatcher, QSDispatcher
 from batchtk import runtk
 from batchtk.runtk.submits import SHSubmitSFS
 import uuid
+from header import OUTPUT_PATH, CLEAN_OUTPUTS
+
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit'])
 JOBS = [
@@ -20,14 +22,13 @@ class TestJOBS:
         uid = str(uuid.uuid4())
         key_uid = 'j_'+uid[:4]
         env = {key_uid: uid}
-        dispatcher = _Dispatcher(project_path=os.getcwd(),
-                                 output_path='./tests/test_dispatcher',
+        dispatcher = _Dispatcher(project_path=__file__.rsplit('/', 1)[0],
+                                 output_path=OUTPUT_PATH(__file__),
                                               submit=submit,
                                               env=env,
                                               label='test' + _Dispatcher.__name__ + _Submit.__name__)
         yield namedtuple('Setup', ['dispatcher', 'submit', 'env'])(dispatcher, submit, env)
-        dispatcher.clean('all')
-        os.rmdir(dispatcher.output_path)
+        CLEAN_OUTPUTS(dispatcher)
 
     def test_init(self, setup):
         dispatcher, env = setup.dispatcher, setup.env
