@@ -7,6 +7,7 @@ from batchtk.runtk.submits import SHSubmitSOCK
 import logging
 import json
 from collections import namedtuple
+from header import CLEAN_OUTPUTS, LOG_PATH, OUTPUT_PATH
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit'])
 JOBS = [
@@ -16,7 +17,7 @@ JOBS = [
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.INFO)
-handler = logging.FileHandler('test_sh.log')
+handler = logging.FileHandler(LOG_PATH(__file__))
 
 formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
 handler.setFormatter(formatter)
@@ -27,32 +28,31 @@ class TestSHINET:
     def setup(self, request):
         Submit = request.param.Submit
         Dispatcher = request.param.Dispatcher
-        dispatcher = Dispatcher(project_path=os.getcwd(),
+        dispatcher = Dispatcher(project_path=__file__.rsplit('/', 1)[0],
+                                output_path=OUTPUT_PATH(__file__),
                                      submit=Submit(),
-                                     gid='test' + Dispatcher.__name__ + Submit.__name__)
+                                     label='test' + Dispatcher.__name__ + Submit.__name__)
         dispatcher.update_env({'strvalue': '1',
                                'intvalue': 2,
                                'fltvalue': 3.0})
         dispatcher.submit.update_templates(command='python runner_scripts/socket_py.py')
-        return dispatcher
+        yield dispatcher
+        CLEAN_OUTPUTS(dispatcher)
 
     def test_job(self, setup):
         dispatcher = setup
         dispatcher.create_job()
-        assert os.path.exists(dispatcher.handles[runtk.SUBMIT])
         logger.info("dispatcher.env:\n{}".format(json.dumps(dispatcher.env)))
         logger.info("dispatcher.socket.name:\n{}".format(dispatcher.socket.name))
         logger.info("dispatcher.handles[runtk.SUBMIT]:\n{}".format(dispatcher.handles[runtk.SUBMIT]))
-        #print(dispatcher.shellfile)
-        with open(dispatcher.handles[runtk.SUBMIT], 'r') as fptr:
-            script = fptr.read()
+        script = dispatcher.submit.script
             #print(script)
         logger.info("script:\n{}".format(script))
         #logger.info("port info (dispatcher listen):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         assert 'python runner_scripts/socket_py' in script
         dispatcher.submit_job()
         logger.info("job id:\n{}".format(dispatcher.job_id))
-        connection, peer_address = dispatcher.accept()
+        connection, peer_address = dispatcher.connect()
         logger.info("""\
         connection:   {}
         peer_address: {}""".format(connection, peer_address))

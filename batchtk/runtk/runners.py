@@ -1,6 +1,5 @@
 import os
 import json
-from batchtk.runtk.utils import convert, set_map
 from batchtk import runtk
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
 import socket
@@ -8,6 +7,7 @@ import logging
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import ast
+import warnings
 
 class Runner(object):
     """
@@ -18,6 +18,28 @@ class Runner(object):
     contains placeholder (pass) functions inherited by child functions to allow for verbatim calls that are agnostic to
     the specific inherited class.
     """
+
+    _instance = None #singleton instance
+    _initialized = False
+    _reinstance = False
+    def __new__(cls, *args, **kwargs):
+        """
+        Singleton implementation
+        Parameters
+        ----------
+        args - see __init__
+        kwargs - see __init__
+
+        Examples
+        --------
+        runner = get_runner()
+        runner_id = id(runner)
+        with get_runner() as comm:
+            id(comm) == runner_id
+        """
+        if cls._instance is None or cls._reinstance is not False:
+            cls._instance = super().__new__(cls)
+        return cls._instance
     def __init__(
         self,
         grepstr: Optional[str] = None, #expecting string, defaults to runtk.GREPSTR (header.py)
@@ -43,6 +65,11 @@ class Runner(object):
         **kwargs - unused placeholder
         """
         # Initialize logger
+        if self._initialized and not self._reinstance:
+            if grepstr or aliases or supports or log or env:
+                warnings.warn("Runner has already been initialized, ignoring grepstr, aliases, supports, log, env args.")
+            return
+        self._initialized = not self._reinstance
         self.logger = log
         if isinstance(log, str):
             self.logger = logging.getLogger(log)
@@ -59,14 +86,11 @@ class Runner(object):
         self.supports = supports or runtk.SUPPORTS
         self.grepstr = grepstr or runtk.GREPSTR
         self.grepfunc = staticmethod(lambda key: self.grepstr in key )
-        self.greptups = {key: self.env[key].split('=') for key in self.env if
+        self.greptups = {key: self.env[key].split(runtk.EQDELIM) for key in self.env if
                          self.grepfunc(key)}
         # readability, greptups as the environment variables: (key,value) passed by runtk.GREPSTR environment variables
         # saved the environment variables TODO JSON vs. STRING vs. FLOAT
-        self.mappings = { # export JSONPMAP0="cfg.settings={...}" for instance would map the {...} as a json to cfg.settings
-            val[0].strip(): self.convert(key.split(self.grepstr)[0], val[1].strip())
-            for key, val in self.greptups.items()
-        }
+        self.mappings = self.load_env()
         if kwargs:
             self.log("Unused arguments were passed into base class Runner.__init__(): {}".format(kwargs), level='info')
 
@@ -79,16 +103,14 @@ class Runner(object):
         return self.mappings
 
     def __getattr__(self, k): # if __getattribute__ fails, check for k in env, aliases
-        if k in self.env:
+        if k in self.env:#
             return self.env[k]
         elif k in self.aliases:
             return self.env[self.aliases[k]]
-        elif k in ['__name__', '__origin__']: # to prevent issues with help() builtin, which for some reason calls
-            # __getattr__ without __getattribute. TODO better way to do this?
-            raise KeyError(k)
+        #elif k in [...]: #TODO not going to worry about __getattr__ this for now..., should return from __getattribute__
+        #    return object.__getattribute__(self, k)
         else:
-            raise KeyError(k)
-
+            raise AttributeError(k) # consistency with hasattr-- this way it will return False instead of an exception
 
     def __getitem__(self, k):
         try:
@@ -96,7 +118,14 @@ class Runner(object):
         except:
             raise KeyError(k)
 
-    def convert(self, _type: str, val: object):#TODO fix nomenclature for convert
+    def load_env(self): #clarity, loads an entire environment, load_var loads a single variable from the environment
+        mappings = {
+            # export JSONPMAP0="cfg.settings={...}" for instance would map the {...} as a json to cfg.settings
+            val[0].strip(): self.load_var(key.split(self.grepstr)[0], val[1].strip())
+            for key, val in self.greptups.items()
+        }
+        return mappings
+    def load_var(self, _type: str, val: object):#NOTE, rename convert to
         """
         Internal function called during initialization for converting environment values to the appropriate type
         (see runtk.SUPPORTS)
@@ -106,17 +135,10 @@ class Runner(object):
         """
         if _type in self.supports:
             return self.supports[_type](val)
-        if _type == '':
-            for _type in self.supports:
-                try:
-                    return self.supports[_type](val)
-                except:
-                    pass
-                try:
-                    return ast.literal_eval(val)
-                except:
-                    pass
-        raise KeyError(_type)
+        try:
+            return ast.literal_eval(val)
+        except:
+            raise ValueError(val)
 
     def connect(self, **kwargs):
         """
@@ -174,11 +196,27 @@ class Runner(object):
     def close(self, **kwargs):
         """
         Method called at close of the script, cleans up any open file handles or sockets, etc. To be implemented by
-        inherited classes.
+        inherited classes. Also resets the script to allow for reinitialization of a new Runner
         """
+        self._instance = None
+        self._initialized = False
         if self.logger:
             for handler in self.logger.handlers:
                 handler.close()
+
+    def __enter__(self):
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # note
+        # exc_type, exc_val, exc_tb are the exception type, value, and traceback
+        #if exc_type:
+        #    print("Exception: {}".format(exc_tb))
+        #    print("closing connection")
+        self.close()
+        #print("connection closed")
+
 
 
 class FileRunner(Runner):
@@ -278,6 +316,7 @@ RUNNERS = {
     'socket': SocketRunner,
     'file': FileRunner,
 }
+
 def get_class(runner_type = None):
     """
     Factory function for retrieving a runner class. if no runner_type is provided, it will check the environment to
@@ -292,11 +331,35 @@ def get_class(runner_type = None):
     if runner_type is None:
         if runtk.SOCKET_ENV in os.environ:
             return SocketRunner
-        elif runtk.MSGOUT_ENV in os.environ:
+        if runtk.MSGOUT_ENV in os.environ:
             return FileRunner
-        else:
-            return Runner
+        return Runner
     if runner_type in RUNNERS:
         return RUNNERS[runner_type]
     else:
         raise ValueError(runner_type)
+
+def get_runner(runner_type = None, **kwargs):
+    """
+    Factory function for retrieving a runner class. if no runner_type is provided, it will check the environment to
+    determine the appropriate runner class.
+    Parameters
+    ----------
+    runner_type - a string specifying the type of runner to be created, must be a key in runners
+    Returns
+    -------
+    runners[runner_type](**kwargs) - a runner instance
+    """
+    return get_class(runner_type)(**kwargs)
+
+def get_comm(runner_type = None, **kwargs):
+    """
+    equivalent to get_runner
+    Parameters
+    ----------
+    runner_type - a string specifying the type of runner to be created, must be a key in runners
+    Returns
+    -------
+    runners[runner_type](**kwargs) - a runner instance
+    """
+    return get_class(runner_type)(**kwargs)

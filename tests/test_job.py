@@ -16,18 +16,18 @@ from batchtk.utils import get_exports#TODO implement a more universal get_port_i
 import logging
 import json
 from collections import namedtuple
-from header import TEST_ENVIRONMENT
+from header import TEST_ENVIRONMENT, OUTPUT_PATH, LOG_PATH, CLEAN_OUTPUTS
 
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit'])
 JOBS = [
+        Job(UNIXDispatcher, SHSubmitSOCK),
         Job(INETDispatcher, SHSubmitSOCK),
-        Job(UNIXDispatcher, SHSubmitSOCK)
         ]
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.INFO)
-handler = logging.FileHandler('test_job.log')
+handler = logging.FileHandler(LOG_PATH(__file__))
 
 formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
 handler.setFormatter(formatter)
@@ -39,33 +39,37 @@ class TestJOBS:
     def setup(self, request):
         Submit = request.param.Submit
         Dispatcher = request.param.Dispatcher
-        dispatcher = Dispatcher(project_path=os.getcwd(),
+        dispatcher = Dispatcher(project_path=__file__.rsplit('/', 1)[0],
+                                output_path=OUTPUT_PATH(__file__),
                                      submit=Submit(),
-                                     gid='test' + Dispatcher.__name__ + Submit.__name__)
+                                     label='test' + Dispatcher.__name__ + Submit.__name__)
         dispatcher.update_env(TEST_ENVIRONMENT)
         dispatcher.submit.update_templates(command='python test.py')
-        return dispatcher
+        R = SocketRunner
+        R._reinstance = True
+        yield namedtuple('Setup', ['dispatcher', 'Runner'])(dispatcher, R)
+        #CLEAN_OUTPUTS(dispatcher)
+
+
 
     def test_job(self, setup):
-        dispatcher = setup
+        dispatcher = setup.dispatcher
         dispatcher.create_job()
-        assert os.path.exists(dispatcher.handles[runtk.SUBMIT])
         logger.info("dispatcher.env:\n{}".format(json.dumps(dispatcher.env)))
         logger.info("dispatcher.socket.name:\n{}".format(dispatcher.socket.name))
         logger.info("dispatcher.handles[runtk.SUBMIT]:\n{}".format(dispatcher.handles[runtk.SUBMIT]))
-        #print(dispatcher.shellfile)
-        with open(dispatcher.handles[runtk.SUBMIT], 'r') as fptr:
-            script = fptr.read()
+        script = dispatcher.submit.script
+        assert script is not None
         logger.info("script:\n{}".format(script))
         #logger.info("port info (dispatcher listen):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         assert 'python test.py' in script
-        env = get_exports(dispatcher.handles[runtk.SUBMIT])
+        env = get_exports(script=script)
 
         logger.info(env)
-        runner = SocketRunner(env=env)
+        runner = setup.Runner(env=env)
         logger.info("runner.socket_name:\n{}".format(runner.socket_name))
         runner.connect()
-        connection, peer_address = dispatcher.accept()
+        connection, peer_address = dispatcher.connect()
         #logger.info("port info (runner connect):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         logger.info("runner.host_socket:\n{}".format(runner.host_socket))
         test_message = 'runner -> dispatcher message'
@@ -84,10 +88,15 @@ dispatcher -> runner message:
 dispatcher sent              ---> runner recv
 {} ---> {}""".format(test_message, recv_message))
         assert test_message == recv_message
-        runner.close()
+        mappings = runner.mappings
+
+        runner.close() #TODO, should also de-initializes the runner (and removes singleton properties)
+        #TODO somehow shared state in pytest?
+        #runner._instance = None
+        #runner._initialized = None
         #logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.socket.name[1])))
-        dispatcher.clean()
-        logger.info("runner.mappings:\n{}".format(json.dumps(runner.mappings)))
+        logger.info("runner.mappings:\n{}".format(json.dumps(mappings)))
         for key, value in TEST_ENVIRONMENT.items():
-            assert runner.mappings[key] == value
+            assert mappings[key] == value
+        dispatcher.clean('all')
         #logger.info("port info (dispatcher clean):\n{}".format(get_port_info(dispatcher.socket.name[1])))
