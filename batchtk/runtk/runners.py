@@ -107,8 +107,10 @@ class Runner(object):
             return self.env[k]
         elif k in self.aliases:
             return self.env[self.aliases[k]]
+        #elif k in [...]: #TODO not going to worry about __getattr__ this for now..., should return from __getattribute__
+        #    return object.__getattribute__(self, k)
         else:
-            raise KeyError(k)
+            raise AttributeError(k) # consistency with hasattr-- this way it will return False instead of an exception
 
     def __getitem__(self, k):
         try:
