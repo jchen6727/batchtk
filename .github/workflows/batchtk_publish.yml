@@ -1,6 +1,9 @@
 name: Publish batchtk
 
-on: push
+on:
+  push:
+    branches:
+      - release
 
 jobs:
   build:
@@ -30,7 +33,7 @@ jobs:
   publish-to-pypi:
     name: >-
       tagged pypi publish
-    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+#    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes, just do push to release.
     needs:
     - build
     runs-on: ubuntu-latest
@@ -106,7 +109,7 @@ jobs:
 
     steps:
     - name: download build dist
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: python-package-distributions
         path: dist/
