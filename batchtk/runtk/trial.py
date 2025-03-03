@@ -1,5 +1,6 @@
 import types
 import pandas
+from io import StringIO
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 def trials(configs, label, gen, dispatcher_constructor, project_path, output_path, submit, dispatcher_kwargs=None, interval=60):
@@ -29,7 +30,7 @@ def trial(config, label, tid, dispatcher_constructor, project_path, output_path,
     except Exception as e:
         dispatcher.clean()
         raise (e)
-    data = pandas.read_json(data, typ='series', dtype=float)
+    data = pandas.read_json(StringIO(data), typ='series', dtype=float)
     return data
 
 

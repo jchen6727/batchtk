@@ -408,21 +408,22 @@ class SSHDispatcher(QSDispatcher):
     SSH Dispatcher, for running jobs on remote machines
     uses fabric, paramiko
     """
-    def __init__(self, connection=None, fs=None, cmd=None, submit=None, remote_dir=None,
-                 remote_out='.', env=None, label=None, **kwargs):
+    def __init__(self, connection=None, fs=None, cmd=None, submit=None, project_path=None,
+                 output_path='.', env=None, label=None, **kwargs):
         """
         Parameters
         ----------
         host - the ssh host
         cmdstr - the command to run on the remote machine
         env - any environmental variables to be inherited by the created runner
+        N.B. - project_path is the project path on the REMOTE machine
         """
         self.fs = None
         self.connection = None
         self.cmd = None
         self.instance_kwargs = None
         self.set_instances(connection=connection, fs=fs, cmd=cmd)
-        super().__init__(submit=submit, project_path=remote_dir, output_path=remote_out, label=label, env=env,
+        super().__init__(submit=submit, project_path=project_path, output_path=output_path, label=label, env=env,
                          fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, connection=self.connection, **kwargs)
 
     def set_instances(self, connection, fs=None, cmd=None, **kwargs):
