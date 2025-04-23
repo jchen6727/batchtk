@@ -1,17 +1,19 @@
 import types
 import pandas
 from io import StringIO
+from batchtk.utils import DataLogger
+import json
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-def trials(configs, label, gen, dispatcher_constructor, project_path, output_path, submit, dispatcher_kwargs=None, interval=60):
+def trials(configs, label, gen, dispatcher_constructor, project_path, output_path, submit, dispatcher_kwargs=None, interval=60, log=None, report_config=True):
     label = '{}_{}'.format(label, gen)
     results = []
     for tid, config in enumerate(configs):
-        results.append(trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit, dispatcher_kwargs, interval))
+        results.append(trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit, dispatcher_kwargs, interval, log, report_config))
     return results
 
 
-def trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit, dispatcher_kwargs=None, interval=60):
+def trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit, dispatcher_kwargs=None, interval=60, log=None, report_config=True):
     dispatcher_kwargs = dispatcher_kwargs or {}
     run_label = '{}_{}'.format(label, tid)
     trial.run_label = run_label
@@ -25,11 +27,15 @@ def trial(config, label, tid, dispatcher_constructor, project_path, output_path,
     try:
         dispatcher.start()
         dispatcher.connect()
-        data = dispatcher.recv(interval=interval)
+        data = json.loads(dispatcher.recv(interval=interval))
         dispatcher.clean()
     except Exception as e:
         dispatcher.clean()
         raise (e)
+    if report_config:
+        data.update(config | {'trial_label': run_label, 'trial_path': output_path})
+    if isinstance(log, DataLogger):
+        log.log(data)
     data = pandas.read_json(StringIO(data), typ='series', dtype=float)
     return data
 
