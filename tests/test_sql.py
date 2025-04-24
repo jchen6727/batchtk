@@ -1,37 +1,52 @@
 from batchtk.utils import SQLiteLogger
 from batchtk.runtk import LocalDispatcher, SHSubmitSFS
 from batchtk.runtk.trial import trial
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
-log = SQLiteLogger(path='./test', entries={
-    'label': 'TEXT', 'x0': 'TEXT', 'x1': 'TEXT', 'fx': 'TEXT'
-})
 
-submit = SHSubmitSFS()
-submit.update_templates(command='python rosenbrock0_py.py')
+log = SQLiteLogger(path='./test_logs', entries=['x0', 'x1', 'fx'])
+
+cfgs = [
+    {'x0': 0, 'x1': 0},
+    {'x0': 1, 'x1': 1},
+    {'x0': 2, 'x1': 2},
+]
+
+#submit = SHSubmitSFS()
+#submit.update_templates(command='python rosenbrock0_py.py')
 
 path = "{}/runner_scripts".format(os.getcwd())
 
-cfgs = [
-    {'x0': 6, 'x1': 6},
-    {'x0': 7, 'x1': 7},
-    {'x0': 8, 'x1': 8},
-]
-
-for i, cfg in enumerate(cfgs):
-    i = i + cfgs[0]['x0']
-    data = trial(
+def run_trial(cfg):
+    submit = SHSubmitSFS() # note that the submit must be implemented in the run_trial function to be threadsafe ...
+    submit.update_templates(command='python rosenbrock0_py.py')
+    return trial(
         config=cfg,
         label='rosenbrock',
-        tid=i,
+        tid="{}_{}".format(cfg['x0'], cfg['x1']),
         dispatcher_constructor=LocalDispatcher,
         project_path=path,
-        output_path='./test_logs',
+        output_path='../test_logs',
         submit=submit,
         dispatcher_kwargs=None,
         interval=1,
         log=log
     )
-    print(data)
+
+results = []
+with ThreadPoolExecutor(max_workers=3) as executor:
+    # Submit all trials to the executor
+    future_to_cfg = {executor.submit(run_trial, cfg): cfg for cfg in cfgs}
+
+    # Collect results as they complete
+    for future in as_completed(future_to_cfg):
+        cfg = future_to_cfg[future]
+        try:
+            result = future.result()
+            results.append(result)
+            print(result)
+        except Exception as e:
+            print(f"Trial for config {cfg} failed with exception: {e}")
 
 df = log.to_df()
 print(df)
