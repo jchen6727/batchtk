@@ -10,7 +10,7 @@ from typing import Protocol, runtime_checkable
 import io
 from batchtk.header import GREPSTR, EQDELIM
 from warnings import warn
-from typing import Optional, Dict, Set, Tuple, Any
+from typing import Optional, Dict, List, Any
 @runtime_checkable
 class FS_Protocol(Protocol):
     """
@@ -314,7 +314,7 @@ class SQLiteLogger(DataLogger):
     def __init__(self,
                  label: str ='trials',
                  path: str = '.',
-                 entries: Optional[Dict|Set[Tuple]] = None,
+                 entries: Optional[Dict|List] = None,
                  add_trial_metadata: bool = True):
         from filelock import FileLock
         import sqlite3
@@ -322,15 +322,13 @@ class SQLiteLogger(DataLogger):
         path = get_path(path)
         self.label = label
         if entries is None:
-            self.entries = set()
-        elif isinstance(entries[0], str):
-            self.entries = set((entry, 'TEXT') for entry in entries)
-        elif isinstance(entries, dict):
-            self.entries = set(entries.items())
+            self.entries = dict()
+        elif isinstance(entries, List) and isinstance(entries[0], str):
+            self.entries = {entry: 'TEXT' for entry in entries}
         else:
-            self.entries = set(entries)
+            self.entries = entries
         if add_trial_metadata:
-            self.entries = self.entries | {('trial_label', 'TEXT'), ('trial_path', 'TEXT')}
+            self.entries = {'trial_path': 'TEXT', 'trial_label': 'TEXT'} | self.entries
         self.path = "{}/{}.sqlite.db".format(path, label)
         self._connect = sqlite3.connect
         self._lock = FileLock("{}.lock".format(self.path))
@@ -349,12 +347,12 @@ class SQLiteLogger(DataLogger):
     def _init_db(self):
         if os.path.exists(self.path): # check that the db is appropriate if it exists ---
             header = self._get_header()
-            if self.entries <= header:
+            if set(self.entries.items()) <= header:
                 return
             else:
                 raise ValueError("database at path {} contains a different header: {} than anticipated entries: {}".format(self.path, header, self.entries))
         with self._lock:
-            table_str = "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["{} {}".format(k, v) for k, v in self.entries]))
+            table_str = "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["{} {}".format(k, v) for k, v in self.entries.items()]))
             exec_str = "CREATE TABLE IF NOT EXISTS {} ({})".format(self.label, table_str)
             conn = self._connect(self.path)
             cursor = conn.cursor()
