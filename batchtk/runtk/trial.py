@@ -30,7 +30,7 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
     dispatcher_kwargs: dict - kwargs to be passed to the dispatcher constructor
     submit_kwargs: dict - kwargs to be passed to the submit templates
     interval: int - interval for the dispatcher to check for messages
-    log: DataLogger - logger to be used for this trial
+    log: DataLogger - data logger to be used for this trial 
     report: tuple - options/order (left -> right update calls) for the data to be returned
     """
     dispatcher_kwargs = dispatcher_kwargs or {}
