@@ -18,8 +18,6 @@ cfgs = [
 path = "{}/runner_scripts".format(os.getcwd())
 
 def run_trial(cfg):
-    submit = SHSubmitSFS() # note that the submit must be implemented in the run_trial function to be threadsafe ...
-    submit.update_templates(command='python rosenbrock0_py.py')
     return trial(
         config=cfg,
         label='rosenbrock',
@@ -27,8 +25,9 @@ def run_trial(cfg):
         dispatcher_constructor=LocalDispatcher,
         project_path=path,
         output_path='../test_logs',
-        submit=submit,
+        submit_constructor=SHSubmitSFS,
         dispatcher_kwargs=None,
+        submit_kwargs={'command': 'python rosenbrock0_py.py'},
         interval=1,
         log=log
     )
