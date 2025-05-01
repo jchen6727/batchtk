@@ -182,7 +182,7 @@ class Runner(object):
         ----------
         data - the data to be sent to the Dispatcher (to be caught in the dispatcher's .recv() method)
         """
-        pass
+        print(data)
 
     def recv(self, **kwargs):
         """

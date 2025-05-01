@@ -1,6 +1,7 @@
 import ast
 from enum import Enum
 
+BATCHTK_VER = 0.1
 """
 ENVIRONMENT CONSTANTS
 used in creating and extracting values from the environment
@@ -78,11 +79,11 @@ SUPPORTS = { #TODO numpy handling? or binary serialization?
 }
 
 EXTENSIONS = { #anything that can be found in a path name to be included.
-    SUBMIT: '[a-zA-Z0-9\{\}_/\.]*\.[a-z]*sh', # sh, bash, csh, zsh, tcsh, etc. ask a sysadmin how they'd do this.
-    STDOUT: '[a-zA-Z0-9\{\}_/\.]*\.run',
-    MSGOUT: '[a-zA-Z0-9\{\}_/\.]*\.out',
-    SGLOUT: '[a-zA-Z0-9\{\}_/\.]*\.sgl', #TODO more like a lock file, would https://github.com/harlowja/fasteners be relevant?
-    SOCKET: '(\{sockname\})',
+    SUBMIT: r'[a-zA-Z0-9\{\}_/\.]*\.[a-z]*sh', # sh, bash, csh, zsh, tcsh, etc. ask a sysadmin how they'd do this.
+    STDOUT: r'[a-zA-Z0-9\{\}_/\.]*\.run',
+    MSGOUT: r'[a-zA-Z0-9\{\}_/\.]*\.out',
+    SGLOUT: r'[a-zA-Z0-9\{\}_/\.]*\.sgl', #TODO more like a lock file, would https://github.com/harlowja/fasteners be relevant?
+    SOCKET: r'(\{sockname\})',
 } # standardize names between EXTENSIONS and ALIASES?
 
 

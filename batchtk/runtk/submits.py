@@ -3,7 +3,7 @@ import logging
 from collections import namedtuple
 from batchtk import runtk
 import re
-
+import warnings
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
 
 class Template(object):
@@ -43,7 +43,9 @@ class Template(object):
         try:
             return self.template.format(**mkwargs)
         except KeyError as e:
-            mkwargs = mkwargs | {key: "{" + key + "}" for key in self.get_args()}
+            warnings.warn(f"KeyError: {e} found when formatting template: {self.template}")
+            self.key_args = {key: "{" + key + "}" for key in self.get_args()}
+            mkwargs = self.key_args | kwargs
             return self.template.format(**mkwargs)
 
     def update(self, **kwargs):
@@ -90,11 +92,12 @@ def serialize(args, var ='env', serializer ='sh'):
 _Job = namedtuple('job', 'submit script path handles')
 
 class Submit(object):
-    def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None, **kwargs):
+    def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None, protected_args=('label', 'project_path', 'output_path', 'env'), **kwargs):
         self.submit_template = Template(submit_template)
         self.script_template = Template(script_template)
         self.path_template = path_template or Template(self.submit_template.template.split(' ')[-1])
         self.key_args = self.submit_template.key_args | self.script_template.key_args | self.path_template.key_args
+        self.protected_args = set(protected_args)
         if handles: #TODO need better serialization of handles
             self.handles = Template(serializers['eq'](handles), key_args=self.key_args)
         else:
@@ -160,10 +163,14 @@ class Submit(object):
 
     def update_templates(self, **kwargs):
         #kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
+        if self.protected_args & kwargs.keys():
+            raise KeyError("Protected args {} cannot be updated, only formatted".format(self.protected_args & kwargs.keys()))
         for template in self.templates:
             template.update(**kwargs)
+        self.key_args = self.key_args | kwargs
 
     def __repr__(self):
+        mkey_args = {key: self.key_args[key] for key in self.key_args if key not in self.protected_args}
         if self.job:
             ssph = self.job._replace(handles=self.repr_handles()) #submit, script, path, handles
         else:
@@ -181,9 +188,12 @@ path:
 handles:
 {}
 
-key_args:
+submit args:
 {}
-""".format(*ssph, self.key_args)
+
+protected args:
+{}
+""".format(*ssph, mkey_args, self.protected_args)
 
     def deploy_job(self, fs=None):
         pass

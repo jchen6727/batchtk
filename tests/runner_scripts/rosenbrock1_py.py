@@ -3,8 +3,8 @@ import os
 import sys
 import json
 
-comm = get_comm()
-comm.connect()
+#comm = get_comm() # moved to within context manager
+#comm.connect()
 
 A=1
 
@@ -16,10 +16,10 @@ cfg = RunConfig(
     {'x0': False, 'x1': False, 'path': False},
 )
 
-print(id(comm))
-print(id(cfg._runner))
+#print(id(comm))
+#print(id(cfg._runner))
+#assert id(comm) == id(cfg._runner)
 
-assert id(comm) == id(cfg._runner)
 cfg.update(x0=1, x1=1)
 
 x0, x1 = cfg['x0'], cfg['x1']
@@ -31,6 +31,14 @@ results = {
 }
 
 print(results)
+
+with get_comm() as comm:
+    print(id(comm))
+    print(id(cfg._runner))
+    comm.send(json.dumps(results))
+
+
+
 
 
 

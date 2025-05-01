@@ -42,8 +42,6 @@ class TestTRAILS:
         config = request.param.config
         config['path'] = PATH_POINTER
         config['label'] = LABEL_POINTER
-        submit = request.param.Submit()
-        submit.update_templates(command='python runner_scripts/rosenbrock0_py.py')
         kwargs = {
             'config': config,
             'label': "trial",
@@ -51,7 +49,12 @@ class TestTRAILS:
             'dispatcher_constructor': request.param.Dispatcher,
             'project_path': __file__.rsplit('/', 1)[0],
             'output_path': OUTPUT_PATH(__file__),
-            'submit': submit,
+            'submit_constructor': request.param.Submit,
+            'dispatcher_kwargs': None,
+            'submit_kwargs': {'command': 'python runner_scripts/rosenbrock0_py.py'},
+            'interval': 1,
+            'log': None,
+            'report': ('path', 'config', 'data'),
         }
         yield kwargs
         #os.rmdir(create_path(kwargs['project_path'], kwargs['output_path']))
@@ -65,6 +68,7 @@ class TestTRAILS:
             assert kwargs['config'][key] == results[key]
         assert results['fx'] == rosenbrock(kwargs['config']['x0'], kwargs['config']['x1'])
         assert os.path.exists(results['file'])
+        print(results)
 
 
 

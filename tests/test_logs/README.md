@@ -1,1 +1,1 @@
-Directory storing output of any logs generated during test runs
+Directory storing output of any logs or databases generated during test runs
