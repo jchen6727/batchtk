@@ -352,7 +352,7 @@ class SQLiteLogger(DataLogger):
             else:
                 raise ValueError("database at path {} contains a different header: {} than anticipated entries: {}".format(self.path, header, self.entries))
         with self._lock:
-            table_str = "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["{} {}".format(k, v) for k, v in self.entries.items()]))
+            table_str = "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["[{}] {}".format(k, v) for k, v in self.entries.items()]))
             exec_str = "CREATE TABLE IF NOT EXISTS {} ({})".format(self.label, table_str)
             conn = self._connect(self.path)
             cursor = conn.cursor()
@@ -363,7 +363,7 @@ class SQLiteLogger(DataLogger):
     def log(self, entries: dict):
         #assert entries.keys() == self.entries.keys(), "keys of entries must match keys of entries in SQLiteLogger"
         keys, vals = zip(*entries.items())
-        exec_str = "INSERT INTO {} ({}) VALUES ({})".format(self.label, ','.join(keys), ','.join(['?'] * len(vals)))
+        exec_str = "INSERT INTO {} ([{}]) VALUES ({})".format(self.label, '],['.join(keys), ','.join(['?'] * len(vals)))
         with self._lock:
             conn = self._connect(self.path)
             cursor = conn.cursor()

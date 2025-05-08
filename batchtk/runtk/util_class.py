@@ -25,8 +25,8 @@ def set_map(obj, assign_path, value):
     except AssertionError:
         raise ValueError("error setting {}={}, check that path {} exists within your object mapping".format(assign_path, value, assign_path))
     try:
-        container[assigns[-1]] = value
-    except TypeError:
+        container[assigns[-1]] = value # goes to except when indexing lists with strings (i.e. '1')
+    except (TypeError, IndexError): # a numpy series doesn't return a TypeError but an IndexError
         container[ast.literal_eval(assigns[-1])] = value
 
 
