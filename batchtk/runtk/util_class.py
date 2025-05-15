@@ -4,7 +4,7 @@ import collections
 
 def traverse(obj, path):
     if len(path) == 1: #access object in dictionary
-        assert path[0] in obj or ast.literal_eval(path[0]) in obj or int(path[0]) < len(obj), "error accessing {}[{}]".format(obj, path[0])
+        assert path[0] in obj or ast.literal_eval("{}".format(path[0])) in obj or int(path[0]) < len(obj), "error accessing {}[{}]".format(obj, path[0])
         return obj
     if isinstance(obj, collections.abc.Mapping) and path[0] in obj: #access object in dictionary
         return traverse(obj[path[0]], path[1:])
@@ -16,7 +16,9 @@ def traverse(obj, path):
         raise AssertionError("error accessing {}[{}]".format(obj, path[0]))
 
 def set_map(obj, assign_path, value):
-    if isinstance(assign_path, str): # 'string'.split('.') -> ['string'], 'string.split'.split('.') -> ['string', 'split]
+    if isinstance(assign_path, str) and assign_path[0] in ('[', '('): # 'string'.split('.') -> ['string'], 'string.split'.split('.') -> ['string', 'split]
+        assigns = ast.literal_eval(assign_path) # see if a list was provided.
+    elif isinstance(assign_path, str):
         assigns = assign_path.split('.')
     else:
         assigns = assign_path # assume list

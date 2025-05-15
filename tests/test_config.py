@@ -27,6 +27,11 @@ CONFIGS = [
         [{'x': numpy.zeros(5)}],
         [['x.1', 1]],
         {'x': numpy.array([0., 1., 0., 0., 0.])}
+    ),
+    Config(
+        [{'x.0': numpy.zeros(5)}],
+        [[ ['x.0', 1].__repr__(), 1] ],
+        {'x.0': numpy.array([0., 1., 0., 0., 0.])}
     )
 ]
 
