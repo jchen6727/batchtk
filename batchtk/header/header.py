@@ -66,6 +66,7 @@ FILE_HANDLES   = {SUBMIT: '{output_path}/{label}.sh',
                   MSGOUT: '{output_path}/{label}.out',
                   SGLOUT: '{output_path}/{label}.sgl'}
 
+#TODO eventually add other serialization options besides json
 SUPPORTS = { #TODO numpy handling? or binary serialization?
     'INT': int,
     'FLOAT': float,
