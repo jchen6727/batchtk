@@ -17,7 +17,7 @@ from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
 from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
-
+import warnings
 import socket
 
 class Dispatcher(object):
@@ -383,7 +383,10 @@ class QSDispatcher(SHDispatcher):
     def check_msg(self):
         status = self.check_status()
         if status.status == runtk.STATUS.COMPLETED:
-            return status.msg[0]
+            try:
+                return status.msg[0]
+            except Exception as e:
+                warnings.warn("{} occurred when attempting to check dispatched run. If this message persists when checking for data, please check your connections/scripts and restart".format(e))
         return False
 
     def start(self, restart=False, **kwargs):
