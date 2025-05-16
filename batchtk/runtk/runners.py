@@ -249,6 +249,7 @@ class FileRunner(Runner):
     def write(self, data, mode = 'w'):
         with open(self.write_file, mode) as fptr:
             fptr.write(data)
+            fptr.flush()
 
     def send(self, data, mode = 'w'):
         self.write(data, mode)
