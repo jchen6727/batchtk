@@ -217,8 +217,6 @@ class Runner(object):
         self.close()
         #print("connection closed")
 
-
-
 class FileRunner(Runner):
     """
     Extension of base Runner class that handles communication with the dispatcher by reading and writing to the file

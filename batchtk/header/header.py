@@ -6,6 +6,7 @@ BATCHTK_VER = 0.1
 ENVIRONMENT CONSTANTS
 used in creating and extracting values from the environment
 """
+TABLESTR = 'TRIALS' #table id for storing trials in the database
 GREPSTR = 'RUNTK' #string highlighting relevant environment variables for runner process
 DELIM = '.' #delimiter for nesting environment variables (similar to "__getattribute__()" python method)
 EQDELIM = '*=' #delimiter for assigning environment variables

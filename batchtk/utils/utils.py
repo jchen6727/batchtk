@@ -8,9 +8,10 @@ import itertools
 from abc import abstractmethod
 from typing import Protocol, runtime_checkable
 import io
-from batchtk.header import GREPSTR, EQDELIM
+from batchtk.header import TABLESTR, GREPSTR, EQDELIM
 from warnings import warn
 from typing import Optional, Dict, List, Any
+
 @runtime_checkable
 class FS_Protocol(Protocol):
     """
@@ -93,29 +94,6 @@ class LocalFS(BaseFS):
 
     def close(self):
         pass
-
-class RemoteSSHFS(BaseFS):
-    def __init__(self, host = None):
-        super().__init__()
-        import sshfs
-        self.fs = sshfs.SSHFileSystem(host)
-        self.fs.cachable = False
-
-    def exists(self, path, *args, **kwargs):
-        return self.fs.exists(path, *args, **kwargs)
-
-    def makedirs(self, path, *args, **kwargs):
-        return self.fs.makedirs( path, exist_ok=True, *args, **kwargs)
-
-    def open(self, path, mode, *args, **kwargs):
-        return self.fs.open(path, mode, *args, **kwargs) #the user has to remember to either call w/ context manager or close...
-
-    def remove(self, path, *args, **kwargs):
-        return self.fs.rm(path, *args, **kwargs)
-
-    def close(self):
-        self.fs.client.close()
-        self.fs.clear_instance_cache()
 
 class RemoteConnFS(BaseFS): # use threading lock?
     def __init__(self, connection):
@@ -310,6 +288,7 @@ class DataLogger(object):
     def close(self):
         pass
 
+
 class SQLiteLogger(DataLogger):
     def __init__(self,
                  label: str ='trials',
@@ -320,6 +299,7 @@ class SQLiteLogger(DataLogger):
         import sqlite3
         super().__init__()
         path = get_path(path)
+        os.makedirs(path, exist_ok=True)
         self.label = label
         if entries is None:
             self.entries = dict()
@@ -350,10 +330,10 @@ class SQLiteLogger(DataLogger):
             if set(self.entries.items()) <= header:
                 return
             else:
-                raise ValueError("database at path {} contains a different header: {} than anticipated entries: {}".format(self.path, header, self.entries))
+                raise ValueError(f"database at path {self.path} contains a different header: {header} than anticipated entries: {self.entries}")
+        exec_str = "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["[{}] {}".format(k, v) for k, v in self.entries.items()]))
+        exec_str = "CREATE TABLE IF NOT EXISTS {} ({})".format(self.label, exec_str)
         with self._lock:
-            table_str = "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["[{}] {}".format(k, v) for k, v in self.entries.items()]))
-            exec_str = "CREATE TABLE IF NOT EXISTS {} ({})".format(self.label, table_str)
             conn = self._connect(self.path)
             cursor = conn.cursor()
             cursor.execute(exec_str)
@@ -372,14 +352,33 @@ class SQLiteLogger(DataLogger):
             conn.close()
 
     def to_df(self):
+        exec_str = "SELECT * FROM {}".format(self.label)
         with self._lock:
             conn = self._connect(self.path)
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM {}".format(self.label))
+            cursor.execute(exec_str)
             rows = cursor.fetchall()
-            columns = [column[0] for column in cursor.description]
-            df = pandas.DataFrame(rows, columns=columns)
+            description = cursor.description
             conn.close()
+        columns = [column[0] for column in description]
+        df = pandas.DataFrame(rows, columns=columns)
+        return df
+
+    def find(self, column: str, value: Any):
+        if column not in self.entries:
+            raise ValueError(f"column {column} not in entries: {self.entries}")
+        exec_str = "SELECT * FROM {} WHERE {} = ?".format(self.label, column)
+        with self._lock:
+            conn = self._connect(self.path)
+            cursor = conn.cursor()
+            cursor.execute(exec_str, [value])
+            rows = cursor.fetchall()
+            description = cursor.description
+            conn.close()
+        if not rows:
+            return None
+        columns = [column[0] for column in description]
+        df = pandas.DataFrame(rows, columns=columns)
         return df
 
     def close(self):

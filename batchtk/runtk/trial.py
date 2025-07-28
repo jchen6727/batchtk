@@ -8,16 +8,23 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 
-def trials(configs, label, gen, dispatcher_constructor, project_path, output_path, submit_constructor, dispatcher_kwargs=None, submit_kwargs=None, interval=60, log=None, report=('path', 'config', 'data')):
+def trials(configs, label, gen, dispatcher_constructor, project_path, output_path, submit_constructor, dispatcher_kwargs=None, submit_kwargs=None, interval=60, log=None, report=('path', 'config', 'data'), cleanup=True):
     label = '{}_{}'.format(label, gen)
     results = []
     for tid, config in enumerate(configs):
         results.append(trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit_constructor, dispatcher_kwargs, submit_kwargs, interval, log, report))
     return results
 
+def _lctf(val):
+    """internal loose cast, converts to float if possible, o/w returns same"""
+    try:
+        return float(val)
+    except:
+        return val
+
 def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: callable, project_path: str,
           output_path: str, submit_constructor: callable, dispatcher_kwargs: Optional[dict] =None,
-          submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, log=None, report=('path', 'config', 'data')):
+          submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, log=None, report=('path', 'config', 'data'), cleanup: bool=True, check_log: bool=True) -> pandas.Series:
     """
     Run a single trial:
     config: dict - parameter configuration for the trial (variables to be passed by the dispatcher to the receiving script)
@@ -32,6 +39,8 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
     interval: int - interval for the dispatcher to check for messages
     log: DataLogger - data logger to be used for this trial 
     report: tuple - options/order (left -> right update calls) for the data to be returned
+    cleanup: bool - clean up associated trial handles after a trial is completed.
+    check_log: bool - use the log as a checkpoint for the trial, if it exists, skip the trial
     """
     dispatcher_kwargs = dispatcher_kwargs or {}
     submit_kwargs = submit_kwargs or {}
@@ -40,9 +49,20 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
     run_label = '{}_{}'.format(label, tid)
     trial.run_label = run_label
     trial.output_path = output_path
-    for k, v in config.items(): #call any function pointers
+    for k, v in config.items(): #assign values to pointers/future values referenced in config.
         if isinstance(v, types.FunctionType):
             config[k] = v()
+    logging_enabled = isinstance(log, DataLogger)
+    if check_log:
+        data = None
+        if not logging_enabled:
+            warnings.warn('No logging object provided, skipping log check.')
+        try:
+            data = log.find(column='trial_label', value=run_label)
+        except ValueError:
+            warnings.warn('trial_label not a column in the log database, skipping log check (recommend using default "report" arguments).')
+        if data is not None: # skip the trail if trial_label: run_label already exists in the log database.
+            return data.apply(_lctf)
     dispatcher = dispatcher_constructor(project_path=project_path, output_path=output_path, submit=submit,
                                         label=run_label, **dispatcher_kwargs)
     dispatcher.update_env(dictionary=config)
@@ -69,13 +89,6 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
 
     if isinstance(log, DataLogger):
         log.log(data)
-
-    def _lctf(val):
-        """internal loose cast, converts to float if possible, o/w returns same"""
-        try:
-            return float(val)
-        except:
-            return val
     data = pandas.Series(data)
     data = data.apply(_lctf)
     return data
