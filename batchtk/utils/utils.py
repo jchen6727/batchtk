@@ -254,7 +254,7 @@ class TOTPConnection(object):
     def sftp(self):
         return self.connection.sftp()
 
-    def open(self):# awful, for multithreading?
+    def open(self):# multithreading checks for TOTP
         from paramiko.ssh_exception import BadAuthenticationType
         orig = self.totp.now()
         while True:
