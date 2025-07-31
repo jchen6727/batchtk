@@ -195,7 +195,7 @@ class SHDispatcher(Dispatcher):
                        with '/'. defaults to current directory
         submit       - Submit object (see batchtk.runk.submit)
         in **kwargs:
-            label      - string to identify dispatcher by the created runner
+            label    - string to identify dispatcher by the created runner
             env      - dictionary of environmental variables to be passed to the created runner
         """
         kwargs = _get_obj_args(**locals())
