@@ -9,8 +9,8 @@ class PrintUtil(Logger):
     def __init__(
             self,
             name: Optional[str] = 'batchtk',
-            file_out: Optional[str] = None,
-            file_level: Optional[int] = 10, # DEBUG will be printed to filename
+            file_out: Optional[str|list] = None, # Anything evaluating to false -> no file output, True -> defauult
+            file_level: Optional[int|list] = 10, # DEBUG will be printed to filename
             console_level: Optional[int] = 30, # WARNING will be printed to console
             console_out: Optional[_io.TextIOWrapper] = stdout,
             format_str: Optional[str] = '%(message)s',
@@ -21,11 +21,14 @@ class PrintUtil(Logger):
         handler.setLevel(console_level)
         handler.setFormatter(Formatter(format_str))
         self.addHandler(handler)
-        if file_out == None:
+        if not file_out:
+            return
+        if file_out is True:
             file_out = "{}_{}".format(name, datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
         handler = FileHandler(file_out)
         handler.setLevel(file_level)
         handler.setFormatter(Formatter(format_str))
+        self.addHandler(handler)
 
     def debug(self, *args, **kwargs):
         """Logs a debug message."""

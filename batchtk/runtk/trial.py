@@ -1,7 +1,8 @@
 import types
 import pandas
 from io import StringIO
-from batchtk.utils import DataLogger
+from batchtk.utils import DataLogger, PrintUtil
+from logging import Logger
 import json
 import warnings
 import time
@@ -24,7 +25,8 @@ def _lctf(val):
 
 def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: callable, project_path: str,
           output_path: str, submit_constructor: callable, dispatcher_kwargs: Optional[dict] =None,
-          submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, log=None, report=('path', 'config', 'data'), cleanup: bool=True, check_log: bool=True) -> pandas.Series:
+          submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, data_log: Optional[DataLogger]=None,
+          debug_log: Optional[Logger|str]=None, report: Optional[list]=('path', 'config', 'data'), cleanup: Optional[bool|str] =True, check_data_log: Optional[bool]=True) -> pandas.Series:
     """
     Run a single trial:
     config: dict - parameter configuration for the trial (variables to be passed by the dispatcher to the receiving script)
@@ -37,10 +39,11 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
     dispatcher_kwargs: dict - kwargs to be passed to the dispatcher constructor
     submit_kwargs: dict - kwargs to be passed to the submit templates
     interval: int - interval for the dispatcher to check for messages
-    log: DataLogger - data logger to be used for this trial 
+    data_log: DataLogger - data logger to be used for this trial
+    debug_log:
     report: tuple - options/order (left -> right update calls) for the data to be returned
     cleanup: bool - clean up associated trial handles after a trial is completed.
-    check_log: bool - use the log as a checkpoint for the trial, if it exists, skip the trial
+    check_data_log: bool - use the log as a checkpoint for the trial, if it exists, skip the trial
     """
     dispatcher_kwargs = dispatcher_kwargs or {}
     submit_kwargs = submit_kwargs or {}
@@ -49,20 +52,26 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
     run_label = '{}_{}'.format(label, tid)
     trial.run_label = run_label
     trial.output_path = output_path
+    if not debug_log:
+        debug_log = PrintUtil(file_out=False) # only use debug_log for warning level prints to console --
+    if isinstance(debug_log, str):
+        debug_log = PrintUtil(name='batchtk', file_out=False, console_level=debug_log)
+
     for k, v in config.items(): #assign values to pointers/future values referenced in config.
         if isinstance(v, types.FunctionType):
             config[k] = v()
-    logging_enabled = isinstance(log, DataLogger)
-    if check_log:
+    data_logging_enabled = isinstance(data_log, DataLogger)
+    if check_data_log:
         data = None
-        if not logging_enabled:
-            warnings.warn('No logging object provided, skipping log check.')
+        if not data_logging_enabled:
+            warnings.warn('No valid data_log object provided, skipping data log check.')
         try:
-            data = log.find(column='trial_label', value=run_label)
+            data = data_log.find(column='trial_label', value=run_label)
         except ValueError:
             warnings.warn('trial_label not a column in the log database, skipping log check (recommend using default "report" arguments).')
         if data is not None: # skip the trail if trial_label: run_label already exists in the log database.
             return data.apply(_lctf)
+
     dispatcher = dispatcher_constructor(project_path=project_path, output_path=output_path, submit=submit,
                                         label=run_label, **dispatcher_kwargs)
     dispatcher.update_env(dictionary=config)
@@ -87,8 +96,8 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
         except KeyError:
             warnings.warn('{} not in report options'.format(option))
 
-    if isinstance(log, DataLogger):
-        log.log(data)
+    if data_logging_enabled:
+        data_log.log(data)
     data = pandas.Series(data)
     data = data.apply(_lctf)
     return data
