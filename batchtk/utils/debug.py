@@ -4,7 +4,7 @@ from typing import Optional
 from sys import stdout
 from batchtk.utils import _get_obj_args
 import _io
-
+#Custom ScriptLogger
 class PrintUtil(Logger):
     def __init__(
             self,
@@ -31,17 +31,45 @@ class PrintUtil(Logger):
         self.addHandler(handler)
 
     def debug(self, *args, **kwargs):
-        """Logs a debug message."""
+        """
+        Logs a debug message:
+        msg: str - the log message, any object that can be converted to a string
+        exc_info: bool - if True, the traceback of the current exception will be added to the log message, defaults to False
+        stack_info: bool - if True, the stack trace of the current stack frame will be added to the log message, defaults to False
+        extra: dict - any additional information to be added to the log message, defaults to None
+        stacklevel: int - the stack level of the log message, defaults to 1, i.e. the log message is created at the call site of this function
+        """
         self.debug(*args, **kwargs)
 
     def info(self, *args, **kwargs):
-        """Logs an info message."""
+        """
+        Logs an info message:
+        msg: str - the log message, any object that can be converted to a string
+        exc_info: bool - if True, the traceback of the current exception will be added to the log message, defaults to False
+        stack_info: bool - if True, the stack trace of the current stack frame will be added to the log message, defaults to False
+        extra: dict - any additional information to be added to the log message, defaults to None
+        stacklevel: int - the stack level of the log message, defaults to 1, i.e. the log message is created at the call site of this function
+        """
         self.info(*args, **kwargs)
 
     def warning(self, *args, **kwargs):
-        """Logs a warning message."""
+        """
+        Logs a warning message:
+        msg: str - the log message, any object that can be converted to a string
+        exc_info: bool - if True, the traceback of the current exception will be added to the log message, defaults to False
+        stack_info: bool - if True, the stack trace of the current stack frame will be added to the log message, defaults to False
+        extra: dict - any additional information to be added to the log message, defaults to None
+        stacklevel: int - the stack level of the log message, defaults to 1, i.e. the log message is created at the call site of this function
+        """
         self.warning(*args, **kwargs)
 
     def error(self, *args, **kwargs):
-        """Logs an error message."""
+        """
+        Logs an error message:
+        msg: str - the log message, any object that can be converted to a string
+        exc_info: bool - if True, the traceback of the current exception will be added to the log message, defaults to False
+        stack_info: bool - if True, the stack trace of the current stack frame will be added to the log message, defaults to False
+        extra: dict - any additional information to be added to the log message, defaults to None
+        stacklevel: int - the stack level of the log message, defaults to 1, i.e. the log message is created at the call site of this function
+        """
         self.error(*args, **kwargs)

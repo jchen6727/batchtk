@@ -278,18 +278,18 @@ class TOTPConnection(object):
     def _sftp(self, value):
         self.connection._sftp = value
 
-class DataLogger(object):
+class DataLogger(object):# Use as TrialTable or Table object nomenclature to avoid confusion with logger
     def __init__(self):
         self.path = None
 
-    def log(self, entry: dict):
+    def log(self, entry: dict):#replace log with "insert" // see below
         pass
 
     def close(self):
         pass
 
 
-class SQLiteLogger(DataLogger):
+class SQLiteLogger(DataLogger): #SQLiteTable...
     def __init__(self,
                  label: str ='trials',
                  path: str = '.',
@@ -340,7 +340,7 @@ class SQLiteLogger(DataLogger):
             conn.commit()
             conn.close()
 
-    def log(self, entries: dict):
+    def log(self, entries: dict): # record/add/insert/save
         #assert entries.keys() == self.entries.keys(), "keys of entries must match keys of entries in SQLiteLogger"
         keys, vals = zip(*entries.items())
         exec_str = "INSERT INTO {} ([{}]) VALUES ({})".format(self.label, '],['.join(keys), ','.join(['?'] * len(vals)))

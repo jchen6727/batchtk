@@ -54,9 +54,9 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
     trial.output_path = output_path
     if not debug_log:
         debug_log = PrintUtil(file_out=False) # only use debug_log for warning level prints to console --
-    if isinstance(debug_log, str):
-        debug_log = PrintUtil(name='batchtk', file_out=False, console_level=debug_log)
-
+    if isinstance(debug_log, str) or isinstance(debug_log, bool):
+        debug_log = PrintUtil(name='batchtk', file_out=debug_log, console_level=debug_log)
+    assert isinstance(debug_log, Logger)
     for k, v in config.items(): #assign values to pointers/future values referenced in config.
         if isinstance(v, types.FunctionType):
             config[k] = v()
@@ -64,12 +64,13 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
     if check_data_log:
         data = None
         if not data_logging_enabled:
-            warnings.warn('No valid data_log object provided, skipping data log check.')
+            debug_log.warning('No valid data_log object provided, skipping data log check.')
         try:
             data = data_log.find(column='trial_label', value=run_label)
         except ValueError:
-            warnings.warn('trial_label not a column in the log database, skipping log check (recommend using default "report" arguments).')
+            debug_log.warning('trial_label not a column in the log database, skipping log check (recommend using default "report" arguments).')
         if data is not None: # skip the trail if trial_label: run_label already exists in the log database.
+            debug_log.info("trial_label already exists in the log database, skipping trial.")
             return data.apply(_lctf)
 
     dispatcher = dispatcher_constructor(project_path=project_path, output_path=output_path, submit=submit,

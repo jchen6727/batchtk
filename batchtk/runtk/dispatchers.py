@@ -39,7 +39,7 @@ class Dispatcher(object):
     """ 
     #obj_count = 0 # persistent count N.B. may be shared between objects. TODO no utility for this
 
-    def __init__(self, label=None, env=None, grepstr=runtk.GREPSTR, **kwargs):
+    def __init__(self, label=None, env=None, grepstr=runtk.GREPSTR, sys_logger=None, **kwargs):
         """
         initializes base dispatcher class
         *Optional* Parameters
