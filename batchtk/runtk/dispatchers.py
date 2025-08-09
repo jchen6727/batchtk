@@ -317,7 +317,7 @@ class SHDispatcher(Dispatcher):
         :param kwargs:
         :return:
         """
-        if handles == 'all':
+        if handles is True:
             handles = list(self.handles.keys())
         if handles:
             for handle in handles:

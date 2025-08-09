@@ -5,7 +5,8 @@ from batchtk.runtk.dispatchers import INETDispatcher, UNIXDispatcher
 from batchtk.runtk.submits import SHSubmitSOCK
 from batchtk.runtk.trial import trial, LABEL_POINTER, PATH_POINTER
 
-from batchtk.utils import create_path
+from batchtk.utils import create_path, ScriptLogger, SQLiteStorage
+
 import logging
 import json
 from collections import namedtuple
@@ -25,17 +26,12 @@ CONFIGS = [
 
 TRIALS = [Job(INETDispatcher, SHSubmitSOCK, config) for config in CONFIGS]
 
-logger = logging.getLogger('test')
-logger.setLevel(logging.INFO)
-handler = logging.FileHandler(LOG_PATH(__file__))
-
-formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-
 A = 1
 def rosenbrock(x0, x1):
     return 100 * (x1 - x0**2)**2 + (A - x0)**2
+
+storage = SQLiteStorage(OUTPUT_PATH(__file__))
+
 class TestTRAILS:
     @pytest.fixture(params=TRIALS)
     def setup(self, request):
@@ -53,8 +49,11 @@ class TestTRAILS:
             'dispatcher_kwargs': None,
             'submit_kwargs': {'command': 'python runner_scripts/rosenbrock0_py.py'},
             'interval': 1,
-            'log': None,
+            'data_storage':
+            'debug_log': LOG_PATH(__file__),
             'report': ('path', 'config', 'data'),
+            'cleanup': True,
+            'check_storage': True,
         }
         yield kwargs
         #os.rmdir(create_path(kwargs['project_path'], kwargs['output_path']))
@@ -73,4 +72,21 @@ class TestTRAILS:
 
 
 
-
+"""
+    Run a single trial:
+    config: dict - parameter configuration for the trial (variables to be passed by the dispatcher to the receiving script)
+    label: str - label for a set of trials (see trials)
+    tid: str or int - trial id unique to this single trial
+    dispatcher_constructor: callable - dispatcher class to be used for this trial
+    project_path: str - path to the project directory
+    output_path: str - path to the output directory
+    submit_constructor: callable - submit class to be used for this trial
+    dispatcher_kwargs: dict - kwargs to be passed to the dispatcher constructor
+    submit_kwargs: dict - kwargs to be passed to the submit templates
+    interval: int - interval for the dispatcher to check for messages
+    data_storage: Storage - data storage for trial results
+    debug_log: Logger - logger used for debug output
+    report: tuple - options/order (left -> right update calls) for the data to be returned
+    cleanup: bool or list/tuple - (True -> clean all files) clean up associated trial handles after a trial is completed.
+    check_storage: bool - use the passed data_storage as a checkpoint for the trial, if trial data exists with a matching <label>_<tid>, then the trial is skipped and the stored data is pulled from check_storage.
+"""

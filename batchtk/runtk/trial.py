@@ -1,8 +1,9 @@
 import types
 import pandas
 from io import StringIO
-from batchtk.utils import DataLogger, PrintUtil
+from batchtk.utils import Storage, ScriptLogger
 from logging import Logger
+from batchtk import runtk # handles
 import json
 import warnings
 import time
@@ -25,8 +26,8 @@ def _lctf(val):
 
 def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: callable, project_path: str,
           output_path: str, submit_constructor: callable, dispatcher_kwargs: Optional[dict] =None,
-          submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, data_log: Optional[DataLogger]=None,
-          debug_log: Optional[Logger|str]=None, report: Optional[list]=('path', 'config', 'data'), cleanup: Optional[bool|str] =True, check_data_log: Optional[bool]=True) -> pandas.Series:
+          submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, data_storage: Optional[Storage]=None,
+          debug_log: Optional[Logger|str]=None, report: Optional[list]=('path', 'config', 'data'), cleanup: Optional[bool|list|tuple] = (runtk.SGLOUT, runtk.MSGOUT), check_storage: Optional[bool]=True) -> pandas.Series:
     """
     Run a single trial:
     config: dict - parameter configuration for the trial (variables to be passed by the dispatcher to the receiving script)
@@ -39,11 +40,11 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
     dispatcher_kwargs: dict - kwargs to be passed to the dispatcher constructor
     submit_kwargs: dict - kwargs to be passed to the submit templates
     interval: int - interval for the dispatcher to check for messages
-    data_log: DataLogger - data logger to be used for this trial
-    debug_log:
+    data_storage: Storage - data storage for trial results
+    debug_log: Logger - logger used for debug output
     report: tuple - options/order (left -> right update calls) for the data to be returned
-    cleanup: bool - clean up associated trial handles after a trial is completed.
-    check_data_log: bool - use the log as a checkpoint for the trial, if it exists, skip the trial
+    cleanup: bool or list/tuple - (True -> clean all files) clean up associated trial handles after a trial is completed.
+    check_storage: bool - use the passed data_storage as a checkpoint for the trial, if trial data exists with a matching <label>_<tid>, then the trial is skipped and the stored data is pulled from check_storage.
     """
     dispatcher_kwargs = dispatcher_kwargs or {}
     submit_kwargs = submit_kwargs or {}
@@ -53,20 +54,21 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
     trial.run_label = run_label
     trial.output_path = output_path
     if not debug_log:
-        debug_log = PrintUtil(file_out=False) # only use debug_log for warning level prints to console --
+        debug_log = ScriptLogger(file_out=False) # only use debug_log for warning level prints to console --
     if isinstance(debug_log, str) or isinstance(debug_log, bool):
-        debug_log = PrintUtil(name='batchtk', file_out=debug_log, console_level=debug_log)
+        debug_log = ScriptLogger(name='batchtk', file_out=debug_log)
     assert isinstance(debug_log, Logger)
     for k, v in config.items(): #assign values to pointers/future values referenced in config.
         if isinstance(v, types.FunctionType):
             config[k] = v()
-    data_logging_enabled = isinstance(data_log, DataLogger)
-    if check_data_log:
+    data_storage_enabled = isinstance(data_storage, Storage)
+    if check_storage:
+        assert data_storage_enabled, 'a valid data_storage Storage instance must be provided if check_storage is True.'
         data = None
-        if not data_logging_enabled:
+        if not data_storage_enabled:
             debug_log.warning('No valid data_log object provided, skipping data log check.')
         try:
-            data = data_log.find(column='trial_label', value=run_label)
+            data = data_storage.find(column='trial_label', value=run_label)
         except ValueError:
             debug_log.warning('trial_label not a column in the log database, skipping log check (recommend using default "report" arguments).')
         if data is not None: # skip the trail if trial_label: run_label already exists in the log database.
@@ -80,9 +82,9 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
         dispatcher.start()
         dispatcher.connect()
         msg = json.loads(dispatcher.recv(interval=interval))
-        dispatcher.clean()
+        dispatcher.clean(handles=cleanup)
     except Exception as e:
-        dispatcher.clean()
+        dispatcher.clean() # don't delete files on an exception
         raise (e)
     data = {}
     data_options = {
@@ -95,10 +97,10 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
         try:
             data.update(data_options[option])
         except KeyError:
-            warnings.warn('{} not in report options'.format(option))
+            debug_log.warning('{} not in report options'.format(option))
 
-    if data_logging_enabled:
-        data_log.log(data)
+    if data_storage_enabled:
+        data_storage.insert(data)
     data = pandas.Series(data)
     data = data.apply(_lctf)
     return data
