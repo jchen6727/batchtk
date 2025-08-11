@@ -12,6 +12,8 @@ import json
 from collections import namedtuple
 from header import TEST_ENVIRONMENT, LOG_PATH, OUTPUT_PATH, CLEAN_OUTPUTS
 
+result_out = OUTPUT_PATH(__file__)
+log_out = LOG_PATH(__file__)
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit', 'config'])
 
@@ -30,7 +32,8 @@ A = 1
 def rosenbrock(x0, x1):
     return 100 * (x1 - x0**2)**2 + (A - x0)**2
 
-storage = SQLiteStorage(OUTPUT_PATH(__file__))
+storage = SQLiteStorage(entries= ('x0', 'x1'), path=result_out)
+logger = ScriptLogger(file_out=log_out)
 
 class TestTRAILS:
     @pytest.fixture(params=TRIALS)
@@ -49,8 +52,8 @@ class TestTRAILS:
             'dispatcher_kwargs': None,
             'submit_kwargs': {'command': 'python runner_scripts/rosenbrock0_py.py'},
             'interval': 1,
-            'data_storage':
-            'debug_log': LOG_PATH(__file__),
+            'data_storage': storage,
+            'debug_log': logger,
             'report': ('path', 'config', 'data'),
             'cleanup': True,
             'check_storage': True,

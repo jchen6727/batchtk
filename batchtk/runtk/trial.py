@@ -82,7 +82,8 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
         dispatcher.start()
         dispatcher.connect()
         msg = json.loads(dispatcher.recv(interval=interval))
-        dispatcher.clean(handles=cleanup)
+        dispatcher.clean() # don't do a file cleanup here, wait until successful conversion of data.
+        # -> i.e., what happens if error occurs during subsequent calls.
     except Exception as e:
         dispatcher.clean() # don't delete files on an exception
         raise (e)
@@ -93,16 +94,22 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
         'data': msg,
     }
 
+    debug_log.warning("message received: {}".format(msg))
     for option in report:
         try:
+            debug_log.warning("updated message with report option: {}".format(option))
             data.update(data_options[option])
+            debug_log.warning("updated report: {}".format(data))
+
         except KeyError:
             debug_log.warning('{} not in report options'.format(option))
 
     if data_storage_enabled:
+        debug_log.warning("inserting into data storage: {}".format(data))
         data_storage.insert(data)
     data = pandas.Series(data)
     data = data.apply(_lctf)
+    dispatcher.clean(handles=cleanup)
     return data
 
 

@@ -303,10 +303,11 @@ class SQLiteStorage(Storage): #SQLiteTable...
         self.label = label
         if entries is None:
             self.entries = dict()
-        elif isinstance(entries, List) and isinstance(entries[0], str):
+        elif isinstance(entries, (list, tuple)) and all(isinstance(entry, str) for entry in entries):
             self.entries = {entry: 'TEXT' for entry in entries}
         else:
             self.entries = entries
+        assert isinstance(self.entries, dict)
         if add_trial_metadata:
             self.entries = {'trial_path': 'TEXT', 'trial_label': 'TEXT'} | self.entries
         self.path = "{}/{}.sqlite.db".format(path, label)
@@ -339,6 +340,8 @@ class SQLiteStorage(Storage): #SQLiteTable...
             cursor.execute(exec_str)
             conn.commit()
             conn.close()
+
+    #TODO add ALTER TABLE your_table ADD COLUMN new_column_name column_type;
 
     def insert(self, entries: dict): # record/add/insert/save
         #assert entries.keys() == self.entries.keys(), "keys of entries must match keys of entries in SQLiteLogger"
