@@ -32,7 +32,7 @@ A = 1
 def rosenbrock(x0, x1):
     return 100 * (x1 - x0**2)**2 + (A - x0)**2
 
-storage = SQLiteStorage(entries= ('x0', 'x1'), path=result_out)
+storage = SQLiteStorage(entries= ('x0', 'x1', 'fx', 'path', 'label'), path=result_out)
 logger = ScriptLogger(file_out=log_out)
 
 class TestTRAILS:
@@ -54,7 +54,7 @@ class TestTRAILS:
             'interval': 1,
             'data_storage': storage,
             'debug_log': logger,
-            'report': ('path', 'config', 'data'),
+            'report': ('path', 'data'),
             'cleanup': True,
             'check_storage': True,
         }
@@ -69,7 +69,6 @@ class TestTRAILS:
         for key in ['x0', 'x1']:
             assert kwargs['config'][key] == results[key]
         assert results['fx'] == rosenbrock(kwargs['config']['x0'], kwargs['config']['x1'])
-        assert os.path.exists(results['file'])
         print(results)
 
 

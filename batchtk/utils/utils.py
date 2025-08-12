@@ -309,7 +309,7 @@ class SQLiteStorage(Storage): #SQLiteTable...
             self.entries = entries
         assert isinstance(self.entries, dict)
         if add_trial_metadata:
-            self.entries = {'trial_path': 'TEXT', 'trial_label': 'TEXT'} | self.entries
+            self.entries = {'trial_path': 'TEXT', 'trial_label': 'TEXT'} | self.entries # can do TEXT NOT NULL or TEXT DEFAULT None for missing insertions...
         self.path = "{}/{}.sqlite.db".format(path, label)
         self._connect = sqlite3.connect
         self._lock = FileLock("{}.lock".format(self.path))
@@ -327,7 +327,7 @@ class SQLiteStorage(Storage): #SQLiteTable...
 
     def _init_db(self):
         if os.path.exists(self.path): # check that the db is appropriate if it exists ---
-            header = self._get_header()
+            header = self._get_header() # after init, check header only once, then treat entries.keys as the relevant metadata
             if set(self.entries.items()) <= header:
                 return
             else:
@@ -344,7 +344,8 @@ class SQLiteStorage(Storage): #SQLiteTable...
     #TODO add ALTER TABLE your_table ADD COLUMN new_column_name column_type;
 
     def insert(self, entries: dict): # record/add/insert/save
-        #assert entries.keys() == self.entries.keys(), "keys of entries must match keys of entries in SQLiteLogger"
+        if entries.keys() != self.entries.keys():
+            raise ValueError(f"entries keys do not match expected keys: {entries.keys()} != {self.entries.keys()}")
         keys, vals = zip(*entries.items())
         exec_str = "INSERT INTO {} ([{}]) VALUES ({})".format(self.label, '],['.join(keys), ','.join(['?'] * len(vals)))
         with self._lock:

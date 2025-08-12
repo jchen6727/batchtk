@@ -63,16 +63,15 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
             config[k] = v()
     data_storage_enabled = isinstance(data_storage, Storage)
     if check_storage:
-        assert data_storage_enabled, 'a valid data_storage Storage instance must be provided if check_storage is True.'
         data = None
         if not data_storage_enabled:
-            debug_log.warning('No valid data_log object provided, skipping data log check.')
+            debug_log.warning('No valid data_storage object provided, skipping check_storage operations.')
         try:
             data = data_storage.find(column='trial_label', value=run_label)
         except ValueError:
-            debug_log.warning('trial_label not a column in the log database, skipping log check (recommend using default "report" arguments).')
+            debug_log.warning("trial_label not a column in the log database, skipping log check (recommend passing at least: ('path', 'data') to arguments).")
         if data is not None: # skip the trail if trial_label: run_label already exists in the log database.
-            debug_log.info("trial_label already exists in the log database, skipping trial.")
+            debug_log.info("trial_label already exists in the log database, skipping trial and retrieved data: {}.".format(data))
             return data.apply(_lctf)
 
     dispatcher = dispatcher_constructor(project_path=project_path, output_path=output_path, submit=submit,
@@ -89,23 +88,19 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
         raise (e)
     data = {}
     data_options = {
-        'path': {'trial_label': run_label, 'trial_path': dispatcher.output_path},
+        'path': {'trial_label': run_label, 'trial_path': dispatcher.output_path}, #nomenclature decided in e54413e. will overlap with config.
         'config': config,
         'data': msg,
     }
-
     debug_log.warning("message received: {}".format(msg))
     for option in report:
         try:
-            debug_log.warning("updated message with report option: {}".format(option))
             data.update(data_options[option])
-            debug_log.warning("updated report: {}".format(data))
-
         except KeyError:
             debug_log.warning('{} not in report options'.format(option))
 
     if data_storage_enabled:
-        debug_log.warning("inserting into data storage: {}".format(data))
+        debug_log.warning("inserting data into storage: {}".format(data))
         data_storage.insert(data)
     data = pandas.Series(data)
     data = data.apply(_lctf)
