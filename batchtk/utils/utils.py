@@ -282,6 +282,9 @@ class Storage(object):# Use as TrialTable or Table object nomenclature to avoid 
     def __init__(self):
         self.path = None
 
+    def add_header(self, header: dict): # add new columns to storage
+        pass
+
     def insert(self, entry: dict):#replace log with "insert" // see below
         pass
 
@@ -354,6 +357,10 @@ class SQLiteStorage(Storage): #SQLiteTable...
             cursor.execute(exec_str, vals)
             conn.commit()
             conn.close()
+
+    def add_columns(self, columns: list):
+        exec_str = "ALTER TABLE {} ADD COLUMN {}".format(self.label, ' TEXT, '.join(columns))
+        for column in columns:
 
     def to_df(self):
         exec_str = "SELECT * FROM {}".format(self.label)

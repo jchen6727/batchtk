@@ -85,10 +85,11 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
         # -> i.e., what happens if error occurs during subsequent calls.
     except Exception as e:
         dispatcher.clean() # don't delete files on an exception
+        dispatcher.close()
         raise (e)
     data = {}
     data_options = {
-        'path': {'trial_label': run_label, 'trial_path': dispatcher.output_path}, #nomenclature decided in e54413e. will overlap with config.
+        'path': {'trial_label': run_label, 'trial_path': dispatcher.output_path}, #nomenclature decided in e54413e. "path" and "label" overlaps with config.
         'config': config,
         'data': msg,
     }
@@ -105,6 +106,7 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
     data = pandas.Series(data)
     data = data.apply(_lctf)
     dispatcher.clean(handles=cleanup)
+    dispatcher.close()
     return data
 
 

@@ -309,7 +309,7 @@ class SHDispatcher(Dispatcher):
         """
         self.fs.close()
 
-    def clean(self, handles = None, **kwargs):
+    def clean(self, handles = None, **kwargs): # correct sequence of operations, "common recommended sequence is to clean first, then close".
         """
         Method called at close of the script, cleans up any open file handles or sockets, etc. To be implemented by
         inherited classes.
@@ -321,7 +321,7 @@ class SHDispatcher(Dispatcher):
             handles = list(self.handles.keys())
         if handles:
             for handle in handles:
-                if self.fs.exists(self.handles[handle]):
+                if self.fs.exists(self.handles[handle]): # can repeat clean or force all.
                     self.fs.remove(self.handles[handle])
                 #self.handles.pop(handle)
 
@@ -519,7 +519,6 @@ class SOCKETDispatcher(SHDispatcher):
         return self.handles
 
     def clean(self, handles=None):
-        self.close()
         super().clean(handles=handles)
 
 
