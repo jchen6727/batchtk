@@ -11,31 +11,35 @@ import logging
 import json
 from collections import namedtuple
 from header import TEST_ENVIRONMENT, LOG_PATH, OUTPUT_PATH, CLEAN_OUTPUTS
-
+from numpy import random
 result_out = OUTPUT_PATH(__file__)
 log_out = LOG_PATH(__file__)
 
-Job = namedtuple('Job', ['Dispatcher', 'Submit', 'config'])
+Job = namedtuple('Job', ['id', 'Dispatcher', 'Submit', 'config'])
 
+SEED = 0
+MIN, MAX = -4, 6
+NTRIALS = 20
 #JOBS = [
 #        Job(INETDispatcher, SHSubmitSOCK),
 #        Job(UNIXDispatcher, SHSubmitSOCK)
 #        ]
 
 CONFIGS = [
-        {'x0': 0, 'x1': 1}, {'x0': 1, 'x1': 0}
+        {'x0': x0, 'x1': x1} for x0, x1 in
+         random.default_rng(SEED).integers(MIN, MAX, (NTRIALS, 2))
         ]
 
-TRIALS = [Job(INETDispatcher, SHSubmitSOCK, config) for config in CONFIGS]
+TRIALS = [Job(id, INETDispatcher, SHSubmitSOCK, config) for id, config in enumerate(CONFIGS)]
 
 A = 1
 def rosenbrock(x0, x1):
     return 100 * (x1 - x0**2)**2 + (A - x0)**2
 
-storage = SQLiteStorage(entries= ('x0', 'x1', 'fx', 'path', 'label'), path=result_out)
+storage = SQLiteStorage(path=result_out)
 logger = ScriptLogger(file_out=log_out)
 
-class TestTRAILS:
+class TestTRIALS:
     @pytest.fixture(params=TRIALS)
     def setup(self, request):
         config = request.param.config
@@ -44,7 +48,7 @@ class TestTRAILS:
         kwargs = {
             'config': config,
             'label': "trial",
-            'tid': "{}{}".format(config['x0'], config['x1']),
+            'tid': "{}".format(request.param.id),
             'dispatcher_constructor': request.param.Dispatcher,
             'project_path': __file__.rsplit('/', 1)[0],
             'output_path': OUTPUT_PATH(__file__),
@@ -54,7 +58,7 @@ class TestTRAILS:
             'interval': 1,
             'data_storage': storage,
             'debug_log': logger,
-            'report': ('path', 'data'),
+            'report': ('path', 'config', 'data'),
             'cleanup': True,
             'check_storage': True,
         }
@@ -72,23 +76,3 @@ class TestTRAILS:
         print(results)
 
 
-
-
-"""
-    Run a single trial:
-    config: dict - parameter configuration for the trial (variables to be passed by the dispatcher to the receiving script)
-    label: str - label for a set of trials (see trials)
-    tid: str or int - trial id unique to this single trial
-    dispatcher_constructor: callable - dispatcher class to be used for this trial
-    project_path: str - path to the project directory
-    output_path: str - path to the output directory
-    submit_constructor: callable - submit class to be used for this trial
-    dispatcher_kwargs: dict - kwargs to be passed to the dispatcher constructor
-    submit_kwargs: dict - kwargs to be passed to the submit templates
-    interval: int - interval for the dispatcher to check for messages
-    data_storage: Storage - data storage for trial results
-    debug_log: Logger - logger used for debug output
-    report: tuple - options/order (left -> right update calls) for the data to be returned
-    cleanup: bool or list/tuple - (True -> clean all files) clean up associated trial handles after a trial is completed.
-    check_storage: bool - use the passed data_storage as a checkpoint for the trial, if trial data exists with a matching <label>_<tid>, then the trial is skipped and the stored data is pulled from check_storage.
-"""

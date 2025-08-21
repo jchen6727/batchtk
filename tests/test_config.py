@@ -32,7 +32,27 @@ CONFIGS = [
         [{'x.0': numpy.zeros(5)}],
         [[ ['x.0', 1].__repr__(), 1] ],
         {'x.0': numpy.array([0., 1., 0., 0., 0.])}
-    )
+    ),
+    Config(
+        [{'IELayerGain': {'4': False}}],
+        [['IELayerGain.4', True]],
+        {'IELayerGain': {'4': True}},
+    ),
+    Config(
+        [{'IELayerGain': {'4': False}}],
+        [['IELayerGain.4', True]],
+        {'IELayerGain': {'4': True}},
+    ),
+    Config(
+        [{'IELayerGain': {'5A': False}}],
+        [['IELayerGain.5A', True]],
+        {'IELayerGain': {'5A': True}},
+    ),
+    #Config( # wait to test this one, testcase intended to produce an error.
+    #    [{'IELayerGain': {'5A': False}}],
+    #    [['IIELayerGain.5A', True]],
+    #    {'IELayerGain': {'5A': False}},
+    #)
 ]
 
 class TestCONFIGS:

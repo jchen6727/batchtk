@@ -99,10 +99,14 @@ def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: call
             data.update(data_options[option])
         except KeyError:
             debug_log.warning('{} not in report options'.format(option))
-
     if data_storage_enabled:
         debug_log.warning("inserting data into storage: {}".format(data))
-        data_storage.insert(data)
+        try:
+            data_storage.insert(data)
+        except Exception as e:
+            debug_log.warning("inserting data into storage failed: {}".format(e))
+            data_storage.add_columns(list(data.keys()))
+            data_storage.insert(data)
     data = pandas.Series(data)
     data = data.apply(_lctf)
     dispatcher.clean(handles=cleanup)
