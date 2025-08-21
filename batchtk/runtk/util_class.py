@@ -2,31 +2,40 @@ from batchtk.runtk.runners import Runner, get_runner
 import ast
 import collections
 
+def string_eval(s):
+    try:
+        ast.literal_eval(s)
+    except (ValueError, SyntaxError) as e:
+        raise ValueError("Invalid string for evaluation: {}".format(s))
+
 def traverse(obj, path):
     if len(path) == 1: #access object in dictionary
-        assert path[0] in obj or ast.literal_eval(path[0]) in obj or int(path[0]) < len(obj), "error accessing {}[{}]".format(obj, path[0])
+        assert path[0] in obj or ast.literal_eval("{}".format(path[0])) in obj or int(path[0]) < len(obj), "error accessing {}[{}]".format(obj, path[0])
         return obj
     if isinstance(obj, collections.abc.Mapping) and path[0] in obj: #access object in dictionary
         return traverse(obj[path[0]], path[1:])
-    if isinstance(obj, collections.abc.Mapping) and ast.literal_eval(path[0]) in obj: #access object in dictionary
+    conv_path = string_eval(path[0])
+    if isinstance(obj, collections.abc.Mapping) and conv_path in obj: #access object in dictionary
         return traverse(obj[int(path[0])], path[1:])
-    if isinstance(obj, collections.abc.Sequence) and path[0].isdigit() and int(path[0]) < len(obj): #access int in list
+    if isinstance(obj, collections.abc.Sequence) and isinstance(conv_path, int) and conv_path < len(obj): #access int in list
         return traverse(obj[int(path[0])], path[1:])
     else:
         raise AssertionError("error accessing {}[{}]".format(obj, path[0]))
 
 def set_map(obj, assign_path, value):
-    if isinstance(assign_path, str): # 'string'.split('.') -> ['string'], 'string.split'.split('.') -> ['string', 'split]
+    if isinstance(assign_path, str) and assign_path[0] in ('[', '(', '{'): # 'string'.split('.') -> ['string'], 'string.split'.split('.') -> ['string', 'split]
+        assigns = ast.literal_eval(assign_path) # a list, tuple or set was provided.
+    elif isinstance(assign_path, str):
         assigns = assign_path.split('.')
     else:
         assigns = assign_path # assume list
     try:
         container = traverse(obj, assigns)
-    except AssertionError:
+    except (AssertionError, ValueError) as e:
         raise ValueError("error setting {}={}, check that path {} exists within your object mapping".format(assign_path, value, assign_path))
     try:
-        container[assigns[-1]] = value
-    except TypeError:
+        container[assigns[-1]] = value # goes to except when indexing lists with strings (i.e. '1')
+    except (TypeError, IndexError): # a numpy series doesn't return a TypeError but an IndexError
         container[ast.literal_eval(assigns[-1])] = value
 
 

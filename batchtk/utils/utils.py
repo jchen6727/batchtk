@@ -1,6 +1,7 @@
 import pickle
 import os
 import re
+import sqlite3
 import subprocess
 import shlex
 import pandas
@@ -8,9 +9,11 @@ import itertools
 from abc import abstractmethod
 from typing import Protocol, runtime_checkable
 import io
-from batchtk.header import GREPSTR, EQDELIM
+from batchtk.header import TABLESTR, GREPSTR, EQDELIM
 from warnings import warn
 from typing import Optional, Dict, List, Any
+from collections import namedtuple
+
 @runtime_checkable
 class FS_Protocol(Protocol):
     """
@@ -93,29 +96,6 @@ class LocalFS(BaseFS):
 
     def close(self):
         pass
-
-class RemoteSSHFS(BaseFS):
-    def __init__(self, host = None):
-        super().__init__()
-        import sshfs
-        self.fs = sshfs.SSHFileSystem(host)
-        self.fs.cachable = False
-
-    def exists(self, path, *args, **kwargs):
-        return self.fs.exists(path, *args, **kwargs)
-
-    def makedirs(self, path, *args, **kwargs):
-        return self.fs.makedirs( path, exist_ok=True, *args, **kwargs)
-
-    def open(self, path, mode, *args, **kwargs):
-        return self.fs.open(path, mode, *args, **kwargs) #the user has to remember to either call w/ context manager or close...
-
-    def remove(self, path, *args, **kwargs):
-        return self.fs.rm(path, *args, **kwargs)
-
-    def close(self):
-        self.fs.client.close()
-        self.fs.clear_instance_cache()
 
 class RemoteConnFS(BaseFS): # use threading lock?
     def __init__(self, connection):
@@ -276,7 +256,7 @@ class TOTPConnection(object):
     def sftp(self):
         return self.connection.sftp()
 
-    def open(self):# awful, for multithreading?
+    def open(self):# multithreading checks for TOTP
         from paramiko.ssh_exception import BadAuthenticationType
         orig = self.totp.now()
         while True:
@@ -300,17 +280,26 @@ class TOTPConnection(object):
     def _sftp(self, value):
         self.connection._sftp = value
 
-class DataLogger(object):
+class Storage(object):# Use as TrialTable or Table object nomenclature to avoid confusion with logger
     def __init__(self):
         self.path = None
 
-    def log(self, entry: dict):
+    def init_db(self): # initializes the database
+        pass
+
+    def get_schema(self): # get the schema of the storage
+        pass
+
+    def add_columns(self, schema: dict): # add new columns to storage
+        pass
+
+    def insert(self, entry: dict):#replace log with "insert" // see below
         pass
 
     def close(self):
         pass
 
-class SQLiteLogger(DataLogger):
+class SQLiteStorage(Storage): #SQLiteTable...
     def __init__(self,
                  label: str ='trials',
                  path: str = '.',
@@ -320,50 +309,55 @@ class SQLiteLogger(DataLogger):
         import sqlite3
         super().__init__()
         path = get_path(path)
+        os.makedirs(path, exist_ok=True)
         self.label = label
         if entries is None:
             self.entries = dict()
-        elif isinstance(entries, List) and isinstance(entries[0], str):
+        elif isinstance(entries, (list, tuple)) and all(isinstance(entry, str) for entry in entries):
             self.entries = {entry: 'TEXT' for entry in entries}
         else:
             self.entries = entries
+        assert isinstance(self.entries, dict)
         if add_trial_metadata:
-            self.entries = {'trial_path': 'TEXT', 'trial_label': 'TEXT'} | self.entries
+            self.entries = {'trial_path': 'TEXT', 'trial_label': 'TEXT'} | self.entries # can do TEXT NOT NULL or TEXT DEFAULT None for missing insertions...
         self.path = "{}/{}.sqlite.db".format(path, label)
         self._connect = sqlite3.connect
         self._lock = FileLock("{}.lock".format(self.path))
-        self._init_db()
+        self._oe = sqlite3.OperationalError
+        self.init_db()
 
-    def _get_header(self):
+    def get_schema(self):
         with self._lock:
             conn = self._connect(self.path)
             cursor = conn.cursor()
             cursor.execute("PRAGMA table_info({})".format(self.label))
             data = cursor.fetchall()
             conn.close()
-        header = {(column[1], column[2]) for column in data}
-        return header
+        schema = {column[1]: column[2] for column in data} # not set operation,
+        return schema
 
-    def _init_db(self):
+    def init_db(self):
         if os.path.exists(self.path): # check that the db is appropriate if it exists ---
-            header = self._get_header()
-            if set(self.entries.items()) <= header:
+            schema = self.get_schema() # after init, check schema only once, then treat entries.keys as the relevant metadata
+            if set(self.entries.items()) <= set(schema.items()):
+                self.entries = schema # update entries to the current schema, if it is a subset of the expected entries
                 return
             else:
-                raise ValueError("database at path {} contains a different header: {} than anticipated entries: {}".format(self.path, header, self.entries))
+                raise ValueError(f"database at path {self.path} expects different entries than given: schema {schema} conflicts with entries {self.entries}")
+        exec_str = "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["[{}] {}".format(k, v) for k, v in self.entries.items()]))
+        exec_str = "CREATE TABLE IF NOT EXISTS {} ({})".format(self.label, exec_str)
         with self._lock:
-            table_str = "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["{} {}".format(k, v) for k, v in self.entries.items()]))
-            exec_str = "CREATE TABLE IF NOT EXISTS {} ({})".format(self.label, table_str)
             conn = self._connect(self.path)
             cursor = conn.cursor()
             cursor.execute(exec_str)
             conn.commit()
             conn.close()
 
-    def log(self, entries: dict):
-        #assert entries.keys() == self.entries.keys(), "keys of entries must match keys of entries in SQLiteLogger"
+    def insert(self, entries: dict): # record/add/insert/save
+        if not set(entries.keys()) <= set(self.entries.keys()):
+            raise ValueError(f"entries keys exceed expected keys: {entries.keys()} != {self.entries.keys()}")
         keys, vals = zip(*entries.items())
-        exec_str = "INSERT INTO {} ({}) VALUES ({})".format(self.label, ','.join(keys), ','.join(['?'] * len(vals)))
+        exec_str = "INSERT INTO {} ([{}]) VALUES ({})".format(self.label, '],['.join(keys), ','.join(['?'] * len(vals)))
         with self._lock:
             conn = self._connect(self.path)
             cursor = conn.cursor()
@@ -371,15 +365,58 @@ class SQLiteLogger(DataLogger):
             conn.commit()
             conn.close()
 
-    def to_df(self):
+    def add_columns(self, columns: list | tuple | dict) -> list[tuple[str, Exception]]:
+        #clarify nomenclature, header implies creation of metadata for a DB
+        # compare columns against existing self.entries ---
+        if isinstance(columns, (list, tuple)):
+            new_columns = {column: 'TEXT' for column in columns if column not in self.entries.keys()}
+        if isinstance(columns, dict):
+            new_columns = {key: value for key, value in columns.items() if key not in self.entries.keys()}
+        exec_strs = ["ALTER TABLE {} ADD COLUMN {} {}".format(self.label, new_column, new_value)
+                     for new_column, new_value in new_columns.items()]
+        oe = []
         with self._lock:
             conn = self._connect(self.path)
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM {}".format(self.label))
-            rows = cursor.fetchall()
-            columns = [column[0] for column in cursor.description]
-            df = pandas.DataFrame(rows, columns=columns)
+            for new_column, exec_str in zip(new_columns.keys(), exec_strs):
+                try:
+                    cursor.execute(exec_str)
+                except self._oe as e:
+                    oe.append( (new_column, e) )
+            conn.commit()
             conn.close()
+        self.entries = self.get_schema()
+        return oe
+
+
+    def to_df(self):
+        exec_str = "SELECT * FROM {}".format(self.label)
+        with self._lock:
+            conn = self._connect(self.path)
+            cursor = conn.cursor()
+            cursor.execute(exec_str)
+            rows = cursor.fetchall()
+            description = cursor.description
+            conn.close()
+        columns = [column[0] for column in description]
+        df = pandas.DataFrame(rows, columns=columns)
+        return df
+
+    def find(self, column: str, value: Any):
+        if column not in self.entries:
+            raise ValueError(f"column {column} not in entries: {self.entries}")
+        exec_str = "SELECT * FROM {} WHERE {} = ?".format(self.label, column)
+        with self._lock:
+            conn = self._connect(self.path)
+            cursor = conn.cursor()
+            cursor.execute(exec_str, [value])
+            rows = cursor.fetchall()
+            description = cursor.description
+            conn.close()
+        if not rows:
+            return None
+        columns = [column[0] for column in description]
+        df = pandas.DataFrame(rows, columns=columns)
         return df
 
     def close(self):
@@ -483,48 +520,3 @@ def get_port_info(port):
     else:
         return output.returncode
 
-def batchify( batch_dict, bin_size = 1, file_label = None ):
-    """
-    batch_dict = {string: list}
-    bin_size = integer
-    file_label = string
-    --------------------------------------------------------------------------------------------------------------------
-    creates a list of pandas dataframes, if file_label exists, each pandas dataframe is written to a csv file.
-    """
-# rewrite using pandas.cut ? : https://pandas.pydata.org/docs/reference/api/pandas.cut.html
-    bins = []
-
-    bin_num = 0
-    curr_size = 0
-    curr_batch = []
-
-    for run, batch in enumerate(dcx(**batch_dict)):
-        batch.update({"run": run})
-        curr_batch.append(pandas.Series(batch))
-        curr_size += 1
-        if curr_size == bin_size:
-            curr_size = 0
-            bin_df = pandas.DataFrame(curr_batch)
-            curr_batch = []
-            bins.append(bin_df)
-            # write bin to csv if file_label
-            if file_label:
-                filename = "{}{}.csv".format(file_label, bin_num)
-                bin_num += 1
-                bin_df.to_csv(filename, index=False)
-    if curr_batch:
-        # write last batch if empty
-        bin_df = pandas.DataFrame(curr_batch)
-        bins.append(bin_df)
-        if file_label:
-            filename = "{}{}.csv".format(file_label, bin_num)
-            bin_df.to_csv(filename, index=False)
-    return bins
-
-def dcx(**kwargs):
-    """
-    Dictionary preserving Cartesian (x) product, returned as a generator
-    https://stackoverflow.com/questions/5228158/cartesian-product-of-a-dictionary-of-lists
-    """
-    for instance in itertools.product(*kwargs.values()):
-        yield dict(zip(kwargs.keys(), instance))

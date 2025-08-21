@@ -17,7 +17,7 @@ from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
 from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
-
+import warnings
 import socket
 
 class Dispatcher(object):
@@ -39,7 +39,7 @@ class Dispatcher(object):
     """ 
     #obj_count = 0 # persistent count N.B. may be shared between objects. TODO no utility for this
 
-    def __init__(self, label=None, env=None, grepstr=runtk.GREPSTR, **kwargs):
+    def __init__(self, label=None, env=None, grepstr=runtk.GREPSTR, sys_logger=None, **kwargs):
         """
         initializes base dispatcher class
         *Optional* Parameters
@@ -195,7 +195,7 @@ class SHDispatcher(Dispatcher):
                        with '/'. defaults to current directory
         submit       - Submit object (see batchtk.runk.submit)
         in **kwargs:
-            label      - string to identify dispatcher by the created runner
+            label    - string to identify dispatcher by the created runner
             env      - dictionary of environmental variables to be passed to the created runner
         """
         kwargs = _get_obj_args(**locals())
@@ -309,7 +309,7 @@ class SHDispatcher(Dispatcher):
         """
         self.fs.close()
 
-    def clean(self, handles = None, **kwargs):
+    def clean(self, handles = None, **kwargs): # correct sequence of operations, "common recommended sequence is to clean first, then close".
         """
         Method called at close of the script, cleans up any open file handles or sockets, etc. To be implemented by
         inherited classes.
@@ -317,11 +317,11 @@ class SHDispatcher(Dispatcher):
         :param kwargs:
         :return:
         """
-        if handles == 'all':
+        if handles is True:
             handles = list(self.handles.keys())
         if handles:
             for handle in handles:
-                if self.fs.exists(self.handles[handle]):
+                if self.fs.exists(self.handles[handle]): # can repeat clean or force all.
                     self.fs.remove(self.handles[handle])
                 #self.handles.pop(handle)
 
@@ -383,7 +383,10 @@ class QSDispatcher(SHDispatcher):
     def check_msg(self):
         status = self.check_status()
         if status.status == runtk.STATUS.COMPLETED:
-            return status.msg[0]
+            try:
+                return status.msg[0]
+            except Exception as e:
+                warnings.warn("{} occurred when attempting to check dispatched run. If this message persists when checking for data, please check your connections/scripts and restart".format(e))
         return False
 
     def start(self, restart=False, **kwargs):
@@ -516,7 +519,6 @@ class SOCKETDispatcher(SHDispatcher):
         return self.handles
 
     def clean(self, handles=None):
-        self.close()
         super().clean(handles=handles)
 
 

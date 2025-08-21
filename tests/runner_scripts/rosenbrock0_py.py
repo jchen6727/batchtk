@@ -17,12 +17,18 @@ runner = get_runner()
 print("runner id: {}".format(id(runner)))
 mappings = {'x0': A, 'x1': A**2}
 mappings.update(runner.get_mappings())
+
+inputs = {key: mappings[key] for key in ('x0', 'x1')}
+
 if 'path' in mappings and 'label' in mappings:
     file = "{}/{}.txt".format(mappings['path'], mappings['label'])
     mappings['file'] = file
 
 fx = rosenbrock(mappings['x0'], mappings['x1'])
-results = json.dumps({**mappings, 'fx': fx})
+#results = json.dumps({**mappings, 'fx': fx})
+results = json.dumps({**inputs, 'fx': fx})
+
+
 print(results)
 with get_runner() as runner:
     print("communication runner id: {}".format(id(runner)))

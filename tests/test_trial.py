@@ -5,38 +5,41 @@ from batchtk.runtk.dispatchers import INETDispatcher, UNIXDispatcher
 from batchtk.runtk.submits import SHSubmitSOCK
 from batchtk.runtk.trial import trial, LABEL_POINTER, PATH_POINTER
 
-from batchtk.utils import create_path
+from batchtk.utils import create_path, ScriptLogger, SQLiteStorage
+
 import logging
 import json
 from collections import namedtuple
 from header import TEST_ENVIRONMENT, LOG_PATH, OUTPUT_PATH, CLEAN_OUTPUTS
+from numpy import random
+result_out = OUTPUT_PATH(__file__)
+log_out = LOG_PATH(__file__)
 
+Job = namedtuple('Job', ['id', 'Dispatcher', 'Submit', 'config'])
 
-Job = namedtuple('Job', ['Dispatcher', 'Submit', 'config'])
-
+SEED = 0
+MIN, MAX = -4, 6
+NTRIALS = 20
 #JOBS = [
 #        Job(INETDispatcher, SHSubmitSOCK),
 #        Job(UNIXDispatcher, SHSubmitSOCK)
 #        ]
 
 CONFIGS = [
-        {'x0': 0, 'x1': 1}, {'x0': 1, 'x1': 0}
+        {'x0': x0, 'x1': x1} for x0, x1 in
+         random.default_rng(SEED).integers(MIN, MAX, (NTRIALS, 2))
         ]
 
-TRIALS = [Job(INETDispatcher, SHSubmitSOCK, config) for config in CONFIGS]
-
-logger = logging.getLogger('test')
-logger.setLevel(logging.INFO)
-handler = logging.FileHandler(LOG_PATH(__file__))
-
-formatter = logging.Formatter('>>> %(asctime)s --- %(funcName)s --- %(levelname)s >>>\n%(message)s <<<\n')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+TRIALS = [Job(id, INETDispatcher, SHSubmitSOCK, config) for id, config in enumerate(CONFIGS)]
 
 A = 1
 def rosenbrock(x0, x1):
     return 100 * (x1 - x0**2)**2 + (A - x0)**2
-class TestTRAILS:
+
+storage = SQLiteStorage(path=result_out)
+logger = ScriptLogger(file_out=log_out)
+
+class TestTRIALS:
     @pytest.fixture(params=TRIALS)
     def setup(self, request):
         config = request.param.config
@@ -45,7 +48,7 @@ class TestTRAILS:
         kwargs = {
             'config': config,
             'label': "trial",
-            'tid': "{}{}".format(config['x0'], config['x1']),
+            'tid': "{}".format(request.param.id),
             'dispatcher_constructor': request.param.Dispatcher,
             'project_path': __file__.rsplit('/', 1)[0],
             'output_path': OUTPUT_PATH(__file__),
@@ -53,8 +56,11 @@ class TestTRAILS:
             'dispatcher_kwargs': None,
             'submit_kwargs': {'command': 'python runner_scripts/rosenbrock0_py.py'},
             'interval': 1,
-            'log': None,
+            'data_storage': storage,
+            'debug_log': logger,
             'report': ('path', 'config', 'data'),
+            'cleanup': True,
+            'check_storage': True,
         }
         yield kwargs
         #os.rmdir(create_path(kwargs['project_path'], kwargs['output_path']))
@@ -67,10 +73,6 @@ class TestTRAILS:
         for key in ['x0', 'x1']:
             assert kwargs['config'][key] == results[key]
         assert results['fx'] == rosenbrock(kwargs['config']['x0'], kwargs['config']['x1'])
-        assert os.path.exists(results['file'])
         print(results)
-
-
-
 
 
