@@ -24,7 +24,7 @@ def _lctf(val):
     except:
         return val
 
-def trial(config: Dict, label: str, tid: [str|int], dispatcher_constructor: callable, project_path: str,
+def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: callable, project_path: str,
           output_path: str, submit_constructor: callable, dispatcher_kwargs: Optional[dict] =None,
           submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, data_storage: Optional[Storage]=None,
           debug_log: Optional[Logger|str]=None, report: Optional[list]=('path', 'config', 'data'), cleanup: Optional[bool|list|tuple] = (runtk.SGLOUT, runtk.MSGOUT), check_storage: Optional[bool]=True) -> pandas.Series:
