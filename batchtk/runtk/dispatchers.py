@@ -320,8 +320,8 @@ class SHDispatcher(Dispatcher):
         if handles is True:
             handles = list(self.handles.keys())
         if handles:
-            for handle in handles:
-                if self.fs.exists(self.handles[handle]): # can repeat clean or force all.
+            for handle in handles: # fix logic
+                if handle in self.handles and self.fs.exists(self.handles[handle]): # can repeat clean or force all.
                     self.fs.remove(self.handles[handle])
                 #self.handles.pop(handle)
 

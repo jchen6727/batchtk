@@ -105,7 +105,14 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
             data_storage.insert(data)
         except Exception as e:
             debug_log.warning("inserting data into storage failed: {}".format(e))
-            data_storage.add_columns(list(data.keys()))
+            oe = data_storage.add_columns(list(data.keys()))
+            debug_log.warning("performed the following modifications to storage: {}".format(oe))
+            debug_log.warning("current columns: {}".format(data_storage.entries))
+            if set(data.keys()) <= set(data_storage.entries.keys()):
+                debug_log.warning("assertion set() <= set() passed, performing insert")
+            else:
+                debug_log.warning("assertion set() <= set() failed")
+                debug_log.warning("{} <= {}".format(set(data.keys()), set(data_storage.entries.keys())))
             data_storage.insert(data)
     data = pandas.Series(data)
     data = data.apply(_lctf)
