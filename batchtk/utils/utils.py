@@ -372,7 +372,7 @@ class SQLiteStorage(Storage): #SQLiteTable...
             new_columns = {column: 'TEXT' for column in columns if column not in self.entries.keys()}
         if isinstance(columns, dict):
             new_columns = {key: value for key, value in columns.items() if key not in self.entries.keys()}
-        exec_strs = ["ALTER TABLE {} ADD COLUMN {} {}".format(self.label, new_column, new_value)
+        exec_strs = ["ALTER TABLE {} ADD COLUMN [{}] {}".format(self.label, new_column, new_value)
                      for new_column, new_value in new_columns.items()]
         oe = []
         with self._lock:
@@ -381,6 +381,7 @@ class SQLiteStorage(Storage): #SQLiteTable...
             for new_column, exec_str in zip(new_columns.keys(), exec_strs):
                 try:
                     cursor.execute(exec_str)
+                    oe.append( (new_column, None) )
                 except self._oe as e:
                     oe.append( (new_column, e) )
             conn.commit()
