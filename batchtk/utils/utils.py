@@ -321,7 +321,6 @@ class SQLiteStorage(Storage): #SQLiteTable...
         if add_trial_metadata:
             self.entries = {'trial_path': 'TEXT', 'trial_label': 'TEXT'} | self.entries # can do TEXT NOT NULL or TEXT DEFAULT None for missing insertions...
         self.path = "{}/{}.sqlite.db".format(path, label)
-        print(self.path)
         self._connect = sqlite3.connect
         self._lock = FileLock("{}.lock".format(self.path))
         self._oe = sqlite3.OperationalError
@@ -382,6 +381,7 @@ class SQLiteStorage(Storage): #SQLiteTable...
             for new_column, exec_str in zip(new_columns.keys(), exec_strs):
                 try:
                     cursor.execute(exec_str)
+                    oe.append( (new_column, None) )
                 except self._oe as e:
                     oe.append( (new_column, e) )
             conn.commit()
