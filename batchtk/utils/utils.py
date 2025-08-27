@@ -382,6 +382,7 @@ class SQLiteStorage(Storage): #SQLiteTable...
             for new_column, exec_str in zip(new_columns.keys(), exec_strs):
                 try:
                     cursor.execute(exec_str)
+                    oe.append( (new_column, None) )
                 except self._oe as e:
                     oe.append( (new_column, e) )
             conn.commit()
