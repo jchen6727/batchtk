@@ -1,7 +1,7 @@
 import ast
 from enum import Enum
 
-BATCHTK_VER = 0.1
+BATCHTK_VER = 'v0.1.2'
 """
 ENVIRONMENT CONSTANTS
 used in creating and extracting values from the environment
