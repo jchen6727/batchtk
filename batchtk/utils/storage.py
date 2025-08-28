@@ -22,7 +22,9 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
                  label: str ='trials',
                  path: str = '.',
                  entries: Optional[Dict|List] = None,
-                 add_trial_metadata: bool = True):
+                 add_trial_metadata: bool = True,
+                 timeout=None,
+                 ):
         from filelock import FileLock
         import sqlite3
         super().__init__()
@@ -39,10 +41,14 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         if add_trial_metadata:
             self.entries = {'trial_path': 'TEXT', 'trial_label': 'TEXT'} | self.entries # can do TEXT NOT NULL or TEXT DEFAULT None for missing insertions...
         self.path = "{}/{}.sqlite.db".format(path, label)
+        self.timeout = 30
         self._connect = sqlite3.connect
         self._lock = FileLock("{}.lock".format(self.path))
         self._oe = sqlite3.OperationalError
         self.init_db()
+
+    def _get_connection(self, timeout=30):
+
 
     def get_schema(self):
         with self._lock:
