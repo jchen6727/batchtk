@@ -1,3 +1,6 @@
+import os, pandas
+from batchtk.utils.misc import expand_path
+
 class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avoid confusion with logger
     def __init__(self):
         self.path = None
@@ -5,7 +8,7 @@ class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avo
     def init_db(self): # initializes the database
         pass
 
-    def get_schema(self): # get the schema of the storage
+    def read_schema(self): # get the schema of the storage
         pass
 
     def add_columns(self, schema: dict): # add new columns to storage
@@ -20,87 +23,101 @@ class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avo
 class SQLiteStorage(SQLStorage): #SQLiteTable...
     def __init__(self,
                  label: str ='trials',
-                 path: str = '.',
-                 entries: Optional[Dict|List] = None,
-                 add_trial_metadata: bool = True,
-                 timeout=None,
+                 directory: str = '.',
+                 filename: str = None,
+                 schema: dict | list = None,
+                 default_type: str= 'TEXT',
+                 timeout: int =30,
                  ):
-        from filelock import FileLock
         import sqlite3
         super().__init__()
-        path = get_path(path)
-        os.makedirs(path, exist_ok=True)
+        directory = expand_path(directory)
+        os.makedirs(directory, exist_ok=True)
         self.label = label
-        if entries is None:
-            self.entries = dict()
-        elif isinstance(entries, (list, tuple)) and all(isinstance(entry, str) for entry in entries):
-            self.entries = {entry: 'TEXT' for entry in entries}
+        if schema is None:
+            self.schema = dict()
+        elif isinstance(schema, (list, tuple)) and all(isinstance(column, str) for column in schema):
+            self.schema = {column: default_type for column in schema}
         else:
-            self.entries = entries
-        assert isinstance(self.entries, dict)
-        if add_trial_metadata:
-            self.entries = {'trial_path': 'TEXT', 'trial_label': 'TEXT'} | self.entries # can do TEXT NOT NULL or TEXT DEFAULT None for missing insertions...
-        self.path = "{}/{}.sqlite.db".format(path, label)
-        self.timeout = 30
+            self.schema = schema
+        assert isinstance(self.schema, dict)
+        filename = filename or "{}.sqlite.db".format(label)
+        self.path = "{}/{}".format(directory, filename)
+        self.timeout = timeout
         self._connect = sqlite3.connect
-        self._lock = FileLock("{}.lock".format(self.path))
         self._oe = sqlite3.OperationalError
+        self.default_type = default_type
         self.init_db()
 
-    def _get_connection(self, timeout=30):
+    def _wal_connect(self, timeout=None):
+        timeout = timeout or self.timeout
+        conn = self._connect(self.path, timeout=timeout)
+        conn.execute("PRAGMA journal_mode=WAL")
+        return conn
 
-
-    def get_schema(self):
-        with self._lock:
-            conn = self._connect(self.path)
+    def read_schema(self):
+        with self._wal_connect() as conn:
             cursor = conn.cursor()
             cursor.execute("PRAGMA table_info({})".format(self.label))
             data = cursor.fetchall()
-            conn.close()
         schema = {column[1]: column[2] for column in data} # not set operation,
         return schema
 
-    def init_db(self):
-        if os.path.exists(self.path): # check that the db is appropriate if it exists ---
-            schema = self.get_schema() # after init, check schema only once, then treat entries.keys as the relevant metadata
-            if set(self.entries.items()) <= set(schema.items()):
-                self.entries = schema # update entries to the current schema, if it is a subset of the expected entries
-                return
-            else:
-                raise ValueError(f"database at path {self.path} expects different entries than given: schema {schema} conflicts with entries {self.entries}")
-        exec_str = "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["[{}] {}".format(k, v) for k, v in self.entries.items()]))
+    def _sync_schema(self):
+        schema = self.read_schema()
+        check_columns = self.schema.keys() & schema.keys()
+        write_columns = {key: self.schema[key] for key in self.schema.keys() - schema.keys()}
+        if not all(schema[key] == self.schema[key] for key in check_columns):
+            raise ValueError(f"provided schema of SQLiteStorage conflicts datatypes with existing schema at path: {schema} != {self.schema}")
+        if write_columns:
+            self.add_columns(write_columns) # add things from self.schema that are not in the db
+        self.schema.update(schema) # add things to self.schema that are in the db
+
+    def _create_db(self):
+        exec_str = "id INTEGER PRIMARY KEY AUTOINCREMENT"
+        if self.schema:
+            exec_str += "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["[{}] {}".format(k, v) for k, v in self.schema.items()]))
         exec_str = "CREATE TABLE IF NOT EXISTS {} ({})".format(self.label, exec_str)
-        with self._lock:
-            conn = self._connect(self.path)
+        with self._wal_connect() as conn:
             cursor = conn.cursor()
             cursor.execute(exec_str)
             conn.commit()
-            conn.close()
 
-    def insert(self, entries: dict): # record/add/insert/save
-        if not set(entries.keys()) <= set(self.entries.keys()):
-            raise ValueError(f"entries keys exceed expected keys: {entries.keys()} != {self.entries.keys()}")
-        keys, vals = zip(*entries.items())
+    def init_db(self):
+        if os.path.exists(self.path): # new db
+            self._sync_schema()
+            return
+        self._create_db()
+
+    def insert(self, entry: dict, allow_schema_update: bool = True):
+        #diff = entry.keys() - self.schema.keys() #unordered
+        diff = [key for key in entry.keys() if key not in self.schema.keys()] #ordered
+        if diff and allow_schema_update: # update the schema, then resync
+            self.add_columns(diff)
+        # record/add/insert/save
+        if diff and not allow_schema_update:
+            raise ValueError(f"entry keys {diff} do not exist in the db schema and allow_schema_update set to False.")
+        keys, vals = zip(*entry.items())
         exec_str = "INSERT INTO {} ([{}]) VALUES ({})".format(self.label, '],['.join(keys), ','.join(['?'] * len(vals)))
-        with self._lock:
-            conn = self._connect(self.path)
+        with self._wal_connect() as conn:
             cursor = conn.cursor()
             cursor.execute(exec_str, vals)
             conn.commit()
-            conn.close()
 
     def add_columns(self, columns: list | tuple | dict) -> list[tuple[str, Exception]]:
         #clarify nomenclature, header implies creation of metadata for a DB
-        # compare columns against existing self.entries ---
+        # compare columns against existing self.schema ---
         if isinstance(columns, (list, tuple)):
-            new_columns = {column: 'TEXT' for column in columns if column not in self.entries.keys()}
+            new_columns = {column: self.default_type for column in columns if column not in self.schema.keys()}
         if isinstance(columns, dict):
+            check_columns = self.schema.keys() & columns.keys()
+            if not all(self.schema[key] == columns[key] for key in check_columns):
+                raise ValueError(f"columns dict provided {columns} conflicts with schema of SQLiteStorage: {self.schema} != {columns}")
             new_columns = {key: value for key, value in columns.items() if key not in self.entries.keys()}
         exec_strs = ["ALTER TABLE {} ADD COLUMN [{}] {}".format(self.label, new_column, new_value)
                      for new_column, new_value in new_columns.items()]
         oe = []
-        with self._lock:
-            conn = self._connect(self.path)
+        with self._wal_connect() as conn:
             cursor = conn.cursor()
             for new_column, exec_str in zip(new_columns.keys(), exec_strs):
                 try:
@@ -109,35 +126,29 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
                 except self._oe as e:
                     oe.append( (new_column, e) )
             conn.commit()
-            conn.close()
-        self.entries = self.get_schema()
+        self.schema = self.read_schema()
         return oe
-
 
     def to_df(self):
         exec_str = "SELECT * FROM {}".format(self.label)
-        with self._lock:
-            conn = self._connect(self.path)
+        with self._wal_connect() as conn:
             cursor = conn.cursor()
             cursor.execute(exec_str)
             rows = cursor.fetchall()
             description = cursor.description
-            conn.close()
         columns = [column[0] for column in description]
         df = pandas.DataFrame(rows, columns=columns)
         return df
 
-    def find(self, column: str, value: Any):
-        if column not in self.entries:
-            raise ValueError(f"column {column} not in entries: {self.entries}")
+    def find(self, column: str, value):
+        if column not in self.schema:
+            raise ValueError(f"column {column} does not exist in the db schema: {self.schema}")
         exec_str = "SELECT * FROM {} WHERE {} = ?".format(self.label, column)
-        with self._lock:
-            conn = self._connect(self.path)
+        with self._wal_connect() as conn:
             cursor = conn.cursor()
             cursor.execute(exec_str, [value])
             rows = cursor.fetchall()
             description = cursor.description
-            conn.close()
         if not rows:
             return None
         columns = [column[0] for column in description]
@@ -145,5 +156,4 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         return df
 
     def close(self):
-        os.remove(self._lock.lock_file)
-        self._lock = None
+        pass

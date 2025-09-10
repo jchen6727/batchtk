@@ -460,7 +460,7 @@ def get_path(path):
     try:
         return path_opt[path[0]](path)
     except KeyError:
-        raise ValueError("supplied path must start with an absolute (/), relative (.), or home (~)")
+        raise ValueError("supplied path must start with an absolute (/), relative (.), or user home (~)")
 
 def write_pkl(wobject: object, write_path: str):
     if '/' in write_path:
