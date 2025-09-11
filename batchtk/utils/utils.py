@@ -446,6 +446,7 @@ class FutureValue:
         return self._resolved
 
 def format_env(dictionary: dict, value_type= None, index = 0, grepstr = GREPSTR, eqdelim = EQDELIM):
+    # function is round-tripping safe (float/numpy->str->float/numpy) for > python 3.1
     get_type = staticmethod(lambda x: type(x).__name__)
     return {"{}{}{}".format(value_type or get_type(value).upper(), grepstr, index + i):
                 "{}{}{}".format(key, eqdelim, value) for i, (key, value) in enumerate(dictionary.items())}

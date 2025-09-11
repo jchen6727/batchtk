@@ -1,4 +1,5 @@
-import os, pandas
+import os, pandas, numpy, sqlite3
+import numpy as np
 from batchtk.utils.misc import expand_path
 
 class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avoid confusion with logger
@@ -20,7 +21,35 @@ class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avo
     def close(self):
         pass
 
+### handle the serialization of numpy objects with global adapter registration...
+sqlite3.register_adapter(np.integer, int)
+sqlite3.register_adapter(np.floating, float)
+sqlite3.register_adapter(np.bool_, int)
+
+
 class SQLiteStorage(SQLStorage): #SQLiteTable...
+    _DEFAULT_TYPE_MAP = {
+        numpy.int64: "INTEGER",
+        numpy.float64: "REAL",
+        numpy.bool_: "INTEGER",
+        bool: "INTEGER",
+        int: "INTEGER",
+        float: "REAL",
+        str: "TEXT",
+        bytes: "BLOB",
+    }
+    _DEFAULT_INFERENCE_RULES = {
+        # Match specific, common types first for performance
+        lambda v: "INTEGER" if type(v) in (int, bool) else None,
+        lambda v: "REAL" if type(v) is float else None,
+        lambda v: "TEXT" if type(v) is str else None,
+        lambda v: "BLOB" if type(v) is bytes else None,
+        # Fall back to robust isinstance() checks for entire hierarchies
+        lambda v: "INTEGER" if isinstance(v, np.integer) else None,
+        lambda v: "REAL" if isinstance(v, np.floating) else None,
+        lambda v: "BLOB" if isinstance(v, np.ndarray) else None,
+    ]
+
     def __init__(self,
                  label: str ='trials',
                  directory: str = '.',
@@ -29,7 +58,7 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
                  default_type: str= 'TEXT',
                  timeout: int =30,
                  ):
-        import sqlite3
+        ## handle the serialization of numpy objects
         super().__init__()
         directory = expand_path(directory)
         os.makedirs(directory, exist_ok=True)
@@ -89,9 +118,13 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
             return
         self._create_db()
 
+    def _infer_type(self, value):
+        typed =
     def insert(self, entry: dict, allow_schema_update: bool = True):
         #diff = entry.keys() - self.schema.keys() #unordered
-        diff = [key for key in entry.keys() if key not in self.schema.keys()] #ordered
+        if allow_schema_update:
+            diff = {key: entry[key] for key in entry.keys() if key not in self.schema.keys()} #ordered
+
         if diff and allow_schema_update: # update the schema, then resync
             self.add_columns(diff)
         # record/add/insert/save
@@ -99,10 +132,13 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
             raise ValueError(f"entry keys {diff} do not exist in the db schema and allow_schema_update set to False.")
         keys, vals = zip(*entry.items())
         exec_str = "INSERT INTO {} ([{}]) VALUES ({})".format(self.label, '],['.join(keys), ','.join(['?'] * len(vals)))
-        with self._wal_connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(exec_str, vals)
-            conn.commit()
+        try:
+            with self._wal_connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(exec_str, vals)
+                conn.commit()
+        except Exception as e:
+            raise self._oe("inserting entry {} with exec_str {} failed with exception: {}".format(entry, exec_str, e))
 
     def add_columns(self, columns: list | tuple | dict) -> list[tuple[str, Exception]]:
         #clarify nomenclature, header implies creation of metadata for a DB
@@ -157,3 +193,9 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
 
     def close(self):
         pass
+
+
+
+    What is a round-trip()
+
+    serialization and deserialization

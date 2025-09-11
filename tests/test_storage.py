@@ -23,7 +23,7 @@ class TestStorage:
         storage = SQLiteStorage(label='trials', directory='.',
                                 filename='test_storage.sqlite.db',
                                 schema=None, timeout=30) # test without pre-defined schema
-        yield test(storage, {key: int(val) for key, val in zip(COLUMNS, request.param)})
+        yield test(storage, {key: val for key, val in zip(COLUMNS, request.param)})
 
     def test_storage(self, setup):
         storage = setup.storage
