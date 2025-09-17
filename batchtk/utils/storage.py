@@ -38,7 +38,7 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         str: "TEXT",
         bytes: "BLOB",
     }
-    _DEFAULT_INFERENCE_RULES = {
+    _DEFAULT_INFERENCE_RULES = [
         # Match specific, common types first for performance
         lambda v: "INTEGER" if type(v) in (int, bool) else None,
         lambda v: "REAL" if type(v) is float else None,

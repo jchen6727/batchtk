@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, get_args
 import inspect
 
 class NamedFunc:
