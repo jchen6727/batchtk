@@ -1,6 +1,8 @@
-import os, pandas, numpy, sqlite3
-import numpy as np
+import os, pandas, numpy, sqlite3, io, pickle
+import numpy
+from typing import Any
 from batchtk.utils.misc import expand_path
+from batchtk.utils.serializer import SQLiteTypeRule, SQLiteTypeRuleResult
 
 class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avoid confusion with logger
     def __init__(self):
@@ -22,57 +24,80 @@ class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avo
         pass
 
 ### handle the serialization of numpy objects with global adapter registration...
-sqlite3.register_adapter(np.integer, int)
-sqlite3.register_adapter(np.floating, float)
-sqlite3.register_adapter(np.bool_, int)
 
+def _SQLiteINTEGERRule(val: Any) -> SQLiteTypeRuleResult | None:
+    """return SQLiteTypeRuleResult("INTEGER", int) for all numpy integer types."""
+    return SQLiteTypeRuleResult("INTEGER", int) if isinstance(val, numpy.integer) else None, None
+
+def _SQLiteREALRule(val: Any) -> SQLiteTypeRuleResult | None:
+    """return SQLiteTypeRuleResult("REAL", float) for all numpy floating types."""
+    return SQLiteTypeRuleResult("REAL", float) if isinstance(val, numpy.floating) else None, None
+
+def _SQLitePBLOBAdapter(val: Any) -> memoryview:
+    """serialize any object to a pickled blob."""
+    return sqlite3.Binary(pickle.dumps(val))
+
+def _SQLitePBLOBConverter(blob: bytes) -> Any:
+    """deserialize any object from a pickled blob."""
+    return pickle.loads(blob)
+
+def check_default(val: Any, default: Any):
+    if val is None:
+        return default
+    return val
 
 class SQLiteStorage(SQLStorage): #SQLiteTable...
+    # relevant for adding columns to schema
     _DEFAULT_TYPE_MAP = {
         numpy.int64: "INTEGER",
         numpy.float64: "REAL",
-        numpy.bool_: "INTEGER",
+        numpy.bool: "INTEGER",
         bool: "INTEGER",
         int: "INTEGER",
         float: "REAL",
         str: "TEXT",
-        bytes: "BLOB",
     }
-    _DEFAULT_INFERENCE_RULES = [
-        # Match specific, common types first for performance
-        lambda v: "INTEGER" if type(v) in (int, bool) else None,
-        lambda v: "REAL" if type(v) is float else None,
-        lambda v: "TEXT" if type(v) is str else None,
-        lambda v: "BLOB" if type(v) is bytes else None,
-        # Fall back to robust isinstance() checks for entire hierarchies
-        lambda v: "INTEGER" if isinstance(v, np.integer) else None,
-        lambda v: "REAL" if isinstance(v, np.floating) else None,
-        lambda v: "BLOB" if isinstance(v, np.ndarray) else None,
+
+    _DEFAULT_TYPE_RULES= [
+        SQLiteTypeRule(function=_SQLiteINTEGERRule, priority=0),
+        SQLiteTypeRule(function=_SQLiteREALRule, priority=1),
+    ]
+
+    _DEFAULT_ADAPTERS = [
+        (numpy.int64, int), # calls int on numpy.integer
+        (numpy.float64, float), # calls float on numpy.floating
+        (numpy.bool, int), # calls int on numpy.bool
+    ]
+
+    _DEFAULT_CONVERTERS = [
+        ("PBLOB", _SQLitePBLOBConverter)
     ]
 
     def __init__(self,
                  label: str ='trials',
                  directory: str = '.',
                  filename: str = None,
-                 schema: dict | list = None,
-                 default_type: str= 'TEXT',
+                 schema: dict = None, # now dict instead of list/tuple 2/2 PBLOB default
+                 default_type: str= 'PBLOB', #pickled BLOB or TEXT...
                  timeout: int =30,
+                 type_map: dict = None,
+                 type_rules: list = None,
+                 adapters: list = None,
+                 converters: list = None,
                  ):
         ## handle the serialization of numpy objects
         super().__init__()
         directory = expand_path(directory)
         os.makedirs(directory, exist_ok=True)
         self.label = label
-        if schema is None:
-            self.schema = dict()
-        elif isinstance(schema, (list, tuple)) and all(isinstance(column, str) for column in schema):
-            self.schema = {column: default_type for column in schema}
-        else:
-            self.schema = schema
-        assert isinstance(self.schema, dict)
+        self.schema = schema or dict()
         filename = filename or "{}.sqlite.db".format(label)
         self.path = "{}/{}".format(directory, filename)
         self.timeout = timeout
+        self.type_map = check_default(type_map, self._DEFAULT_TYPE_MAP)
+        self.type_rules = check_default(type_rules, self._DEFAULT_TYPE_RULES)
+        self.adapters = check_default(adapters, self._DEFAULT_ADAPTERS)
+        self.converters = check_default(converters, self._DEFAULT_CONVERTERS)
         self._connect = sqlite3.connect
         self._oe = sqlite3.OperationalError
         self.default_type = default_type
@@ -116,29 +141,49 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         if os.path.exists(self.path): # new db
             self._sync_schema()
             return
+        for _type, adapter in self.adapters:
+            sqlite3.register_adapter(_type, adapter)
+        for _type, converter in self.converters:
+            sqlite3.register_converter(_type, converter)
         self._create_db()
 
-    def _infer_type(self, value):
-        typed =
-    def insert(self, entry: dict, allow_schema_update: bool = True):
-        #diff = entry.keys() - self.schema.keys() #unordered
-        if allow_schema_update:
-            diff = {key: entry[key] for key in entry.keys() if key not in self.schema.keys()} #ordered
-
-        if diff and allow_schema_update: # update the schema, then resync
+    def insert(self, entry: dict, allow_schema_updates: bool = True):
+        diff = entry.keys() - self.schema.keys() #unordered
+        if allow_schema_updates:
+            diff = {key: self.infer_and_register_type(entry[key]) for key in entry.keys() if key not in self.schema.keys()} #ordered
             self.add_columns(diff)
         # record/add/insert/save
-        if diff and not allow_schema_update:
-            raise ValueError(f"entry keys {diff} do not exist in the db schema and allow_schema_update set to False.")
+        if diff and not allow_schema_updates:
+            raise ValueError(f"entry keys {diff} do not exist in the db schema and allow_schema_updates set to False.")
         keys, vals = zip(*entry.items())
         exec_str = "INSERT INTO {} ([{}]) VALUES ({})".format(self.label, '],['.join(keys), ','.join(['?'] * len(vals)))
-        try:
-            with self._wal_connect() as conn:
-                cursor = conn.cursor()
-                cursor.execute(exec_str, vals)
-                conn.commit()
-        except Exception as e:
-            raise self._oe("inserting entry {} with exec_str {} failed with exception: {}".format(entry, exec_str, e))
+        with self._wal_connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute(exec_str, vals)
+            conn.commit()
+
+    def infer_and_register_type(self, val: Any) -> str:
+        val_type = type(val)
+        # LUT first
+        inferred = self.type_map.get(val_type, None) ## essentially, if it hits on type_map, it is registered
+        if inferred: return inferred
+        # Rules next
+        for rule in self.type_rules:
+            inferred = rule(val)
+            if inferred:
+                self.type_map[val_type] = inferred.type
+                sqlite3.register_adapter(val_type, inferred.adapter)
+                return inferred.type
+        # default (TEXT or PBLOB)
+        if self.default_type == 'TEXT':
+            self.type_map[type(val)] = "TEXT"
+            sqlite3.register_adapter(type(val), str)
+            return 'TEXT'
+        if self.default_type == 'PBLOB':
+            self.type_map[type(val)] = "PBLOB"
+            sqlite3.register_adapter(type(val), _SQLitePBLOBAdapter)
+            return 'PBLOB'
+        raise(RuntimeError("no type inference for {}, and default_type {} not recognized".format(val, self.default_type)))
 
     def add_columns(self, columns: list | tuple | dict) -> list[tuple[str, Exception]]:
         #clarify nomenclature, header implies creation of metadata for a DB
@@ -149,7 +194,7 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
             check_columns = self.schema.keys() & columns.keys()
             if not all(self.schema[key] == columns[key] for key in check_columns):
                 raise ValueError(f"columns dict provided {columns} conflicts with schema of SQLiteStorage: {self.schema} != {columns}")
-            new_columns = {key: value for key, value in columns.items() if key not in self.entries.keys()}
+            new_columns = {key: value for key, value in columns.items() if key not in self.schema.keys()}
         exec_strs = ["ALTER TABLE {} ADD COLUMN [{}] {}".format(self.label, new_column, new_value)
                      for new_column, new_value in new_columns.items()]
         oe = []
@@ -195,7 +240,9 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         pass
 
 
+"""
+What is a round-trip()
+serialization and deserialization
+"""
 
-    What is a round-trip()
-
-    serialization and deserialization
+# 100 lines of code for the predictable API --
