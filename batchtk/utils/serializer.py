@@ -41,8 +41,6 @@ class NamedFunc:
     def __repr__(self) -> str:
         return str(self.to_dict())
 
-SQLiteTypeRuleResult=namedtuple('SQLiteTypeRuleResult', ['type', 'adapter'])
-
 class SQLiteTypeRule(NamedFunc):
     def __init__(self, function, name=None, description: str=None, parameters: dict=None, priority: int=0):
         super().__init__(function=function, name=name, description=description,
@@ -57,7 +55,7 @@ class SQLiteTypeRule(NamedFunc):
 
     def __lt__(self, other):
         # allows sorting...
-        if not isinstance(other, SQLiteTypeRule):
-            raise TypeError("can only compare priorities of SQLiteInferenceRules with other SQLiteInferenceRules. Instead, type:{} was provided".format(type(other)))
+        if not isinstance(other, SQLiteTypeRule): # note, using NotImplemented allows the runtime to try other comparisons.
+            raise NotImplemented("can only compare priorities of SQLiteInferenceRules with other SQLiteInferenceRules. Instead, type:{} was provided".format(type(other)))
         return self.priority < other.priority
 

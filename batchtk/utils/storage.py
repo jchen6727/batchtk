@@ -2,7 +2,9 @@ import os, pandas, numpy, sqlite3, io, pickle
 import numpy
 from typing import Any
 from batchtk.utils.misc import expand_path
-from batchtk.utils.serializer import SQLiteTypeRule, SQLiteTypeRuleResult
+from batchtk.utils.serializer import SQLiteTypeRule
+
+from collections import namedtuple
 
 class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avoid confusion with logger
     def __init__(self):
@@ -25,12 +27,15 @@ class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avo
 
 ### handle the serialization of numpy objects with global adapter registration...
 
+### as far as I can tell, this clunky approach sits on the pareto front... no refactors for now.
+SQLiteTypeRuleResult=namedtuple('SQLiteTypeRuleResult', ['type', 'adapter'])
+
 def _SQLiteINTEGERRule(val: Any) -> SQLiteTypeRuleResult | None:
-    """return SQLiteTypeRuleResult("INTEGER", int) for all numpy integer types."""
+    """return SQLiteTypeRuleResult("INTEGER", int) for all numpy integer types. else returns None, None"""
     return SQLiteTypeRuleResult("INTEGER", int) if isinstance(val, numpy.integer) else None, None
 
 def _SQLiteREALRule(val: Any) -> SQLiteTypeRuleResult | None:
-    """return SQLiteTypeRuleResult("REAL", float) for all numpy floating types."""
+    """return SQLiteTypeRuleResult("REAL", float) for all numpy floating types. else returns None, None"""
     return SQLiteTypeRuleResult("REAL", float) if isinstance(val, numpy.floating) else None, None
 
 def _SQLitePBLOBAdapter(val: Any) -> memoryview:
@@ -98,6 +103,10 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         self.type_rules = check_default(type_rules, self._DEFAULT_TYPE_RULES)
         self.adapters = check_default(adapters, self._DEFAULT_ADAPTERS)
         self.converters = check_default(converters, self._DEFAULT_CONVERTERS)
+        self._registered_types = set()
+        for py_type, adapter in self.adapters:
+            sqlite3.register_adapter(py_type, adapter)
+            self._registered_types.add(py_type)
         self._connect = sqlite3.connect
         self._oe = sqlite3.OperationalError
         self.default_type = default_type
@@ -116,6 +125,47 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
             data = cursor.fetchall()
         schema = {column[1]: column[2] for column in data} # not set operation,
         return schema
+
+    def _ensure_type_registered(self, val: Any):
+        """"
+        Ensure that the type of val is registered with sqlite3.
+        """
+        val_type = type(val)
+        if val_type not in self._registered_types:
+            return
+
+        # check type_rules:
+        for rule in self.type_rules:
+            result = rule(val)
+            if result:
+                sqlite3.register_adapter(val_type, result.adapter)
+                self._registered_types.add(val_type)
+                return
+
+        # rely on our default adapters:
+        if self.default_type == 'TEXT':
+            sqlite3.register_adapter(val_type, str)
+        elif self.default_type == 'PBLOB':
+            sqlite3.register_adapter(val_type, _SQLitePBLOBAdapter)
+        self._registered_types.add(val_type)
+
+    def _infer_type(self, val: Any) -> str:
+        """
+        Infers the SQL type string. No "side effects". To be paired with
+        _ensure_type_registered(val)
+        """
+
+        val_type = type(val)
+        if val_type in self.type_map:
+            self.type_map[val_type] = self.type_map[val_type]
+
+        for rule in self.type_rules:
+            result = rule(val)
+            if result:
+                self.type_map[val_type] = result.type
+                return result.type
+
+        return self.default_type
 
     def _sync_schema(self):
         schema = self.read_schema()
@@ -141,10 +191,11 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         if os.path.exists(self.path): # new db
             self._sync_schema()
             return
-        for _type, adapter in self.adapters:
-            sqlite3.register_adapter(_type, adapter)
-        for _type, converter in self.converters:
-            sqlite3.register_converter(_type, converter)
+        # fails if os.path.exists(self.path)...
+        #for _type, adapter in self.adapters:
+        #    sqlite3.register_adapter(_type, adapter)
+        #for _type, converter in self.converters:
+        #    sqlite3.register_converter(_type, converter)
         self._create_db()
 
     def insert(self, entry: dict, allow_schema_updates: bool = True):
