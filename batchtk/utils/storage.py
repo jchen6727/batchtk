@@ -6,8 +6,21 @@ from batchtk.utils.serializer import SQLiteTypeRule
 
 from collections import namedtuple
 
-class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avoid confusion with logger
+class Storage(object):
     def __init__(self):
+        pass
+
+    def insert(self, entry: dict):#replace log with "insert" // see below
+        pass
+
+    def find(self, key, value):
+        pass
+
+    def close(self):
+        pass
+class SQLStorage(Storage):# Use as TrialTable or Table object nomenclature to avoid confusion with logger
+    def __init__(self):
+        super().__init__()
         self.path = None
 
     def init_db(self): # initializes the database
@@ -22,6 +35,9 @@ class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avo
     def insert(self, entry: dict):#replace log with "insert" // see below
         pass
 
+    def find(self, key, value):
+        pass
+
     def close(self):
         pass
 
@@ -30,6 +46,7 @@ class SQLStorage(object):# Use as TrialTable or Table object nomenclature to avo
 ### as far as I can tell, this clunky approach sits on the pareto front... no refactors for now.
 SQLiteTypeRuleResult=namedtuple('SQLiteTypeRuleResult', ['type', 'adapter'])
 
+### the bigger issue is that a TypeRuleResult must be paired with an adapter function
 def _SQLiteINTEGERRule(val: Any) -> SQLiteTypeRuleResult | None:
     """return SQLiteTypeRuleResult("INTEGER", int) for all numpy integer types. else returns None, None"""
     return SQLiteTypeRuleResult("INTEGER", int) if isinstance(val, numpy.integer) else None, None
@@ -53,7 +70,12 @@ def check_default(val: Any, default: Any):
 
 class SQLiteStorage(SQLStorage): #SQLiteTable...
     # relevant for adding columns to schema
-    _DEFAULT_TYPE_MAP = {
+
+
+    # serves as the initial LUT for type inference
+    # any key in _DEFAULT_TYPE_MAP is considered registered --- that is
+    # an ADAPTER is registered for that type (and a CONVERTER if necessary)
+    _DEFAULT_TYPE_MAP = { # serves as the initial LUT for type inference
         numpy.int64: "INTEGER",
         numpy.float64: "REAL",
         numpy.bool: "INTEGER",
@@ -103,10 +125,8 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         self.type_rules = check_default(type_rules, self._DEFAULT_TYPE_RULES)
         self.adapters = check_default(adapters, self._DEFAULT_ADAPTERS)
         self.converters = check_default(converters, self._DEFAULT_CONVERTERS)
-        self._registered_types = set()
         for py_type, adapter in self.adapters:
             sqlite3.register_adapter(py_type, adapter)
-            self._registered_types.add(py_type)
         for py_type, converter in self.converters:
             sqlite3.register_converter(py_type, converter)
         self._connect = sqlite3.connect
@@ -127,47 +147,6 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
             data = cursor.fetchall()
         schema = {column[1]: column[2] for column in data} # not set operation,
         return schema
-
-    def _ensure_type_registered(self, val: Any):
-        """"
-        Ensure that the type of val is registered with sqlite3.
-        """
-        val_type = type(val)
-        if val_type not in self._registered_types:
-            return
-
-        # check type_rules:
-        for rule in self.type_rules:
-            result = rule(val)
-            if result:
-                sqlite3.register_adapter(val_type, result.adapter)
-                self._registered_types.add(val_type)
-                return
-
-        # rely on our default adapters:
-        if self.default_type == 'TEXT':
-            sqlite3.register_adapter(val_type, str)
-        elif self.default_type == 'PBLOB':
-            sqlite3.register_adapter(val_type, _SQLitePBLOBAdapter)
-        self._registered_types.add(val_type)
-
-    def _infer_type(self, val: Any) -> str:
-        """
-        Infers the SQL type string. No "side effects". To be paired with
-        _ensure_type_registered(val)
-        """
-
-        val_type = type(val)
-        if val_type in self.type_map:
-            self.type_map[val_type] = self.type_map[val_type]
-
-        for rule in self.type_rules:
-            result = rule(val)
-            if result:
-                self.type_map[val_type] = result.type
-                return result.type
-
-        return self.default_type
 
     def _sync_schema(self):
         schema = self.read_schema()
@@ -274,20 +253,22 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         df = pandas.DataFrame(rows, columns=columns)
         return df
 
-    def find(self, column: str, value):
-        if column not in self.schema:
-            raise ValueError(f"column {column} does not exist in the db schema: {self.schema}")
-        exec_str = "SELECT * FROM {} WHERE {} = ?".format(self.label, column)
+    def find(self, key: str, value: Any):
+        # using key and column interchangeably to generalize between
+        # SQL, NoSQL and other storage paradigms.
+        if key not in self.schema:
+            raise ValueError(f"column {key} does not exist in the db schema: {self.schema}")
+        exec_str = "SELECT * FROM {} WHERE {} = ? LIMIT 1".format(self.label, key)
         with self._wal_connect() as conn:
             cursor = conn.cursor()
             cursor.execute(exec_str, [value])
-            rows = cursor.fetchall()
+            row = cursor.fetchone()
             description = cursor.description
-        if not rows:
+        if not row:
             return None
         columns = [column[0] for column in description]
-        df = pandas.DataFrame(rows, columns=columns)
-        return df
+        return pandas.Series(row, index=columns)
+
 
     def close(self):
         pass

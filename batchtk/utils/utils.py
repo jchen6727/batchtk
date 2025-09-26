@@ -280,6 +280,107 @@ class TOTPConnection(object):
     def _sftp(self, value):
         self.connection._sftp = value
 
+class FutureValue:
+    def __init__(self, name: Optional[str] = None):
+        self._value = None
+        self._resolved = False
+        self.name = name
+
+    def set(self, value: Any):
+        """Set the value and mark it as resolved."""
+        self._value = value
+        self._resolved = True
+
+    def get(self) -> Any:
+        """Retrieve the value if resolved, otherwise raise an error."""
+        if not self._resolved:
+            raise ValueError(f"FutureValue '{self.name}' has not been resolved yet.")
+        return self._value
+
+    def is_resolved(self) -> bool:
+        """Check if the value has been resolved."""
+        return self._resolved
+
+def format_env(dictionary: dict, value_type= None, index = 0, grepstr = GREPSTR, eqdelim = EQDELIM):
+    # function is round-tripping safe (float/numpy->str->float/numpy) for > python 3.1
+    get_type = staticmethod(lambda x: type(x).__name__)
+    return {"{}{}{}".format(value_type or get_type(value).upper(), grepstr, index + i):
+                "{}{}{}".format(key, eqdelim, value) for i, (key, value) in enumerate(dictionary.items())}
+
+
+def get_path(path):
+    path_opt = {
+        '~': os.path.expanduser,
+        '.': os.path.abspath,
+        '/': os.path.abspath,
+    }
+    try:
+        return path_opt[path[0]](path)
+    except KeyError:
+        raise ValueError("supplied path must start with an absolute (/), relative (.), or user home (~)")
+
+def write_pkl(wobject: object, write_path: str):
+    if '/' in write_path:
+        os.makedirs(write_path.rsplit('/', 1)[0], exist_ok=True)
+    with open(write_path, 'wb') as fptr:
+        pickle.dump(wobject, fptr)
+
+
+def read_pkl(read_path: str):
+    with open(read_path, 'rb') as fptr:
+        robject = pickle.load(fptr)
+    return robject
+
+
+def local_open(path: str, mode: str): # renamed, avoid confusion with the fs.path_open
+    if '/' in path:
+        os.makedirs(path.rsplit('/', 1)[0], exist_ok=True)
+    fptr = open(path, mode)
+    return fptr
+
+def validate_path(path: str):
+    return #now using updated EQDELIM --
+
+def create_path(path0: str, path1 = "", fs = LocalFS()):
+    if path1 and path1[0] == '/':
+        target = os.path.normpath(path1)
+    else:
+        target = os.path.normpath(os.path.join(path0, path1))
+    validate_path(target)
+    if fs is None:
+        return target
+    if isinstance(fs, FS_Protocol):
+        try:
+            fs.makedirs(target)
+            return target
+        except Exception as e:
+            raise Exception("attempted to create from ({},{}) path: {} and failed with exception: {}".format(path0, path1, target, e))
+    else:
+        raise TypeError("user provided a fs that does not implement FS_Protocol")
+
+
+def get_exports(filename=None, script=None):
+    if filename and script:
+        warn("both filename and script provided, using script")
+    if script:
+        items = re.findall(r'export (.*?)="(.*?)"', script)
+        return {key: val for key, val in items}
+    if filename:
+        with open(filename, 'r') as fptr:
+            items = re.findall(r'export (.*?)="(.*?)"', fptr.read())
+            return {key: val for key, val in items}
+    raise ValueError("either filename or script must be provided")
+
+def get_port_info(port):
+    output = subprocess.run(shlex.split('lsof -i :{}'.format(port)), capture_output=True, text=True)
+    if output.returncode == 0:
+        return output.stdout
+    else:
+        return output.returncode
+
+
+""" # old Storage class # deprecating, now see storage.py
+
 class Storage(object):# Use as TrialTable or Table object nomenclature to avoid confusion with logger
     def __init__(self):
         self.path = None
@@ -424,101 +525,6 @@ class SQLiteStorage(Storage): #SQLiteTable...
         os.remove(self._lock.lock_file)
         self._lock = None
 
-class FutureValue:
-    def __init__(self, name: Optional[str] = None):
-        self._value = None
-        self._resolved = False
-        self.name = name
 
-    def set(self, value: Any):
-        """Set the value and mark it as resolved."""
-        self._value = value
-        self._resolved = True
-
-    def get(self) -> Any:
-        """Retrieve the value if resolved, otherwise raise an error."""
-        if not self._resolved:
-            raise ValueError(f"FutureValue '{self.name}' has not been resolved yet.")
-        return self._value
-
-    def is_resolved(self) -> bool:
-        """Check if the value has been resolved."""
-        return self._resolved
-
-def format_env(dictionary: dict, value_type= None, index = 0, grepstr = GREPSTR, eqdelim = EQDELIM):
-    # function is round-tripping safe (float/numpy->str->float/numpy) for > python 3.1
-    get_type = staticmethod(lambda x: type(x).__name__)
-    return {"{}{}{}".format(value_type or get_type(value).upper(), grepstr, index + i):
-                "{}{}{}".format(key, eqdelim, value) for i, (key, value) in enumerate(dictionary.items())}
-
-
-def get_path(path):
-    path_opt = {
-        '~': os.path.expanduser,
-        '.': os.path.abspath,
-        '/': os.path.abspath,
-    }
-    try:
-        return path_opt[path[0]](path)
-    except KeyError:
-        raise ValueError("supplied path must start with an absolute (/), relative (.), or user home (~)")
-
-def write_pkl(wobject: object, write_path: str):
-    if '/' in write_path:
-        os.makedirs(write_path.rsplit('/', 1)[0], exist_ok=True)
-    with open(write_path, 'wb') as fptr:
-        pickle.dump(wobject, fptr)
-
-
-def read_pkl(read_path: str):
-    with open(read_path, 'rb') as fptr:
-        robject = pickle.load(fptr)
-    return robject
-
-
-def local_open(path: str, mode: str): # renamed, avoid confusion with the fs.path_open
-    if '/' in path:
-        os.makedirs(path.rsplit('/', 1)[0], exist_ok=True)
-    fptr = open(path, mode)
-    return fptr
-
-def validate_path(path: str):
-    return #now using updated EQDELIM --
-
-def create_path(path0: str, path1 = "", fs = LocalFS()):
-    if path1 and path1[0] == '/':
-        target = os.path.normpath(path1)
-    else:
-        target = os.path.normpath(os.path.join(path0, path1))
-    validate_path(target)
-    if fs is None:
-        return target
-    if isinstance(fs, FS_Protocol):
-        try:
-            fs.makedirs(target)
-            return target
-        except Exception as e:
-            raise Exception("attempted to create from ({},{}) path: {} and failed with exception: {}".format(path0, path1, target, e))
-    else:
-        raise TypeError("user provided a fs that does not implement FS_Protocol")
-
-
-def get_exports(filename=None, script=None):
-    if filename and script:
-        warn("both filename and script provided, using script")
-    if script:
-        items = re.findall(r'export (.*?)="(.*?)"', script)
-        return {key: val for key, val in items}
-    if filename:
-        with open(filename, 'r') as fptr:
-            items = re.findall(r'export (.*?)="(.*?)"', fptr.read())
-            return {key: val for key, val in items}
-    raise ValueError("either filename or script must be provided")
-
-def get_port_info(port):
-    output = subprocess.run(shlex.split('lsof -i :{}'.format(port)), capture_output=True, text=True)
-    if output.returncode == 0:
-        return output.stdout
-    else:
-        return output.returncode
+"""
 
