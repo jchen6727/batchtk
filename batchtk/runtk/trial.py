@@ -66,10 +66,13 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
         data = None
         if not data_storage_enabled:
             debug_log.warning('No valid data_storage object provided, skipping check_storage operations.')
-        try:
-            data = data_storage.find(column='trial_label', value=run_label)
-        except ValueError:
-            debug_log.warning("trial_label not a column in the log database, skipping log check (recommend passing at least: ('path', 'data') to arguments).")
+        else:
+            try:
+                data = data_storage.find(column='trial_label', value=run_label)
+            except ValueError: # this is not the ONLY error --
+                debug_log.warning("trial_label not a column in the log database, skipping log check (recommend passing at least: ('path', 'data') to arguments).")
+            except Exception as e:
+                debug_log.warning("checking log database failed due to error: {}, skipping log check.".format(e))
         if data is not None: # skip the trail if trial_label: run_label already exists in the log database.
             debug_log.info("trial_label already exists in the log database, skipping trial and retrieved data: {}.".format(data))
             return data.apply(_lctf)
@@ -103,7 +106,7 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
         debug_log.warning("inserting data into storage: {}".format(data))
         try:
             data_storage.insert(data)
-        except Exception as e:
+        except Exception as e: # no longer require this logic #TODO remove.
             debug_log.warning("inserting data into storage failed: {}".format(e))
             oe = data_storage.add_columns(list(data.keys()))
             debug_log.warning("performed the following modifications to storage: {}".format(oe))
