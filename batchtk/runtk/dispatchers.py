@@ -118,6 +118,7 @@ class Dispatcher(object):
         with runtk.GREPSTR being defined in as 'RUNTK' (see ./header.py)
         """
         return format_env(dictionary=dictionary, value_type=value_type, index=index, grepstr=self.grepstr, eqdelim=runtk.EQDELIM)
+        # format_env from utils
         #get_type = staticmethod(lambda x: type(x).__name__)
         #return {"{}{}{}".format(value_type or get_type(value).upper(), self.grepstr, index + i):
         #              "{}{}{}".format(key, runtk.EQDELIM, value) for i, (key, value) in enumerate(dictionary.items())}
