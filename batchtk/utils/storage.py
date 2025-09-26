@@ -107,6 +107,8 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         for py_type, adapter in self.adapters:
             sqlite3.register_adapter(py_type, adapter)
             self._registered_types.add(py_type)
+        for py_type, converter in self.converters:
+            sqlite3.register_converter(py_type, converter)
         self._connect = sqlite3.connect
         self._oe = sqlite3.OperationalError
         self.default_type = default_type
