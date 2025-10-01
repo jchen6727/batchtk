@@ -1,7 +1,7 @@
 import types
 import pandas
 from io import StringIO
-from batchtk.utils import Storage, ScriptLogger
+from batchtk.utils import SQLStorage, ScriptLogger, Storage
 from logging import Logger
 from batchtk import runtk # handles
 import json
@@ -65,10 +65,10 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
     if check_storage:
         data = None
         if not data_storage_enabled:
-            debug_log.warning('No valid data_storage object provided, skipping check_storage operations.')
+            debug_log.warning('No valid batchtk data_storage object provided for internal checkpointing (external checkpointing may exist), skipping internal check_storage operations.')
         else:
             try:
-                data = data_storage.find(column='trial_label', value=run_label)
+                data = data_storage.find(key='trial_label', value=run_label)
             except ValueError: # this is not the ONLY error --
                 debug_log.warning("trial_label not a column in the log database, skipping log check (recommend passing at least: ('path', 'data') to arguments).")
             except Exception as e:
@@ -104,19 +104,8 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
             debug_log.warning('{} not in report options'.format(option))
     if data_storage_enabled:
         debug_log.warning("inserting data into storage: {}".format(data))
-        try:
-            data_storage.insert(data)
-        except Exception as e: # no longer require this logic #TODO remove.
-            debug_log.warning("inserting data into storage failed: {}".format(e))
-            oe = data_storage.add_columns(list(data.keys()))
-            debug_log.warning("performed the following modifications to storage: {}".format(oe))
-            debug_log.warning("current columns: {}".format(data_storage.entries))
-            if set(data.keys()) <= set(data_storage.entries.keys()):
-                debug_log.warning("assertion set() <= set() passed, performing insert")
-            else:
-                debug_log.warning("assertion set() <= set() failed")
-                debug_log.warning("{} <= {}".format(set(data.keys()), set(data_storage.entries.keys())))
-            data_storage.insert(data)
+
+        data_storage.insert(data)
     data = pandas.Series(data)
     data = data.apply(_lctf)
     dispatcher.clean(handles=cleanup)

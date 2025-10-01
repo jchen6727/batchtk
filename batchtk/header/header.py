@@ -1,7 +1,7 @@
 import ast
 from enum import Enum
 
-BATCHTK_VER = 0.1
+BATCHTK_VER = 'v0.1.2'
 """
 ENVIRONMENT CONSTANTS
 used in creating and extracting values from the environment
@@ -68,6 +68,7 @@ FILE_HANDLES   = {SUBMIT: '{output_path}/{label}.sh',
                   SGLOUT: '{output_path}/{label}.sgl'}
 
 #TODO eventually add other serialization options besides json
+
 SUPPORTS = { #TODO numpy handling? or binary serialization?
     'INT': int,
     'FLOAT': float,
@@ -76,10 +77,13 @@ SUPPORTS = { #TODO numpy handling? or binary serialization?
     'STR': staticmethod(lambda val: val),
     'LIST': ast.literal_eval, #TODO ast.literal_eval for each entry?
     'TUPLE': ast.literal_eval,
-    'FLOAT64': float, #TODO what method encapsulate all other data type, 
+    'FLOAT64': float, #thoughts -> isinstance() catching
     'INT64': int,
 }
 
+ENV_SUPPORTS = SUPPORTS
+
+# EXTENSIONS defines the regex patterns for identifying relevant
 EXTENSIONS = { #anything that can be found in a path name to be included.
     SUBMIT: r'[a-zA-Z0-9\{\}_/\.]*\.[a-z]*sh', # sh, bash, csh, zsh, tcsh, etc. ask a sysadmin how they'd do this.
     STDOUT: r'[a-zA-Z0-9\{\}_/\.]*\.run',

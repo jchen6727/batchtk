@@ -1,0 +1,73 @@
+@startuml
+!theme vibrant
+
+title Design Evolution: From "Clunky" to "Cached"
+
+start
+
+:Initial Idea: **`infer_and_register_type(value)`**;
+note right #PALEVIOLETRED
+  The user feels this is "clunky".
+end note
+
+partition "Responsibilities (All in One Function)" #PALEVIOLETRED {
+  :Finds rule for value;
+  :Registers adapter with `sqlite3` (global side effect);
+  :Caches the result in `self.type_map`;
+  :Returns the SQL type string;
+}
+
+-> **Critique:** Function has too many responsibilities.
+Lacks separation of concerns.;
+
+partition "Refactor #1: Separation of Concerns" #PALETURQUOISE {
+  split
+    partition "New Method 1" #LightSkyBlue {
+      :**`_ensure_type_is_registered(value)`**;
+      note left #LightSkyBlue
+        Handles the **action**:
+        - Loops through rules.
+        - Calls `sqlite3.register_adapter`.
+        - Updates `_registered_types` set.
+      end note
+    }
+    split again
+    partition "New Method 2" #LightSkyBlue {
+      :**`_infer_type(value)`**;
+      note right #LightSkyBlue
+        Handles the **query**:
+        - Loops through rules.
+        - Returns SQL type string.
+        - Updates `type_map` cache.
+      end note
+    }
+  endsplit
+}
+
+-> **User Insight:** The two methods loop through the same rules.
+This creates a **"double loop"** on the first encounter with a new type.;
+
+partition "Next Solution: The 'Learn Once' Pattern" #PALEGREEN {
+  :New Method: **`_learn_type(value)`**;
+  partition "Optimized Logic (Single Loop)" #PALEGREEN {
+    :Check a central cache (`_rule_cache`) for the type;
+    if (Type cached?) then (yes)
+      :**(Fast Path)**
+      Return cached SQL type;
+    else (no)
+      :**(First Encounter)**
+      Loop through rules **ONCE**;
+      :When a rule matches:
+      1. Register the adapter.
+      2. Cache the **entire result** (type & adapter).
+      3. Return the SQL type string;
+    endif
+  }
+}
+
+-> **Conclusion:** Achieves maximum efficiency (single loop, cached)
+while maintaining clean, separated logic for the user.;
+
+stop
+
+@enduml
