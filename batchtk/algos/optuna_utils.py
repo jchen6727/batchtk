@@ -6,6 +6,7 @@ from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 from logging import Logger
 from optuna.storages import JournalStorage, JournalFileStorage
+
 _SAMPLERS = {
     'nsgaii': optuna.samplers.NSGAIISampler,
     'random': optuna.samplers.RandomSampler,

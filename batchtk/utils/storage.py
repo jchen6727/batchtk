@@ -78,7 +78,7 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
     _DEFAULT_TYPE_MAP = { # serves as the initial LUT for type inference
         numpy.int64: "INTEGER",
         numpy.float64: "REAL",
-        numpy.bool: "INTEGER",
+        #numpy.bool_: "INTEGER", # if numpy themselves aren't going to figure out numpy.bool or numpy.bool_ then I'm not going to support it
         bool: "INTEGER",
         int: "INTEGER",
         float: "REAL",
@@ -93,7 +93,9 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
     _DEFAULT_ADAPTERS = [
         (numpy.int64, int), # calls int on numpy.integer
         (numpy.float64, float), # calls float on numpy.floating
-        (numpy.bool, int), # calls int on numpy.bool
+        #(numpy.bool_, int), # calls int on numpy.bool # so the preferred use is numpy.bool but randomly for 2 years this would break scripts.
+        # https://github.com/numpy/numpy/issues/22021
+        # so it will just have to default to PBLOB
     ]
 
     _DEFAULT_CONVERTERS = [
