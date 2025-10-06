@@ -7,9 +7,14 @@ from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 from logging import Logger
 
+_SPACE_SAMPLER = {
+    'categorical': Categorical,
+    'int': Integer,
+    'float': Float}
+
 
 def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace = None, metrics: dict = None,
-           param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,
+           param_space_samplers: list | bool = None, num_trials: int = 0, num_workers: int = 1,
            dispatcher_constructor: callable = None, project_path: str = None,
            output_path: str = None, submit_constructor: callable = None,
            algo: Optional[str] = None, algo_kwargs: Optional[dict] = None,
@@ -27,7 +32,7 @@ def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace 
     configuration_space = None
     if isinstance(param_space, ConfigurationSpace):
         configuration_space = param_space
-        param_space_samplers = True # already have the samplers with ConfigurationSpace--
+        param_space_samplers = True # already have a properly supplied configuration space
     if param_space_samplers is None:
         param_space_samplers = [Float] * len(param_space)
     else:
@@ -35,7 +40,11 @@ def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace 
             raise ValueError("param_space_samplers must have corresponding ('categorical', 'int', 'float') strings for each param_space")
         if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
             raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
-        param_space_samplers = [ 'suggest_' + sampler for sampler in param_space_samplers]
+        param_space_samplers = [ _SPACE_SAMPLER[sampler] for sampler in param_space_samplers ]
+    if configuration_space is None:
+        configuration_space = ConfigurationSpace(
+            space= {key: param_space_samplers[i](key, *args) for i, (key, args) in enumerate(param_space.items())}
+        )
     debug_log = debug_log or ScriptLogger()
     keys, directions = zip(*metrics.items())
     def eval_trial(trial):
