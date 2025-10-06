@@ -1,21 +1,14 @@
-import optuna
-import pandas
+from ConfigSpace import Configuration, ConfigurationSpace, Float, Integer, Categorical
 from typing import Optional
+import numpy, pandas
+from smac import HyperparameterOptimizationFacade, Scenario
 from batchtk import runtk
 from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 from logging import Logger
-from optuna.storages import JournalStorage, JournalFileStorage
 
-from ray.python.ray.train.v2.tests.test_checkpoint_manager import test_load_state_error
 
-_SAMPLERS = {
-    'nsgaii': optuna.samplers.NSGAIISampler,
-    'random': optuna.samplers.RandomSampler,
-    'tspe':  optuna.samplers.TPESampler,
-}
-
-def optuna_search(study_label: str = None, param_space: dict = None, metrics: dict = None,
+def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace = None, metrics: dict = None,
            param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,
            dispatcher_constructor: callable = None, project_path: str = None,
            output_path: str = None, submit_constructor: callable = None,
@@ -29,18 +22,14 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
            cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
            check_storage: Optional[bool] = True
 ) -> pandas.DataFrame:
-    """
-    Perform an optimization search using Optuna.
-    study_label: str - label for the study (used in storage and logging)
-    param_space: dict - dictionary defining the parameter search space, keys are parameter names and values are tuples defining (lower_bound, upper_bound)
-    metrics: dict - dictionary defining the metrics to optimize, keys are metric names and values are 'minimize' or 'maximize'
-    num_trials: int - number of trials to run
-    num_workers: int - number of parallel workers to
-    """
     if isinstance(debug_log, str):
         debug_log = ScriptLogger(debug_log)
+    configuration_space = None
+    if isinstance(param_space, ConfigurationSpace):
+        configuration_space = param_space
+        param_space_samplers = True # already have the samplers with ConfigurationSpace--
     if param_space_samplers is None:
-        param_space_samplers = ['suggest_float'] * len(param_space)
+        param_space_samplers = [Float] * len(param_space)
     else:
         if len(param_space_samplers) != len(param_space):
             raise ValueError("param_space_samplers must have corresponding ('categorical', 'int', 'float') strings for each param_space")
@@ -88,3 +77,12 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
     study.optimize(eval_trial, n_trials=num_trials, n_jobs=num_workers)
 
     return study.trials_dataframe()
+
+configspace = ConfigurationSpace({"C": (0.100, 1000.0)})
+
+# Scenario object specifying the optimization environment
+scenario = Scenario(configspace, deterministic=True, n_trials=200)
+
+# Use SMAC to find the best configuration/hyperparameters
+smac = HyperparameterOptimizationFacade(scenario, train)
+incumbent = smac.optimize()
