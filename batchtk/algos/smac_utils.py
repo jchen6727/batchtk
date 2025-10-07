@@ -7,10 +7,14 @@ from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 from logging import Logger
 
-_SPACE_SAMPLER = {
+_SPACE_SAMPLERS = { # samplers for
     'categorical': Categorical,
     'int': Integer,
     'float': Float}
+
+#_SAMPLERS = {
+#    'hpo': HyperparameterOptimizationFacade,
+#}
 
 
 def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace = None, metrics: dict = None,
@@ -40,13 +44,14 @@ def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace 
             raise ValueError("param_space_samplers must have corresponding ('categorical', 'int', 'float') strings for each param_space")
         if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
             raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
-        param_space_samplers = [ _SPACE_SAMPLER[sampler] for sampler in param_space_samplers ]
+        param_space_samplers = [ _SPACE_SAMPLERS[sampler] for sampler in param_space_samplers ]
     if configuration_space is None:
         configuration_space = ConfigurationSpace(
             space= {key: param_space_samplers[i](key, *args) for i, (key, args) in enumerate(param_space.items())}
         )
     debug_log = debug_log or ScriptLogger()
     keys, directions = zip(*metrics.items())
+
     def eval_trial(trial):
         cfg = {key: trial.getattr(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
         tid = "{}".format(trial.number)
@@ -69,29 +74,31 @@ def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace 
         )
         loss = [float(data[key]) for key in keys]
         return loss
-    algo_kwargs = algo_kwargs or {}
-    if seed:
-        algo_kwargs['seed'] = seed
-    sampler = _SAMPLERS[algo](**algo_kwargs) if algo in _SAMPLERS else None # if algo is provided...
-    algo = algo or 'optuna' # change algo to optuna for labeling.
-    study_name = "".join(('_' + _str for _str in (algo, seed) if _str)) # fix later.
-    study_name = "{}{}".format(study_label, study_name)
-    if optuna_storage is None:
-        optuna_storage = JournalStorage(JournalFileStorage("{}/{}.optuna.journal.log".format(output_path, study_name)))
-    study = optuna.create_study(directions=directions,
-                                storage=optuna_storage,
-                                load_if_exists=True,
-                                sampler=sampler,
-                                study_name='{}'.format(study_name))
-    study.optimize(eval_trial, n_trials=num_trials, n_jobs=num_workers)
 
-    return study.trials_dataframe()
+    scenario_kwargs = {  # default, internal values for now...
+        "deterministic": True,
+        "objectives": keys,
+        "n_trials": num_trials,
+        "seed": seed or -1,
+        "n_workers": num_workers,
+    }
 
-configspace = ConfigurationSpace({"C": (0.100, 1000.0)})
+    scenario = Scenario(configuration_space, **scenario_kwargs)
+    algo_kwargs = {
+        "objective_weights": None,
+    }
 
-# Scenario object specifying the optimization environment
-scenario = Scenario(configspace, deterministic=True, n_trials=200)
+    facade_kwargs = {
+        "scenario": scenario,
+        "target_function": eval_trial,
+        "multi_objective_algorithm": HyperparameterOptimizationFacade.get_multi_objective_algorithm(
+            scenario, **algo_kwargs,
+        ),
+        "overwrite": False,
+    }
 
-# Use SMAC to find the best configuration/hyperparameters
-smac = HyperparameterOptimizationFacade(scenario, train)
-incumbent = smac.optimize()
+    smac = HyperparameterOptimizationFacade(**facade_kwargs)
+
+    incumbents = smac.optimize()
+
+    return smac, incumbents

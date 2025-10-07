@@ -7,8 +7,6 @@ from batchtk.runtk.trial import trial as runtk_trial
 from logging import Logger
 from optuna.storages import JournalStorage, JournalFileStorage
 
-from ray.python.ray.train.v2.tests.test_checkpoint_manager import test_load_state_error
-
 _SAMPLERS = {
     'nsgaii': optuna.samplers.NSGAIISampler,
     'random': optuna.samplers.RandomSampler,
