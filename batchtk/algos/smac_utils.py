@@ -5,7 +5,9 @@ from smac import HyperparameterOptimizationFacade, Scenario
 from batchtk import runtk
 from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
+from batchtk.runtk.trial import LABEL_POINTER
 from logging import Logger
+import warnings
 
 _SPACE_SAMPLERS = { # samplers for
     'categorical': Categorical,
@@ -25,12 +27,15 @@ def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace 
            seed: Optional[int] = None,
            dispatcher_kwargs: Optional[dict] = None,
            submit_kwargs: Optional[dict] = None, interval: Optional[int] = 60,
-           data_storage: Optional[SQLStorage] = None, optuna_storage: Optional = None,
+           data_storage: Optional[SQLStorage] = None,
            debug_log: Optional[Logger | str] = None,
            report: Optional[list] = ('path', 'config', 'data'),
            cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
            check_storage: Optional[bool] = True
-) -> pandas.DataFrame:
+) -> (HyperparameterOptimizationFacade, Configuration):
+    if num_workers > 1:
+        warnings.warn('smac_search implementation currently only supports single process search.')
+        num_workers = 1
     if isinstance(debug_log, str):
         debug_log = ScriptLogger(debug_log)
     configuration_space = None
@@ -47,14 +52,17 @@ def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace 
         param_space_samplers = [ _SPACE_SAMPLERS[sampler] for sampler in param_space_samplers ]
     if configuration_space is None:
         configuration_space = ConfigurationSpace(
-            space= {key: param_space_samplers[i](key, *args) for i, (key, args) in enumerate(param_space.items())}
+            space= {key: param_space_samplers[i](name=key, bounds=args) for i, (key, args) in enumerate(param_space.items())}
         )
     debug_log = debug_log or ScriptLogger()
+    data_storage = data_storage or SQLStorage(directory=output_path, filename='smac3.sqlite.db')
+    if not isinstance(data_storage, SQLStorage):
+        raise ValueError("data_storage must be a SQLStorage instance")
     keys, directions = zip(*metrics.items())
-
-    def eval_trial(trial):
-        cfg = {key: trial.getattr(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
-        tid = "{}".format(trial.number)
+    directions = [1 if direction == 'minimize' else -1 for direction in directions]
+    def eval_trial(cfg: Configuration, seed: int = None):
+        #cfg = {key: trial.getattr(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
+        tid = "{}".format(cfg.config_id)
         data = runtk_trial(
             config=cfg,
             label=study_label,
@@ -72,7 +80,7 @@ def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace 
             cleanup=cleanup,
             check_storage=check_storage
         )
-        loss = [float(data[key]) for key in keys]
+        loss = [float(data[key]) * direction for key, direction in zip(keys, directions)]
         return loss
 
     scenario_kwargs = {  # default, internal values for now...
@@ -101,4 +109,6 @@ def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace 
 
     incumbents = smac.optimize()
 
-    return smac, incumbents
+    df = data_storage.to_df()
+    #return smac
+    return df

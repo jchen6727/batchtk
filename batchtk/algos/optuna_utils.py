@@ -4,6 +4,9 @@ from typing import Optional
 from batchtk import runtk
 from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
+
+from batchtk.runtk.trial import LABEL_POINTER, PATH_POINTER
+
 from logging import Logger
 from optuna.storages import JournalStorage, JournalFileStorage
 
@@ -50,6 +53,8 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
     def eval_trial(trial):
         cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
         tid = "{}".format(trial.number)
+        cfg['_batchtk_label_pointer'] = LABEL_POINTER
+        cfg['_batchtk_path_pointer'] = PATH_POINTER
         data = runtk_trial(
             config=cfg,
             label=study_label,
