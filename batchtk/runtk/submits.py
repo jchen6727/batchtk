@@ -285,7 +285,7 @@ class SHSubmit(Submit):
         return self.job_id
 
 # reference classes used as examples and for testing.
-#TODO make sure to
+#TODO implement an option to autocomplete MSGFILE, SGLFILE, SOCNAME, JOBID... in submit_exports ...?
 class SHSubmitSFS(SHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command'}
     script_template = \
