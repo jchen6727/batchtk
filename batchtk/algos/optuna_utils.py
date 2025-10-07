@@ -4,6 +4,9 @@ from typing import Optional
 from batchtk import runtk
 from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
+
+from batchtk.runtk.trial import LABEL_POINTER, PATH_POINTER
+
 from logging import Logger
 from optuna.storages import JournalStorage, JournalFileStorage
 
@@ -14,7 +17,7 @@ _SAMPLERS = {
 }
 
 def optuna_search(study_label: str = None, param_space: dict = None, metrics: dict = None,
-           num_trials: int = 0, num_workers: int = 1,
+           param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,
            dispatcher_constructor: callable = None, project_path: str = None,
            output_path: str = None, submit_constructor: callable = None,
            algo: Optional[str] = None, algo_kwargs: Optional[dict] = None,
@@ -37,12 +40,21 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
     """
     if isinstance(debug_log, str):
         debug_log = ScriptLogger(debug_log)
-
+    if param_space_samplers is None:
+        param_space_samplers = ['suggest_float'] * len(param_space)
+    else:
+        if len(param_space_samplers) != len(param_space):
+            raise ValueError("param_space_samplers must have corresponding ('categorical', 'int', 'float') strings for each param_space")
+        if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
+            raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
+        param_space_samplers = [ 'suggest_' + sampler for sampler in param_space_samplers]
     debug_log = debug_log or ScriptLogger()
     keys, directions = zip(*metrics.items())
     def eval_trial(trial):
-        cfg = {key: trial.suggest_float(key, *bounds) for key, bounds in param_space.items()}
+        cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
         tid = "{}".format(trial.number)
+        cfg['_batchtk_label_pointer'] = LABEL_POINTER
+        cfg['_batchtk_path_pointer'] = PATH_POINTER
         data = runtk_trial(
             config=cfg,
             label=study_label,
