@@ -1,6 +1,6 @@
 from batchtk.algos import optuna_search
 from batchtk.utils import expand_path
-from batchtk.runtk import SHDispatcher
+from batchtk.runtk import LocalDispatcher
 from batchtk.runtk import SHSubmitSFS
 
 results = optuna_search(
@@ -9,7 +9,7 @@ results = optuna_search(
     param_space_samplers=['int', 'int'],  # specify integer sampling for both parameters
     metrics={'fx': 'minimize'},
     num_trials=12, num_workers=3,
-    dispatcher_constructor=SHdispatcher,
+    dispatcher_constructor=LocalDispatcher,
     submit_constructor=SHSubmitSFS,
     submit_kwargs={'command': 'python rosenbrock_func.py'}, # normal run
     interval=10,

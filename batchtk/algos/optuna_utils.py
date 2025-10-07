@@ -48,7 +48,7 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
     debug_log = debug_log or ScriptLogger()
     keys, directions = zip(*metrics.items())
     def eval_trial(trial):
-        cfg = {key: trial.getattr(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
+        cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
         tid = "{}".format(trial.number)
         data = runtk_trial(
             config=cfg,
