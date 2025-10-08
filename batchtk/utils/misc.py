@@ -19,5 +19,5 @@ def expand_path(path, create_dirs=False):
     if return_path in ('/',):
         raise ValueError("supplied path resolves to root (/), which is not allowed")
     if create_dirs:
-        os.makedirs(return_path)
+        os.makedirs(return_path, exist_ok=True)
     return return_path

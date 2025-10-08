@@ -65,7 +65,7 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
     if check_storage:
         data = None
         if not data_storage_enabled:
-            debug_log.warning('No valid data_storage object provided, skipping check_storage operations.')
+            debug_log.warning('No valid batchtk data_storage object provided for internal checkpointing (external checkpointing may exist), skipping internal check_storage operations.')
         else:
             try:
                 data = data_storage.find(key='trial_label', value=run_label)
