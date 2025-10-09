@@ -4,6 +4,9 @@ from typing import Optional
 from batchtk import runtk
 from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
+
+from batchtk.runtk.trial import LABEL_POINTER, PATH_POINTER
+
 from logging import Logger
 from optuna.storages import JournalStorage, JournalFileStorage
 
@@ -31,9 +34,25 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
     Perform an optimization search using Optuna.
     study_label: str - label for the study (used in storage and logging)
     param_space: dict - dictionary defining the parameter search space, keys are parameter names and values are tuples defining (lower_bound, upper_bound)
-    metrics: dict - dictionary defining the metrics to optimize, keys are metric names and values are 'minimize' or 'maximize'
+    metrics: dict - dictionary defining the metrics to optimize and the direction of optimization, keys are metric names and values are 'minimize' (search for lowest value) or 'maximize' (search for highest value)
+    param_space_samplers: list - list of strings defining the sampler for each parameter in param_space, one of 'categorical', 'int', or 'float' (defaults to 'float' for all parameters)
     num_trials: int - number of trials to run
-    num_workers: int - number of parallel workers to
+    num_workers: int - number of trials to be run in parallel (uses multiprocessing)
+    dispatcher_constructor: callable - calling function to a dispatcher class -- see dispatchers.py
+    project_path: str - path to the project directory containing the source code to be executed
+    output_path: str - path to the output directory where runtime files, results and logs will be stored
+    submit_constructor: callable - calling function to a submit class -- see submits.py
+    algo: str - optimization algorithm to use, one of 'nsgaii', 'random', 'tspe' (defaults to tspe for single objective, nsgaii for multi-objective)
+    algo_kwargs: dict - additional keyword arguments to pass to the optimization algorithm constructor
+    seed: int - random seed for the optimization algorithm (default None uses a random seed)
+    dispatcher_kwargs: dict - additional keyword arguments to pass to the dispatcher constructor
+    submit_kwargs: dict - additional keyword arguments to format the submission script.
+    interval: int - time interval (in seconds) between polling for completed trials
+    data_storage: SQLStorage - instance of a SQLStorage class to store trial data (optuna also keeps its own storage)
+    debug_log: Logger - instance of a Logger class, default will only print warnings to console
+    report: list - list of strings ('path', 'config', 'data') defining values to be written to data_storage if it exists.
+    cleanup: bool | list | tuple - whether to cleanup runtime files (if bool is supplied), or a sequence of handles (runtk.SGLOUT, runtk.MSGOUT...) to cleanup upon successful trial completion
+    check_storage: bool - whether to check data_storage for existing trials and skip if found (only if data_storage is provided)
     """
     if isinstance(debug_log, str):
         debug_log = ScriptLogger(debug_log)
@@ -50,6 +69,8 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
     def eval_trial(trial):
         cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
         tid = "{}".format(trial.number)
+        cfg['_batchtk_label_pointer'] = LABEL_POINTER
+        cfg['_batchtk_path_pointer'] = PATH_POINTER
         data = runtk_trial(
             config=cfg,
             label=study_label,
