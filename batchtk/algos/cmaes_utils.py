@@ -1,4 +1,5 @@
 import cmaes
+
 from batchtk import runtk
 from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
@@ -57,15 +58,31 @@ def cmaes_search(
     """
     if isinstance(debug_log, str):
         debug_log = ScriptLogger(debug_log)
-    if param_space_samplers is None:
-        param_space_samplers = ['suggest_float'] * len(param_space)
-    else:
-        if len(param_space_samplers) != len(param_space):
-            raise ValueError("param_space_samplers must have corresponding ('categorical', 'int', 'float') strings for each param_space")
-        if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
-            raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
-        param_space_samplers = [ 'suggest_' + sampler for sampler in param_space_samplers]
     debug_log = debug_log or ScriptLogger()
+
+    algo_kwargs = algo_kwargs or {}
+    if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
+        raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
+    if any(sampler in ('categorical', 'int') for sampler in param_space_samplers):
+        debug_log.warn("Categorical and Integer sampling in param_space, using margin sampler.")
+        algo = 'margin'
+        param_x = []
+        param_c = []
+        param_z = []
+        for key in ('x_space', 'z_space', 'c_space'):
+            if key not in algo_kwargs:
+                algo_kwargs[key] = []
+        for i, (key, args) in enumerate(param_space.items()):
+            if param_space_samplers[i] == 'float':
+                param_x.append(key)
+                algo_kwargs['x_space'].append([args[0], args[1]])
+            if param_space_samplers[i] == 'int':
+                param_z.append(key)
+                algo_kwargs['z_space'].append([args[0], args[1]])
+            if param_space_samplers[i] == 'categorical':
+                param_c.append(key)
+                algo_kwargs['c_space'].append(len(args))
+
     keys, directions = zip(*metrics.items())
     def eval_trial(trial):
         cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
