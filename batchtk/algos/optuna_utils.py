@@ -14,6 +14,7 @@ _SAMPLERS = {
     'nsgaii': optuna.samplers.NSGAIISampler,
     'random': optuna.samplers.RandomSampler,
     'tspe':  optuna.samplers.TPESampler,
+    'cmaes': optuna.samplers.CmaEsSampler,
 }
 
 def optuna_search(study_label: str = None, param_space: dict = None, metrics: dict = None,
