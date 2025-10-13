@@ -37,6 +37,9 @@ class FS_Protocol(Protocol):
     def close(self) -> None:
         # closes / unmounts the filesystem
         pass
+    def move(self, source, destination, *args, **kwargs) -> None:
+        # moves a file from one path to another
+        pass
 
 class BaseFS(FS_Protocol):
     """
@@ -61,6 +64,11 @@ class BaseFS(FS_Protocol):
     def close(self): # PyFileSystem2 uses .close(), while fsspec uses .clear_instance_cache() and .client.close()...
         pass
 
+    @abstractmethod
+    def move(self, source, destination, *args, **kwargs):
+        # moves a file from one path to another
+        pass
+
     def tail(self, file, n=1):
         with self.open(file, 'r') as fptr:
             return fptr.readlines()[-n:]
@@ -70,6 +78,13 @@ class BaseFS(FS_Protocol):
             self.makedirs(path.rsplit('/', 1)[0])
         fptr = self.open(path, mode)
         return fptr
+
+    def atomic_write(self, file, data, mode='w'):
+        fstmp = "{}.fstmp".format(file)
+        with self.open(file, mode) as fptr:
+            fptr.write(data)
+
+
 
 class LocalFS(BaseFS):
     """
@@ -93,6 +108,10 @@ class LocalFS(BaseFS):
     @staticmethod
     def remove(path, *args, **kwargs):
         return os.remove(path, *args, **kwargs)
+
+    @staticmethod
+    def move(source, destination, *args, **kwargs):
+        return os.rename(source, destination, *args, **kwargs)
 
     def close(self):
         pass
@@ -156,6 +175,13 @@ class RemoteConnFS(BaseFS): # use threading lock?
         self.connection._sftp = None
         #self.connection.close() # keep self.connection open.
 
+    def move(self, source, destination, *args, **kwargs):
+        try:
+            return self.connection.run('mv {} {}'.format(source, destination), warn=True).return_code == 0
+        except self._exceptions as e:
+            self.connection.open()
+            return self.connection.run('mv {} {}'.format(source, destination), warn=True).return_code == 0
+
 class CustomFS(BaseFS):
     def __new__(cls, fs: FS_Protocol):
         if isinstance(fs, BaseFS): # returns the same object if it is properly subclassed
@@ -183,6 +209,9 @@ class CustomFS(BaseFS):
 
     def close(self):
         return self.fs.close()
+
+    def move(self, source, destination, *args, **kwargs):
+        return self.fs.move(source, destination, *args, **kwargs)
 
 @runtime_checkable
 class Cmd_Protocol(Protocol):
