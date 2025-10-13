@@ -1,11 +1,14 @@
 import cmaes
 
-from batchtk import runtk
 from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 import pandas
 from typing import Optional
 from batchtk import runtk
+import numpy
+from concurrent.futures import ThreadPoolExecutor
+
+
 
 from batchtk.runtk.trial import trial as runtk_trial
 
@@ -17,12 +20,29 @@ _SAMPLERS = { # refer #https://github.com/CyberAgentAILab/cmaes/tree/main
     'base': cmaes.CMA,
     'margin': cmaes.CatCMAwM,
 }
+
+def _xzc_to_cfg(x_names, z_names, c_names, x_vals, z_vals, c_bools, c_vals):
+    cfg = {}
+    if x_vals is not None:
+        for name, val in zip(x_names, x_vals):
+            cfg[name] = val
+    if z_vals is not None:
+        for name, val in zip(z_names, z_vals):
+            cfg[name] = val
+    if c_vals is not None:
+        for name, bools, vals in zip(c_names, c_bools, c_vals):
+            #final = [val if _bool else None for val, _bool in zip(vals, onehot)]
+            # but onehot through numpy cleaner---
+            index = numpy.argmax(c_bools)
+            cfg[name] = vals[index]
+    return cfg
+
 def cmaes_search(
     study_label: str = None, param_space: dict = None, metrics: dict = None,
-    param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,
+    param_space_samplers = None, num_trials: int = 0, num_workers: int = None,
     dispatcher_constructor: callable = None, project_path: str = None,
     output_path: str = None, submit_constructor: callable = None,
-    algo: Optional[str] = None, algo_kwargs: Optional[dict] = None,
+    algo: Optional[str] = 'base', algo_kwargs: Optional[dict] = None,
     seed: Optional[int] = None,
     dispatcher_kwargs: Optional[dict] = None,
     submit_kwargs: Optional[dict] = None, interval: Optional[int] = 60,
@@ -63,33 +83,55 @@ def cmaes_search(
     algo_kwargs = algo_kwargs or {}
     if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
         raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
-    if any(sampler in ('categorical', 'int') for sampler in param_space_samplers):
-        debug_log.warn("Categorical and Integer sampling in param_space, using margin sampler.")
-        algo = 'margin'
-        param_x = []
-        param_c = []
-        param_z = []
+    if any(sampler in ('categorical', 'int') for sampler in param_space_samplers) or algo == 'margin':
+        if algo != 'margin':
+            debug_log.warn("categorical and Integer sampling detected in param_space, using margin sampler.")
+            algo = 'margin'
+        x_names = []
+        c_names = []
+        z_names = []
+        c_choices = []
         for key in ('x_space', 'z_space', 'c_space'):
-            if key not in algo_kwargs:
-                algo_kwargs[key] = []
+            algo_kwargs[key] = []
         for i, (key, args) in enumerate(param_space.items()):
             if param_space_samplers[i] == 'float':
-                param_x.append(key)
+                x_names.append(key)
                 algo_kwargs['x_space'].append([args[0], args[1]])
             if param_space_samplers[i] == 'int':
-                param_z.append(key)
+                z_names.append(key)
                 algo_kwargs['z_space'].append([args[0], args[1]])
             if param_space_samplers[i] == 'categorical':
-                param_c.append(key)
+                c_names.append(key)
                 algo_kwargs['c_space'].append(len(args))
+                c_choices.append(args)
+        for key in ('x_space', 'z_space', 'c_space'):
+            if len(algo_kwargs[key]) == 0:
+                del algo_kwargs[key]
+    else:
+        names = []
+        midpoints = []
+        bounds = []
+        for keys, args in param_space.items():
+            names.append(keys)
+            midpoints.append( (args[0]+args[1]) / 2.0)
+            bounds.append(args)
+        if 'mean' not in algo_kwargs: algo_kwargs['mean'] = midpoints
+        if 'bounds' not in algo_kwargs: algo_kwargs['bounds'] = bounds
 
-    keys, directions = zip(*metrics.items())
-    def eval_trial(trial):
-        cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
-        tid = "{}".format(trial.number)
+    if seed:
+        algo_kwargs['seed'] = seed
+
+    if num_workers is not None:
+        algo_kwargs['population_size'] = num_workers
+    # call
+    sampler = _SAMPLERS[algo](**algo_kwargs)
+    num_generations = int(numpy.ceil(num_trials / sampler.population_size))
+    key = list(metrics.keys())[0] # currently only support single objective
+
+    def eval_trial(cfg, tid):
         cfg['_batchtk_label_pointer'] = LABEL_POINTER
         cfg['_batchtk_path_pointer'] = PATH_POINTER
-        data = runtk_trial(
+        loss = runtk_trial(
             config=cfg,
             label=study_label,
             tid=tid,
@@ -106,74 +148,29 @@ def cmaes_search(
             cleanup=cleanup,
             check_storage=check_storage
         )
-        loss = [float(data[key]) for key in keys]
-        return loss
-    algo_kwargs = algo_kwargs or {}
-    if seed:
-        algo_kwargs['seed'] = seed
-    sampler = _SAMPLERS[algo](**algo_kwargs) if algo in _SAMPLERS else None # if algo is provided...
-    algo = algo or 'optuna' # change algo to optuna for labeling.
-    study_name = "".join(('_' + _str for _str in (algo, seed) if _str)) # fix later.
-    study_name = "{}{}".format(study_label, study_name)
-    if optuna_storage is None:
-        optuna_storage = JournalStorage(JournalFileStorage("{}/{}.optuna.journal.log".format(output_path, study_name)))
-    study = optuna.create_study(directions=directions,
-                                storage=optuna_storage,
-                                load_if_exists=True,
-                                sampler=sampler,
-                                study_name='{}'.format(study_name))
-    study.optimize(eval_trial, n_trials=num_trials, n_jobs=num_workers)
+        return float(loss[key])
+    gens_summary = []
+    best = numpy.inf
+    for gen in range(num_generations):
+        solutions = []
+        with ThreadPoolExecutor(max_workers=sampler.population_size) as executor:
+            futures = []
+            for cand in range(sampler.population_size):
+                if algo == 'margin':
+                    vals = sampler.ask()
+                    x_vals, z_vals, c_bools = vals.x, vals.z, vals.c
+                    cfg = _xzc_to_cfg(x_names, z_names, c_names, x_vals, z_vals, c_bools, c_choices)
+                else:
+                    vals = sampler.ask()
+                    cfg = {name: val for name, val in zip(names, vals)}
+                tid = "{}_{}".format(gen, cand)
+                futures.append(executor.submit(eval_trial, cfg=cfg, tid=tid))
+            for future in futures:
+                loss = future.result()
+                if loss < best[1]:
+                    best = (cfg, loss)
+                solutions.append((vals, loss))
+            gens_summary.append(solutions)
+        sampler.tell(solutions)
 
-    return study.trials_dataframe()
-
-
-from batchtk.runtk import LocalDispatcher, SHSubmitSFS
-from batchtk.utils import SQLiteLogger
-from batchtk.runtk.trial import trial
-from header import LEN
-
-from batchtk.runtk.trial import trial, LABEL_POINTER, PATH_POINTER
-
-from cmaes import CMA # CMA_ES
-# see https://github.com/CyberAgentAILab/cmaes/tree/main
-import numpy
-import os
-
-NUM_GEN = 3
-
-path = os.getcwd()
-
-entries = ["fx", *["x.{}".format(i) for i in range(LEN)]]
-log = SQLiteLogger(path='../rosenbrock_out', entries=entries)
-# evaluation
-def eval_rosenbrock(x, tid):
-    cfg = { 'x.{}'.format(i): x[i] for i in range(len(x)) }
-    data = trial(
-        config=cfg,
-        label='rosenbrock',
-        tid=tid,
-        dispatcher_constructor=LocalDispatcher,
-        project_path=path,
-        output_path='../rosenbrock_out',
-        submit_constructor=SHSubmitSFS,
-        dispatcher_kwargs=None,
-        submit_kwargs={'command': 'python rosenbrock.py'},
-        interval=1,
-        log=log,
-        report=('path', 'data')
-    )
-    return float(data['fx'])
-
-
-
-
-# suggestor
-optimizer = CMA(mean=numpy.zeros(LEN), sigma=1.0)
-for generation in range(NUM_GEN):
-    solutions = []
-    for cand in range(optimizer.population_size):
-        x = optimizer.ask()
-        value = eval_rosenbrock(x, "{}_{}".format(generation, cand))
-        solutions.append((x, value))
-        print(f"#{generation} fx={value} (x={x})")
-    optimizer.tell(solutions)
+    return gens_summary
