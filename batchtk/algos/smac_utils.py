@@ -5,7 +5,7 @@ from smac import HyperparameterOptimizationFacade, Scenario
 from batchtk import runtk
 from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
-from batchtk.runtk.trial import LABEL_POINTER
+from batchtk.runtk.trial import LABEL_POINTER, PATH_POINTER
 from logging import Logger
 import warnings
 
