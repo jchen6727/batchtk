@@ -62,6 +62,8 @@ def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace 
     directions = [1 if direction == 'minimize' else -1 for direction in directions]
     def eval_trial(cfg: Configuration, seed: int = None):
         #cfg = {key: trial.getattr(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
+        cfg['_batchtk_label_pointer'] = LABEL_POINTER
+        cfg['_batchtk_path_pointer'] = PATH_POINTER
         tid = "{}".format(cfg.config_id)
         data = runtk_trial(
             config=cfg,
