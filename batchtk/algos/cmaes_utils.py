@@ -123,6 +123,11 @@ def cmaes_search(
 
     if num_workers is not None:
         algo_kwargs['population_size'] = num_workers
+
+    debug_log = debug_log or ScriptLogger()
+    data_storage = data_storage or SQLStorage(directory=output_path, filename='cmaes.sqlite.db')
+    if not isinstance(data_storage, SQLStorage):
+        raise ValueError("data_storage must be a SQLStorage instance")
     # call
     sampler = _SAMPLERS[algo](**algo_kwargs)
     num_generations = int(numpy.ceil(num_trials / sampler.population_size))
