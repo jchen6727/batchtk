@@ -1,6 +1,6 @@
 import cmaes
 
-from batchtk.utils import SQLStorage, ScriptLogger, expand_path
+from batchtk.utils import SQLStorage, SQLiteStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 import pandas
 from typing import Optional
@@ -81,6 +81,7 @@ def cmaes_search(
     debug_log = debug_log or ScriptLogger()
 
     algo_kwargs = algo_kwargs or {}
+    bounds = []
     if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
         raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
     if any(sampler in ('categorical', 'int') for sampler in param_space_samplers) or algo == 'margin':
@@ -97,9 +98,11 @@ def cmaes_search(
             if param_space_samplers[i] == 'float':
                 x_names.append(key)
                 algo_kwargs['x_space'].append([args[0], args[1]])
+                bounds.append(args)
             if param_space_samplers[i] == 'int':
                 z_names.append(key)
                 algo_kwargs['z_space'].append([args[0], args[1]])
+                bounds.append(args)
             if param_space_samplers[i] == 'categorical':
                 c_names.append(key)
                 algo_kwargs['c_space'].append(len(args))
@@ -110,13 +113,18 @@ def cmaes_search(
     else:
         names = []
         midpoints = []
-        bounds = []
         for keys, args in param_space.items():
             names.append(keys)
             midpoints.append( (args[0]+args[1]) / 2.0)
-            bounds.append(args)
-        if 'mean' not in algo_kwargs: algo_kwargs['mean'] = midpoints
-        if 'bounds' not in algo_kwargs: algo_kwargs['bounds'] = bounds
+            bounds.append([args[0], args[1]])
+        if 'mean' not in algo_kwargs: algo_kwargs['mean'] = numpy.array(midpoints)
+        if 'bounds' not in algo_kwargs: algo_kwargs['bounds'] = numpy.array(bounds)
+
+    if 'sigma' not in algo_kwargs and bounds: #or len(bounds) > 0
+        algo_kwargs['sigma'] = 0
+        for low, high in bounds:
+            algo_kwargs['sigma'] += (high - low)/4
+        algo_kwargs['sigma'] /= len(bounds) # rough estimate of 1/4 the average range of parameters.
 
     if seed:
         algo_kwargs['seed'] = seed
@@ -125,10 +133,11 @@ def cmaes_search(
         algo_kwargs['population_size'] = num_workers
 
     debug_log = debug_log or ScriptLogger()
-    data_storage = data_storage or SQLStorage(directory=output_path, filename='cmaes.sqlite.db')
+    data_storage = data_storage or SQLiteStorage(directory=output_path, filename='cmaes.sqlite.db')
     if not isinstance(data_storage, SQLStorage):
         raise ValueError("data_storage must be a SQLStorage instance")
     # call
+    debug_log.warn("cmaes search with the following meta-parameters:\n{}".format(algo_kwargs))
     sampler = _SAMPLERS[algo](**algo_kwargs)
     num_generations = int(numpy.ceil(num_trials / sampler.population_size))
     key = list(metrics.keys())[0] # currently only support single objective
@@ -155,7 +164,7 @@ def cmaes_search(
         )
         return float(loss[key])
     gens_summary = []
-    best = numpy.inf
+    best = (None, numpy.inf)
     for gen in range(num_generations):
         solutions = []
         with ThreadPoolExecutor(max_workers=sampler.population_size) as executor:
