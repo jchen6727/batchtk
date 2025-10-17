@@ -6,6 +6,7 @@ import pandas
 from typing import Optional
 from batchtk import runtk
 import numpy
+from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -21,6 +22,8 @@ _SAMPLERS = { # refer #https://github.com/CyberAgentAILab/cmaes/tree/main
     'margin': cmaes.CatCMAwM,
 }
 
+_futuretuple = namedtuple('FutureTuple', ['id', 'future', 'vals', 'cfg'])
+
 def _xzc_to_cfg(x_names, z_names, c_names, x_vals, z_vals, c_bools, c_vals):
     cfg = {}
     if x_vals is not None:
@@ -33,7 +36,7 @@ def _xzc_to_cfg(x_names, z_names, c_names, x_vals, z_vals, c_bools, c_vals):
         for name, bools, vals in zip(c_names, c_bools, c_vals):
             #final = [val if _bool else None for val, _bool in zip(vals, onehot)]
             # but onehot through numpy cleaner---
-            index = numpy.argmax(c_bools)
+            index = numpy.argmax(bools)
             cfg[name] = vals[index]
     return cfg
 
@@ -51,7 +54,7 @@ def cmaes_search(
     report: Optional[list] = ('path', 'config', 'data'),
     cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
     check_storage: Optional[bool] = True
-) -> pandas.DataFrame:
+) -> dict:
     """
     Perform an optimization search using CMAES.
     study_label: str - label for the study (used in storage and logging)
@@ -163,12 +166,12 @@ def cmaes_search(
             check_storage=check_storage
         )
         return float(loss[key])
-    gens_summary = []
+    gens_summary = {}
     best = (None, numpy.inf)
     for gen in range(num_generations):
         solutions = []
+        futures = []
         with ThreadPoolExecutor(max_workers=sampler.population_size) as executor:
-            futures = []
             for cand in range(sampler.population_size):
                 if algo == 'margin':
                     vals = sampler.ask()
@@ -178,13 +181,17 @@ def cmaes_search(
                     vals = sampler.ask()
                     cfg = {name: val for name, val in zip(names, vals)}
                 tid = "{}_{}".format(gen, cand)
-                futures.append(executor.submit(eval_trial, cfg=cfg, tid=tid))
+                futures.append(_futuretuple(id=tid,
+                                            future=executor.submit(eval_trial, cfg=cfg, tid=tid),
+                                            vals=vals,
+                                            cfg=cfg))
             for future in futures:
-                loss = future.result()
+                loss = future.future.result()
                 if loss < best[1]:
-                    best = (cfg, loss)
-                solutions.append((vals, loss))
-            gens_summary.append(solutions)
+                    best = (future.cfg, loss)
+                solutions.append((future.vals, loss))
+                gens_summary[future.id] = {'config': future.cfg, 'loss': loss}
+        #debug_log.warn("solutions for generation {}: {}".format(gen, solutions))
         sampler.tell(solutions)
 
     return gens_summary
