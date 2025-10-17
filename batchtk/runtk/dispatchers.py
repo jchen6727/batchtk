@@ -16,6 +16,7 @@ import subprocess
 from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
+from batchtk.header import FILE_HANDLES_STR, SOCKET_HANDLES_STR
 from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
 import warnings
 import socket
@@ -391,6 +392,7 @@ class QSDispatcher(SHDispatcher):
         return False
 
     def start(self, restart=False, **kwargs):
+        self.submit.update_template('script', handles=FILE_HANDLES_STR)
         if restart:
             # manually create job, then ensure call to submit.submit_job
             self.create_job(**kwargs)

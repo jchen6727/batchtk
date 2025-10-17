@@ -2,6 +2,7 @@
 import logging
 from collections import namedtuple
 from batchtk import runtk
+from batchtk.utils import flush_fptr
 import re
 import warnings
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
@@ -92,7 +93,7 @@ def serialize(args, var ='env', serializer ='sh'):
 _Job = namedtuple('job', 'submit script path handles')
 
 class Submit(object):
-    def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None, protected_args=('label', 'project_path', 'output_path', 'env'), **kwargs):
+    def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None, protected_args=('label', 'project_path', 'output_path', 'env', 'handles'), **kwargs):
         self.submit_template = Template(submit_template)
         self.script_template = Template(script_template)
         self.path_template = path_template or Template(self.submit_template.template.split(' ')[-1])
@@ -161,7 +162,15 @@ class Submit(object):
         _tuple = [template.format(**kwargs) for template in self.templates]
         return _Job(*_tuple)
 
-    def update_templates(self, **kwargs):
+    def update_template(self, job_template:str, **kwargs): # same as update_templates, but without the protected args check
+        self.templates.__getattribute__(job_template).update(**kwargs)
+        """
+        for name, template in zip(self.templates._fields, self.templates):
+            if name == job_template:
+                self.templates._replace( **{name: template.update(**kwargs)} )
+        self.key_args = self.key_args | kwargs
+        """
+    def update_templates(self, **kwargs): # called from submit --
         #kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
         if self.protected_args & kwargs.keys():
             raise KeyError("Protected args {} cannot be updated, only formatted".format(self.protected_args & kwargs.keys()))
@@ -212,6 +221,7 @@ protected args:
         try:
             with fs.path_open(self.path, 'w') as fptr:
                 fptr.write(self.script)
+                flush_fptr(fptr)
         except Exception as e:
             raise Exception("Failed to write script to file: {}\n{}".format(self.path, e))
         self.proc = cmd.run(self.job.submit)
@@ -295,6 +305,9 @@ cd {project_path}
 export MSGFILE="{output_path}/{label}.out"
 export SGLFILE="{output_path}/{label}.sgl"
 export JOBID=$$
+
+{handles}
+
 {env}
 nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
