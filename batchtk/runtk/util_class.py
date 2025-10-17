@@ -77,6 +77,8 @@ class RunConfig(dict):
             super().__init__(**kwargs)
         self._runner = 'runner' in kwargs and kwargs['runner'] or get_runner()
         self._mappings = self._runner.get_mappings()
+        self._batchtk_label_pointer = None # add for compatibility with individually running generated sh scripts
+        self._batchtk_path_pointer = None # add for compatibility with individually running generated sh scripts
         create_config(self, *args)
 
     def update(self, *args, **kwargs):
