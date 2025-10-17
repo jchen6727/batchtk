@@ -1,11 +1,12 @@
 import cmaes
 
-from batchtk.utils import SQLStorage, ScriptLogger, expand_path
+from batchtk.utils import SQLStorage, SQLiteStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 import pandas
 from typing import Optional
 from batchtk import runtk
 import numpy
+from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -21,6 +22,8 @@ _SAMPLERS = { # refer #https://github.com/CyberAgentAILab/cmaes/tree/main
     'margin': cmaes.CatCMAwM,
 }
 
+_futuretuple = namedtuple('FutureTuple', ['id', 'future', 'vals', 'cfg'])
+
 def _xzc_to_cfg(x_names, z_names, c_names, x_vals, z_vals, c_bools, c_vals):
     cfg = {}
     if x_vals is not None:
@@ -33,7 +36,7 @@ def _xzc_to_cfg(x_names, z_names, c_names, x_vals, z_vals, c_bools, c_vals):
         for name, bools, vals in zip(c_names, c_bools, c_vals):
             #final = [val if _bool else None for val, _bool in zip(vals, onehot)]
             # but onehot through numpy cleaner---
-            index = numpy.argmax(c_bools)
+            index = numpy.argmax(bools)
             cfg[name] = vals[index]
     return cfg
 
@@ -51,7 +54,7 @@ def cmaes_search(
     report: Optional[list] = ('path', 'config', 'data'),
     cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
     check_storage: Optional[bool] = True
-) -> pandas.DataFrame:
+) -> dict:
     """
     Perform an optimization search using CMAES.
     study_label: str - label for the study (used in storage and logging)
@@ -81,6 +84,7 @@ def cmaes_search(
     debug_log = debug_log or ScriptLogger()
 
     algo_kwargs = algo_kwargs or {}
+    bounds = []
     if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
         raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
     if any(sampler in ('categorical', 'int') for sampler in param_space_samplers) or algo == 'margin':
@@ -97,9 +101,11 @@ def cmaes_search(
             if param_space_samplers[i] == 'float':
                 x_names.append(key)
                 algo_kwargs['x_space'].append([args[0], args[1]])
+                bounds.append(args)
             if param_space_samplers[i] == 'int':
                 z_names.append(key)
                 algo_kwargs['z_space'].append([args[0], args[1]])
+                bounds.append(args)
             if param_space_samplers[i] == 'categorical':
                 c_names.append(key)
                 algo_kwargs['c_space'].append(len(args))
@@ -110,13 +116,18 @@ def cmaes_search(
     else:
         names = []
         midpoints = []
-        bounds = []
         for keys, args in param_space.items():
             names.append(keys)
             midpoints.append( (args[0]+args[1]) / 2.0)
-            bounds.append(args)
-        if 'mean' not in algo_kwargs: algo_kwargs['mean'] = midpoints
-        if 'bounds' not in algo_kwargs: algo_kwargs['bounds'] = bounds
+            bounds.append([args[0], args[1]])
+        if 'mean' not in algo_kwargs: algo_kwargs['mean'] = numpy.array(midpoints)
+        if 'bounds' not in algo_kwargs: algo_kwargs['bounds'] = numpy.array(bounds)
+
+    if 'sigma' not in algo_kwargs and bounds: #or len(bounds) > 0
+        algo_kwargs['sigma'] = 0
+        for low, high in bounds:
+            algo_kwargs['sigma'] += (high - low)/4
+        algo_kwargs['sigma'] /= len(bounds) # rough estimate of 1/4 the average range of parameters.
 
     if seed:
         algo_kwargs['seed'] = seed
@@ -125,10 +136,11 @@ def cmaes_search(
         algo_kwargs['population_size'] = num_workers
 
     debug_log = debug_log or ScriptLogger()
-    data_storage = data_storage or SQLStorage(directory=output_path, filename='cmaes.sqlite.db')
+    data_storage = data_storage or SQLiteStorage(directory=output_path, filename='cmaes.sqlite.db')
     if not isinstance(data_storage, SQLStorage):
         raise ValueError("data_storage must be a SQLStorage instance")
     # call
+    debug_log.warn("cmaes search with the following meta-parameters:\n{}".format(algo_kwargs))
     sampler = _SAMPLERS[algo](**algo_kwargs)
     num_generations = int(numpy.ceil(num_trials / sampler.population_size))
     key = list(metrics.keys())[0] # currently only support single objective
@@ -154,12 +166,12 @@ def cmaes_search(
             check_storage=check_storage
         )
         return float(loss[key])
-    gens_summary = []
-    best = numpy.inf
+    gens_summary = {}
+    best = (None, numpy.inf)
     for gen in range(num_generations):
         solutions = []
+        futures = []
         with ThreadPoolExecutor(max_workers=sampler.population_size) as executor:
-            futures = []
             for cand in range(sampler.population_size):
                 if algo == 'margin':
                     vals = sampler.ask()
@@ -169,13 +181,17 @@ def cmaes_search(
                     vals = sampler.ask()
                     cfg = {name: val for name, val in zip(names, vals)}
                 tid = "{}_{}".format(gen, cand)
-                futures.append(executor.submit(eval_trial, cfg=cfg, tid=tid))
+                futures.append(_futuretuple(id=tid,
+                                            future=executor.submit(eval_trial, cfg=cfg, tid=tid),
+                                            vals=vals,
+                                            cfg=cfg))
             for future in futures:
-                loss = future.result()
+                loss = future.future.result()
                 if loss < best[1]:
-                    best = (cfg, loss)
-                solutions.append((vals, loss))
-            gens_summary.append(solutions)
+                    best = (future.cfg, loss)
+                solutions.append((future.vals, loss))
+                gens_summary[future.id] = {'config': future.cfg, 'loss': loss}
+        #debug_log.warn("solutions for generation {}: {}".format(gen, solutions))
         sampler.tell(solutions)
 
     return gens_summary
