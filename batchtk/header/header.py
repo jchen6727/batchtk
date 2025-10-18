@@ -72,7 +72,9 @@ export SGLFILE="{output_path}/{label}.sgl"
 export JOBID=$$"""
 
 SOCKET_HANDLES_STR = """export SOCNAME="{sockname}"
+export JOBID=$$
 """
+
 #TODO eventually add other serialization options besides json
 
 SUPPORTS = { #TODO numpy handling? or binary serialization?

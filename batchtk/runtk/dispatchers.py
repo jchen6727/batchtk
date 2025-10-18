@@ -350,6 +350,9 @@ class QSDispatcher(SHDispatcher):
             raise ValueError("fs either not created or is not a subclass of BaseFS")
         if not hasattr(self, 'cmd') and not isinstance(self.cmd, BaseCmd):
             raise ValueError("cmd either not created or is not a subclass of BaseCmd")
+        # initialize the handles for rest of class
+        self.submit.update_template('script', handles=FILE_HANDLES_STR)
+
 
     def get_handles(self):
         if not self.handles:
@@ -364,9 +367,9 @@ class QSDispatcher(SHDispatcher):
         if not self.fs.exists(msgout):
             return _Status(runtk.STATUS.PENDING, None)
         msg = self.fs.tail(msgout)
-        if self.fs.exists(sglout):
-            return _Status(runtk.STATUS.COMPLETED, msg)
-        return _Status(runtk.STATUS.RUNNING, msg)
+        #if self.fs.exists(sglout):
+        #    return _Status(runtk.STATUS.COMPLETED, msg)
+        return _Status(runtk.STATUS.COMPLETED, msg)
 
     def submit_job(self):
         """
@@ -392,7 +395,6 @@ class QSDispatcher(SHDispatcher):
         return False
 
     def start(self, restart=False, **kwargs):
-        self.submit.update_template('script', handles=FILE_HANDLES_STR)
         if restart:
             # manually create job, then ensure call to submit.submit_job
             self.create_job(**kwargs)
@@ -484,6 +486,7 @@ class SOCKETDispatcher(SHDispatcher):
         self.set_instances()
         self.handles = None
         super().__init__(**kwargs)
+        self.submit.update_template('script', handles=SOCKET_HANDLES_STR)
 
     def set_instances(self, fs=None, cmd=None, **kwargs):
         _set_local_instances(self, fs=fs, cmd=cmd, **kwargs)

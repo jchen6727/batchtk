@@ -302,9 +302,6 @@ class SHSubmitSFS(SHSubmit):
         """\
 #!/bin/sh
 cd {project_path}
-export MSGFILE="{output_path}/{label}.out"
-export SGLFILE="{output_path}/{label}.sgl"
-export JOBID=$$
 
 {handles}
 
@@ -321,8 +318,9 @@ class SHSubmitSOCK(SHSubmit):
         """\
 #!/bin/sh
 cd {project_path}
-export SOCNAME="{sockname}"
-export JOBID=$$
+
+{handles}
+
 {env}
 nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
