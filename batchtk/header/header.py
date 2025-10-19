@@ -67,6 +67,13 @@ FILE_HANDLES   = {SUBMIT: '{output_path}/{label}.sh',
                   MSGOUT: '{output_path}/{label}.out',
                   SGLOUT: '{output_path}/{label}.sgl'}
 
+ALL_HANDLES   = {SUBMIT: '{output_path}/{label}.sh',
+                 STDOUT: '{output_path}/{label}.run',
+                 SOCKET: '{sockname}',
+                 MSGOUT: '{output_path}/{label}.out',
+                 SGLOUT: '{output_path}/{label}.sgl'
+                 }
+
 FILE_HANDLES_STR = """export MSGFILE="{output_path}/{label}.out"
 export SGLFILE="{output_path}/{label}.sgl"
 export JOBID=$$"""

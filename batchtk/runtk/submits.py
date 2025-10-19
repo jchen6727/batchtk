@@ -99,7 +99,7 @@ class Submit(object):
         self.path_template = path_template or Template(self.submit_template.template.split(' ')[-1])
         self.key_args = self.submit_template.key_args | self.script_template.key_args | self.path_template.key_args
         self.protected_args = set(protected_args)
-        if handles: #TODO need better serialization of handles
+        if handles: #TODO need better serialization of handles # move handles logic elsewhere
             self.handles = Template(serializers['eq'](handles), key_args=self.key_args)
         else:
             handles = self.create_handles()
@@ -310,7 +310,7 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    handles = runtk.FILE_HANDLES
+    handles = runtk.ALL_HANDLES
 
 class SHSubmitSOCK(SHSubmit):
     script_args = {'label', 'project_path', 'output_path', 'env', 'command', 'sockname'}
@@ -326,4 +326,4 @@ nohup {command} > {output_path}/{label}.run 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    handles = runtk.SOCKET_HANDLES
+    handles = runtk.ALL_HANDLES
