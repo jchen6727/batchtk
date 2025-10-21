@@ -28,7 +28,7 @@ def ec_search(dispatcher_constructor: Callable,
               algorithm: [str|Callable],
               algorithm_config: Optional[Dict] = None,
               label: Optional[str] = "search",
-              output_path: Optional[str] = "../batch",
+              output_dir: Optional[str] = "../batch",
               generations: Optional[int] = 1,
               pop_size: Optional[int] = 1,
               seed: Optional[int] = None,
@@ -44,7 +44,7 @@ def ec_search(dispatcher_constructor: Callable,
     :param kwargs: dict, keyword arguments
     :return: list, list of best individuals
     """
-    storage_path = get_path(output_path)
+    storage_path = get_path(output_dir)
 
     prng = random.Random()
     if algorithm_config is None:
@@ -113,16 +113,16 @@ def ec_search(dispatcher_constructor: Callable,
     submit.update_templates(
         **run_config
     )
-    project_path = os.getcwd()
+    project_dir = os.getcwd()
     def eval_func(candidates, args):
-        candidates['output_path'] = LABEL_POINTER
+        candidates['output_dir'] = LABEL_POINTER
         gen += 1
         results = trials(configs = candidates,
                          label = label,
                          gen = gen,
                          dispatcher_constructor = dispatcher_constructor,
-                         project_path = project_path,
-                         output_path = output_path,
+                         project_dir = project_dir,
+                         output_dir = output_dir,
                          submit = submit,
                )
         return results

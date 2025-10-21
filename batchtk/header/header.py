@@ -27,7 +27,7 @@ used for environment variables relevant for Dispatcher -> Runner communication
 i.e. make sure that MSGFILE, SGLFILE, SOCNAME, JOBID are assigned in the relevant Submit
 """
 MSGOUT, MSGOUT_ENV = 'write_file'  , 'MSGFILE'
-SGLOUT, SGLOUT_ENV = 'signal_file' , 'SGLFILE'
+SGLOUT, SGLOUT_ENV = 'signal_file' , 'SGLFILE' # deprecating SGLOUT and SGLOUT_ENV for atomic write operations...
 SOCKET, SOCKET_ENV = 'socket_name' , 'SOCNAME'
 JOBID ,  JOBID_ENV = 'job_id'      , 'JOBID'
 """
@@ -57,15 +57,30 @@ HANDLES = {SUBMIT: 'runtk.SUBMIT',
            SOCKET: 'runtk.SOCKET',
 }
 
-SOCKET_HANDLES = {SUBMIT: '{output_path}/{label}.sh',
-                  STDOUT: '{output_path}/{label}.run',
+SOCKET_HANDLES = {SUBMIT: '{output_dir}/{label}.sh',
+                  STDOUT: '{output_dir}/{label}.run',
                   SOCKET: '{sockname}'
                   }
 
-FILE_HANDLES   = {SUBMIT: '{output_path}/{label}.sh',
-                  STDOUT: '{output_path}/{label}.run',
-                  MSGOUT: '{output_path}/{label}.out',
-                  SGLOUT: '{output_path}/{label}.sgl'}
+FILE_HANDLES   = {SUBMIT: '{output_dir}/{label}.sh',
+                  STDOUT: '{output_dir}/{label}.run',
+                  MSGOUT: '{output_dir}/{label}.out',
+                  SGLOUT: '{output_dir}/{label}.sgl'}
+
+ALL_HANDLES   = {SUBMIT: '{output_dir}/{label}.sh',
+                 STDOUT: '{output_dir}/{label}.run',
+                 SOCKET: '{sockname}',
+                 MSGOUT: '{output_dir}/{label}.out',
+                 SGLOUT: '{output_dir}/{label}.sgl'
+                 }
+
+FILE_HANDLES_STR = """export MSGFILE="{output_dir}/{label}.out"
+export SGLFILE="{output_dir}/{label}.sgl"
+export JOBID=$$"""
+
+SOCKET_HANDLES_STR = """export SOCNAME="{sockname}"
+export JOBID=$$
+"""
 
 #TODO eventually add other serialization options besides json
 
