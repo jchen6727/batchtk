@@ -16,7 +16,7 @@ import subprocess
 from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
-from batchtk.header import FILE_HANDLES_STR, SOCKET_HANDLES_STR
+from batchtk.header import FILE_HANDLES_STR, SOCKET_HANDLES_STR, STDOUT_STR, STDERR_STR
 from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
 import warnings
 import socket
@@ -213,6 +213,8 @@ class SHDispatcher(Dispatcher):
         self.submit = submit
         self.handles = None
         self.job_id = -1
+        self.submit.update_template('script', stdout=STDOUT_STR, stderr=STDERR_STR) # stdout and stderr can to be established across all dispatchers
+        # handles should be established for any custom dispatcher class...
         # create a "self.target" that contains the output_dir and label?
         #self.label = self.label
 
@@ -350,9 +352,7 @@ class QSDispatcher(SHDispatcher):
             raise ValueError("fs either not created or is not a subclass of BaseFS")
         if not hasattr(self, 'cmd') and not isinstance(self.cmd, BaseCmd):
             raise ValueError("cmd either not created or is not a subclass of BaseCmd")
-        # initialize the handles for rest of class
         self.submit.update_template('script', handles=FILE_HANDLES_STR)
-
 
     def get_handles(self):
         if not self.handles:

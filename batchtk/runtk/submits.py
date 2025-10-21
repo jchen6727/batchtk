@@ -255,7 +255,7 @@ _default_script = Template(
 cd {project_dir}
 export JOBID=$$
 {env}
-nohup {command} > {output_dir}/{label}.run 2>&1 &
+nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1
 """,
@@ -296,7 +296,7 @@ class SHSubmit(Submit):
 # reference classes used as examples and for testing.
 #TODO implement an option to autocomplete MSGFILE, SGLFILE, SOCNAME, JOBID... in submit_exports ...?
 class SHSubmitSFS(SHSubmit):
-    script_args = {'label', 'project_dir', 'output_dir', 'env', 'command'}
+    script_args = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
     script_template = \
         """\
 #!/bin/sh
@@ -305,14 +305,14 @@ cd {project_dir}
 {handles}
 
 {env}
-nohup {command} > {output_dir}/{label}.run 2>&1 &
+nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1
 """
     handles = runtk.ALL_HANDLES
 
 class SHSubmitSOCK(SHSubmit):
-    script_args = {'label', 'project_dir', 'output_dir', 'env', 'command'}
+    script_args = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
     script_template = \
         """\
 #!/bin/sh
@@ -321,7 +321,7 @@ cd {project_dir}
 {handles}
 
 {env}
-nohup {command} > {output_dir}/{label}.run 2>&1 &
+nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1
 """

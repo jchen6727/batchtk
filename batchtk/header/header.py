@@ -76,12 +76,14 @@ ALL_HANDLES   = {SUBMIT: '{output_dir}/{label}.sh',
 
 FILE_HANDLES_STR = """export MSGFILE="{output_dir}/{label}.out"
 export SGLFILE="{output_dir}/{label}.sgl"
-export JOBID=$$"""
-
-SOCKET_HANDLES_STR = """export SOCNAME="{sockname}"
-export JOBID=$$
 """
 
+SOCKET_HANDLES_STR = """export SOCNAME="{sockname}"
+"""
+
+STDOUT_STR = "{output_dir}/{label}.run"
+STDERR_STR = "{output_dir}/{label}.err"
+PATH_STR = "{output_dir}/{label}"
 #TODO eventually add other serialization options besides json
 
 SUPPORTS = { #TODO numpy handling? or binary serialization?
