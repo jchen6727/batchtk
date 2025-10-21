@@ -44,6 +44,12 @@ class Template(object):
         try:
             return self.template.format(**mkwargs)
         except KeyError as e:
+            message = (
+                f"In Template.format({kwargs}): argument '{e.args}' was found in the script:\n"
+                f"{self.template}\n"
+                f"Recommend user provide '{e.args}' to Template.key_args or in kwargs."
+                f"current self.key_args:\n{self.key_args}"
+            )
             warnings.warn(f"KeyError: {e} found when formatting template: {self.template}")
             self.key_args = {key: "{" + key + "}" for key in self.get_args()}
             mkwargs = self.key_args | kwargs
@@ -93,9 +99,12 @@ def serialize(args, var ='env', serializer ='sh'):
 _Job = namedtuple('job', 'submit script path handles')
 
 class Submit(object):
-    def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None, protected_args=('label', 'project_dir', 'output_dir', 'env', 'handles', 'sockname'), **kwargs):
-        self.submit_template = Template(submit_template)
-        self.script_template = Template(script_template)
+    def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None,
+                 key_args=('label', 'project_dir', 'output_dir', 'env', 'handles', 'sockname', 'command', 'stdout', 'stderr', 'path'),
+                 protected_args=('label', 'project_dir', 'output_dir', 'env', 'handles', 'sockname', 'stdout', 'stderr', 'path'),
+                 **kwargs):
+        self.submit_template = Template(submit_template, key_args=key_args)
+        self.script_template = Template(script_template, key_args=key_args)
         self.path_template = path_template or Template(self.submit_template.template.split(' ')[-1])
         self.key_args = self.submit_template.key_args | self.script_template.key_args | self.path_template.key_args
         self.protected_args = set(protected_args)
@@ -174,7 +183,7 @@ class Submit(object):
     def update_templates(self, **kwargs): # called from submit --
         #kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
         if self.protected_args & kwargs.keys():
-            raise KeyError("Protected args {} cannot be updated, only formatted".format(self.protected_args & kwargs.keys()))
+            raise KeyError("Protected args {} cannot be updated through Submit.update_templates(), only formatted".format(self.protected_args & kwargs.keys()))
         for template in self.templates:
             template.update(**kwargs)
         self.key_args = self.key_args | kwargs
@@ -246,7 +255,7 @@ protected args:
             return deserializers['eq'](self.handles.template)
 
 _default_submit = Template(template="sh {output_dir}/{label}.sh",
-                          key_args={'output_dir', 'label'})
+                           key_args={'output_dir', 'label'})
 
 _default_script = Template(
     template= \
@@ -259,7 +268,7 @@ nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1
 """,
-    key_args={'label', 'project_dir', 'output_dir', 'env', 'command'}
+    key_args={'label', 'project_dir', 'output_dir', 'stdout', 'stderr', 'env', 'command'}
 )
 
 _default_handles = runtk.ALL_HANDLES
@@ -274,10 +283,12 @@ class SHSubmit(Submit):
         submit_template = hasattr(self, 'submit_template') and self.submit_template or submit_template or _default_submit
         script_template = hasattr(self, 'script_template') and self.script_template or script_template or _default_script
         handles = hasattr(self, 'handles') and self.handles or handles or _default_handles
+        key_args = hasattr(self, 'key_args') and self.key_args or {}
         super().__init__(
             submit_template = submit_template,
             script_template = script_template,
             handles = handles,
+
             **kwargs
         )
     def set_handles(self):
@@ -296,7 +307,7 @@ class SHSubmit(Submit):
 # reference classes used as examples and for testing.
 #TODO implement an option to autocomplete MSGFILE, SGLFILE, SOCNAME, JOBID... in submit_exports ...?
 class SHSubmitSFS(SHSubmit):
-    script_args = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
+    key_args = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
     script_template = \
         """\
 #!/bin/sh
@@ -312,7 +323,7 @@ echo $pid >&1
     handles = runtk.ALL_HANDLES
 
 class SHSubmitSOCK(SHSubmit):
-    script_args = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
+    key_args = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
     script_template = \
         """\
 #!/bin/sh
