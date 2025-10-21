@@ -8,13 +8,28 @@ import json
 import warnings
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from deprecated import deprecated
+from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
 
+_DEPRECATED = {
+    "PATH_POINTER": {
+        "deprecated_since": "0.1.7",
+        "removal_when": "0.1.9",
+        "new_name": "DIR_POINTER",
+    }
+}
+__getattr__, __dir__ = create_deprecation_handlers(
+    module_name=__name__,
+    module_globals=globals(),
+    deprecation_map=_DEPRECATED,
+)
 
-def trials(configs, label, gen, dispatcher_constructor, project_path, output_path, submit_constructor, dispatcher_kwargs=None, submit_kwargs=None, interval=60, log=None, report=('path', 'config', 'data'), cleanup=True):
+@deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
+def trials(configs, label, gen, dispatcher_constructor, project_dir, output_dir, submit_constructor, dispatcher_kwargs=None, submit_kwargs=None, interval=60, log=None, report=('path', 'config', 'data'), cleanup=True):
     label = '{}_{}'.format(label, gen)
     results = []
     for tid, config in enumerate(configs):
-        results.append(trial(config, label, tid, dispatcher_constructor, project_path, output_path, submit_constructor, dispatcher_kwargs, submit_kwargs, interval, log, report))
+        results.append(trial(config, label, tid, dispatcher_constructor, project_dir, output_dir, submit_constructor, dispatcher_kwargs, submit_kwargs, interval, log, report))
     return results
 
 def _lctf(val):
@@ -24,18 +39,19 @@ def _lctf(val):
     except:
         return val
 
-def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: callable, project_path: str,
-          output_path: str, submit_constructor: callable, dispatcher_kwargs: Optional[dict] =None,
+@deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
+def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: callable, project_dir: str,
+          output_dir: str, submit_constructor: callable, dispatcher_kwargs: Optional[dict] =None,
           submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, data_storage: Optional[Storage]=None,
-          debug_log: Optional[Logger|str]=None, report: Optional[list]=('path', 'config', 'data'), cleanup: Optional[bool|list|tuple] = (runtk.SGLOUT, runtk.MSGOUT), check_storage: Optional[bool]=True) -> pandas.Series:
+          debug_log: Optional[Logger|str]=None, report: Optional[list]=('path', 'config', 'data'), cleanup: Optional[bool|list|tuple] = (runtk.SGLOUT, runtk.MSGOUT), check_storage: Optional[bool]=True, **kwargs) -> pandas.Series:
     """
     Run a single trial:
     config: dict - parameter configuration for the trial (variables to be passed by the dispatcher to the receiving script)
     label: str - label for a set of trials (see trials)
     tid: str or int - trial id unique to this single trial
     dispatcher_constructor: callable - dispatcher class to be used for this trial
-    project_path: str - path to the project directory
-    output_path: str - path to the output directory
+    project_dir: str - path to the project directory
+    output_dir: str - path to the output directory
     submit_constructor: callable - submit class to be used for this trial
     dispatcher_kwargs: dict - kwargs to be passed to the dispatcher constructor
     submit_kwargs: dict - kwargs to be passed to the submit templates
@@ -52,7 +68,7 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
     submit.update_templates(**submit_kwargs)
     run_label = '{}_{}'.format(label, tid)
     trial.run_label = run_label
-    trial.output_path = output_path
+    trial.output_dir = output_dir
     if not debug_log:
         debug_log = ScriptLogger(file_out=False) # only use debug_log for warning level prints to console --
     if isinstance(debug_log, str) or isinstance(debug_log, bool):
@@ -77,7 +93,7 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
             debug_log.info("trial_label already exists in the log database, skipping trial and retrieved data: {}.".format(data))
             return data.apply(_lctf)
 
-    dispatcher = dispatcher_constructor(project_path=project_path, output_path=output_path, submit=submit,
+    dispatcher = dispatcher_constructor(project_dir=project_dir, output_dir=output_dir, submit=submit,
                                         label=run_label, **dispatcher_kwargs)
     dispatcher.update_env(dictionary=config)
     try:
@@ -92,7 +108,7 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
         raise (e)
     data = {}
     data_options = {
-        'path': {'trial_label': run_label, 'trial_path': dispatcher.output_path}, #nomenclature decided in e54413e. "path" and "label" overlaps with config.
+        'path': {'trial_label': run_label, 'trial_dir': dispatcher.output_dir}, #nomenclature decided in e54413e. "path" and "label" overlaps with config.
         'config': config,
         'data': msg,
     }
@@ -114,4 +130,10 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
 
 
 LABEL_POINTER = lambda:trial.run_label
-PATH_POINTER = lambda:trial.output_path
+
+#@deprecated(version="0.1.6", reason="trial.PATH_POINTER replaced with trial.DIR_POINTER.")
+#def PATH_POINTER():
+#    return trial.output_dir
+#PATH_POINTER = lambda:trial.output_dir
+
+DIR_POINTER = lambda:trial.output_dir

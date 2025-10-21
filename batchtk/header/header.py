@@ -57,25 +57,25 @@ HANDLES = {SUBMIT: 'runtk.SUBMIT',
            SOCKET: 'runtk.SOCKET',
 }
 
-SOCKET_HANDLES = {SUBMIT: '{output_path}/{label}.sh',
-                  STDOUT: '{output_path}/{label}.run',
+SOCKET_HANDLES = {SUBMIT: '{output_dir}/{label}.sh',
+                  STDOUT: '{output_dir}/{label}.run',
                   SOCKET: '{sockname}'
                   }
 
-FILE_HANDLES   = {SUBMIT: '{output_path}/{label}.sh',
-                  STDOUT: '{output_path}/{label}.run',
-                  MSGOUT: '{output_path}/{label}.out',
-                  SGLOUT: '{output_path}/{label}.sgl'}
+FILE_HANDLES   = {SUBMIT: '{output_dir}/{label}.sh',
+                  STDOUT: '{output_dir}/{label}.run',
+                  MSGOUT: '{output_dir}/{label}.out',
+                  SGLOUT: '{output_dir}/{label}.sgl'}
 
-ALL_HANDLES   = {SUBMIT: '{output_path}/{label}.sh',
-                 STDOUT: '{output_path}/{label}.run',
+ALL_HANDLES   = {SUBMIT: '{output_dir}/{label}.sh',
+                 STDOUT: '{output_dir}/{label}.run',
                  SOCKET: '{sockname}',
-                 MSGOUT: '{output_path}/{label}.out',
-                 SGLOUT: '{output_path}/{label}.sgl'
+                 MSGOUT: '{output_dir}/{label}.out',
+                 SGLOUT: '{output_dir}/{label}.sgl'
                  }
 
-FILE_HANDLES_STR = """export MSGFILE="{output_path}/{label}.out"
-export SGLFILE="{output_path}/{label}.sgl"
+FILE_HANDLES_STR = """export MSGFILE="{output_dir}/{label}.out"
+export SGLFILE="{output_dir}/{label}.sgl"
 export JOBID=$$"""
 
 SOCKET_HANDLES_STR = """export SOCNAME="{sockname}"

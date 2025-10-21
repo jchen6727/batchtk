@@ -5,3 +5,4 @@ from .debug import ScriptLogger
 from .storage import *
 from .serializer import *
 from .file import flush_fptr
+from .version import deprecated_arg
