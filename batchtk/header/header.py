@@ -83,8 +83,10 @@ SOCKET_HANDLES_STR = """export SOCNAME="{sockname}"
 
 STDOUT_STR = "{output_dir}/{label}.run"
 STDERR_STR = "{output_dir}/{label}.err"
-PATH_STR = "{output_dir}/{label}"
+OUTPUT_PATH_STR = "{output_dir}/{label}"
+
 #TODO eventually add other serialization options besides json
+DEFAULT_KEY_ARGS = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'output_path'}
 
 SUPPORTS = { #TODO numpy handling? or binary serialization?
     'INT': int,

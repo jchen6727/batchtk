@@ -5,6 +5,7 @@ from batchtk import runtk
 from batchtk.utils import flush_fptr
 import re
 import warnings
+from traceback import print_stack
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
 
 class Template(object):
@@ -17,7 +18,7 @@ class Template(object):
         else:
             return super().__new__(cls)
 
-    def __init__(self, template, key_args = None, **kwargs):
+    def __init__(self, template, key_args = None, **kwargs): # ensure idempotency with the first check
         if isinstance(template, Template): # passthrough if already a Template
             return
         self.template = template
@@ -45,12 +46,14 @@ class Template(object):
             return self.template.format(**mkwargs)
         except KeyError as e:
             message = (
-                f"In Template.format({kwargs}): argument '{e.args}' was found in the script:\n"
-                f"{self.template}\n"
+                f"Warning:"
+                f"In Template.format({kwargs}): argument '{e.args}' was found in the script:"
+                f"{self.template}"
                 f"Recommend user provide '{e.args}' to Template.key_args or in kwargs."
                 f"current self.key_args:\n{self.key_args}"
+                f"see traceback:\n{print_stack(limit=5)}" # avoid recursion?
             )
-            warnings.warn(f"KeyError: {e} found when formatting template: {self.template}")
+            warnings.warn(message)
             self.key_args = {key: "{" + key + "}" for key in self.get_args()}
             mkwargs = self.key_args | kwargs
             return self.template.format(**mkwargs)
@@ -100,8 +103,8 @@ _Job = namedtuple('job', 'submit script path handles')
 
 class Submit(object):
     def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None,
-                 key_args=('label', 'project_dir', 'output_dir', 'env', 'handles', 'sockname', 'command', 'stdout', 'stderr', 'path'),
-                 protected_args=('label', 'project_dir', 'output_dir', 'env', 'handles', 'sockname', 'stdout', 'stderr', 'path'),
+                 key_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'sockname', 'command', 'stdout', 'stderr', 'path'),
+                 protected_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'sockname', 'stdout', 'stderr', 'path'),
                  **kwargs):
         self.submit_template = Template(submit_template, key_args=key_args)
         self.script_template = Template(script_template, key_args=key_args)
@@ -254,10 +257,10 @@ protected args:
         else:
             return deserializers['eq'](self.handles.template)
 
-_default_submit = Template(template="sh {output_dir}/{label}.sh",
+_DEFAULT_SUBMIT = Template(template="sh {output_dir}/{label}.sh",
                            key_args={'output_dir', 'label'})
 
-_default_script = Template(
+_DEFAULT_SCRIPT = Template(
     template= \
 """\
 #!/bin/sh
@@ -271,9 +274,15 @@ echo $pid >&1
     key_args={'label', 'project_dir', 'output_dir', 'stdout', 'stderr', 'env', 'command'}
 )
 
+_DEFAULT_PATH = Template(template="{output_path}.sh",
+                         key_args={'output_dir', 'label', 'output_path'})
 _default_handles = runtk.ALL_HANDLES
 
 class SHSubmit(Submit):
+    SUBMIT_TEMPLATE = _DEFAULT_SUBMIT
+    SCRIPT_TEMPLATE = _DEFAULT_SCRIPT
+    PATH_TEMPLATE   = _DEFAULT_PATH
+
     def __init__(self,
                  submit_template = None,
                  script_template = None,

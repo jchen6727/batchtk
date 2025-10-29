@@ -16,7 +16,7 @@ import subprocess
 from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
-from batchtk.header import FILE_HANDLES_STR, SOCKET_HANDLES_STR, STDOUT_STR, STDERR_STR
+from batchtk.header import FILE_HANDLES_STR, SOCKET_HANDLES_STR, STDOUT_STR, STDERR_STR, OUTPUT_PATH_STR
 from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
 import warnings
 import socket
@@ -213,7 +213,7 @@ class SHDispatcher(Dispatcher):
         self.submit = submit
         self.handles = None
         self.job_id = -1
-        self.submit.update_template('script', stdout=STDOUT_STR, stderr=STDERR_STR) # stdout and stderr can to be established across all dispatchers
+        self.submit.update_template('script', stdout=STDOUT_STR, stderr=STDERR_STR, output_path=OUTPUT_PATH_STR) # stdout and stderr can to be established across all dispatchers
         # handles should be established for any custom dispatcher class...
         # create a "self.target" that contains the output_dir and label?
         #self.label = self.label
@@ -424,7 +424,7 @@ class SSHDispatcher(QSDispatcher):
         host - the ssh host
         cmdstr - the command to run on the remote machine
         env - any environmental variables to be inherited by the created runner
-        N.B. - project_dir is the project directory on the REMOTE machine
+        N.B. - project_dir is the absolute path to the project directory on the REMOTE machine
         """
         self.fs = None
         self.connection = None

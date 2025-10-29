@@ -4,7 +4,7 @@ def _get_obj_args(self, __class__, **kwargs): # note that _ does not get capture
     kwargs.update(kwargs.pop('kwargs'))
     return kwargs
 
-def expand_path(path, create_dirs=False):
+def expand_local_path(path, create_dirs=False):
     path_opt = {
         '~': os.path.expanduser,
         '.': os.path.abspath,
@@ -21,3 +21,6 @@ def expand_path(path, create_dirs=False):
     if create_dirs:
         os.makedirs(return_path, exist_ok=True)
     return return_path
+
+def expand_remote_path(path, create_dirs=False, remote_connection=):
+    path_opt = {}
