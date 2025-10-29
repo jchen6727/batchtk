@@ -22,5 +22,5 @@ def expand_local_path(path, create_dirs=False):
         os.makedirs(return_path, exist_ok=True)
     return return_path
 
-def expand_remote_path(path, create_dirs=False, remote_connection=):
+def expand_remote_path(path, create_dirs=False, remote_connection=None):
     path_opt = {}
