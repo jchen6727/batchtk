@@ -14,6 +14,8 @@ from warnings import warn
 from typing import Optional, Dict, List, Any
 from collections import namedtuple
 
+
+#TODO: fix up connections ... (why no close method, why only one retry...
 @runtime_checkable
 class FS_Protocol(Protocol):
     """

@@ -20,7 +20,8 @@ class Template(object):
 
     def __init__(self, template, key_args = None, **kwargs): # ensure idempotency with the first check
         if isinstance(template, Template): # passthrough if already a Template
-            return
+            return # why is this necessary?
+        # if a template is passed to __new__, it returns an instance of Template, therefore calling the __init__ function
         self.template = template
         if key_args:
             self.key_args = {key: "{" + key + "}" for key in key_args}
@@ -106,6 +107,9 @@ class Submit(object):
                  key_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'sockname', 'command', 'stdout', 'stderr', 'path'),
                  protected_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'sockname', 'stdout', 'stderr', 'path'),
                  **kwargs):
+
+        #key_args can be updated and formatted,
+        #protected_args can only be formatted
         self.submit_template = Template(submit_template, key_args=key_args)
         self.script_template = Template(script_template, key_args=key_args)
         self.path_template = path_template or Template(self.submit_template.template.split(' ')[-1])
@@ -276,30 +280,38 @@ echo $pid >&1
 
 _DEFAULT_PATH = Template(template="{output_path}.sh",
                          key_args={'output_dir', 'label', 'output_path'})
-_default_handles = runtk.ALL_HANDLES
+_DEFAULT_HANDLES = runtk.ALL_HANDLES
 
+_DEFAULT_KEY_ARGS = ('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'sockname', 'command', 'stdout', 'stderr', 'path')
 class SHSubmit(Submit):
-    SUBMIT_TEMPLATE = _DEFAULT_SUBMIT
-    SCRIPT_TEMPLATE = _DEFAULT_SCRIPT
-    PATH_TEMPLATE   = _DEFAULT_PATH
+    # class attributes -- can be overridden in the calling __init__
+    # or can be used via type( )
+
+    SUBMIT_TEMPLATE  = _DEFAULT_SUBMIT
+    SCRIPT_TEMPLATE  = _DEFAULT_SCRIPT
+    PATH_TEMPLATE    = _DEFAULT_PATH
+    HANDLES          = _DEFAULT_HANDLES
+    KEY_ARGS         = _DEFAULT_KEY_ARGS
 
     def __init__(self,
                  submit_template = None,
                  script_template = None,
                  handles = None,
+                 key_args = None,
                  **kwargs):
         #check for class attributes first, then passed arguments, then default values
-        submit_template = hasattr(self, 'submit_template') and self.submit_template or submit_template or _default_submit
-        script_template = hasattr(self, 'script_template') and self.script_template or script_template or _default_script
-        handles = hasattr(self, 'handles') and self.handles or handles or _default_handles
-        key_args = hasattr(self, 'key_args') and self.key_args or {}
+        submit_template = submit_template or self.__class__.SUBMIT_TEMPLATE
+        script_template = script_template or self.__class__.SCRIPT_TEMPLATE
+        handles = handles or self.__class__.HANDLES
+        key_args = key_args or self.__class__.KEY_ARGS
         super().__init__(
             submit_template = submit_template,
             script_template = script_template,
             handles = handles,
-
+            key_args = key_args,
             **kwargs
         )
+
     def set_handles(self):
         pass
 
