@@ -367,7 +367,8 @@ class QSDispatcher(SHDispatcher):
         return self.handles
 
     def check_status(self):
-        handles = self.get_handles()
+        #handles = self.get_handles() # unknown side effect: handles was none,,,
+        handles = self.handles
         submit, msgout, sglout = handles[runtk.SUBMIT], handles[runtk.MSGOUT], handles[runtk.SGLOUT]
         if not self.fs.exists(submit):
             return _Status(runtk.STATUS.NOTFOUND, None)
@@ -378,7 +379,7 @@ class QSDispatcher(SHDispatcher):
         #    return _Status(runtk.STATUS.COMPLETED, msg)
         return _Status(runtk.STATUS.COMPLETED, msg)
 
-    def create_job(self, **kwargs):
+    def create_job(self, **kwargs): # create_job should create the handles
         super().create_job(**kwargs)
         self.handles = {
             handle: _string.format(output_dir=self.output_dir, label=self.label) for handle, _string in self.handles.items()
@@ -393,6 +394,7 @@ class QSDispatcher(SHDispatcher):
         if status.status in [runtk.STATUS.PENDING, runtk.STATUS.RUNNING, runtk.STATUS.COMPLETED]:
             return status
         if status.status is runtk.STATUS.NOTFOUND:
+            self.create_job()
             proc = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
             self.job_id = proc
             return self.check_status()
@@ -553,9 +555,9 @@ class UNIXDispatcher(SOCKETDispatcher):
         self.socket = UNIXSocket(socket_name = socket_name)
         self.socket.listen()
         self.submit.create_job(label=self.label, project_dir=self.project_dir,
-                               output_dir=self.output_dir, env=self.env, sockname=socket_name, **kwargs)
+                               output_dir=self.output_dir, env=self.env, socket_name=socket_name, **kwargs)
         self.handles = {
-            handle: _string.format(socket_name=socket_name) for handle, _string in
+            handle: _string.format(socket_name=socket_name, output_dir=self.output_dir, label=self.label) for handle, _string in
             self.handles.items()
         }
 
@@ -578,7 +580,7 @@ class INETDispatcher(SOCKETDispatcher):
         self.submit.create_job(label=self.label, project_dir=self.project_dir,
                                output_dir=self.output_dir, env=self.env, socket_name=socket_name, **kwargs)
         self.handles = {
-            handle: _string.format(socket_name=socket_name) for handle, _string in
+            handle: _string.format(socket_name=socket_name, output_dir=self.output_dir, label=self.label) for handle, _string in
             self.handles.items()
         }
 
