@@ -1,7 +1,7 @@
 import ast
 from enum import Enum
 
-BATCHTK_VER = 'v0.1.2'
+BATCHTK_VER = 'v0.1.6'
 """
 ENVIRONMENT CONSTANTS
 used in creating and extracting values from the environment
@@ -59,7 +59,7 @@ HANDLES = {SUBMIT: 'runtk.SUBMIT',
 
 SOCKET_HANDLES = {SUBMIT: '{output_dir}/{label}.sh',
                   STDOUT: '{output_dir}/{label}.run',
-                  SOCKET: '{sockname}'
+                  SOCKET: '{socket_name}'
                   }
 
 FILE_HANDLES   = {SUBMIT: '{output_dir}/{label}.sh',
@@ -69,20 +69,24 @@ FILE_HANDLES   = {SUBMIT: '{output_dir}/{label}.sh',
 
 ALL_HANDLES   = {SUBMIT: '{output_dir}/{label}.sh',
                  STDOUT: '{output_dir}/{label}.run',
-                 SOCKET: '{sockname}',
+                 SOCKET: '{socket_name}',
                  MSGOUT: '{output_dir}/{label}.out',
                  SGLOUT: '{output_dir}/{label}.sgl'
                  }
 
 FILE_HANDLES_STR = """export MSGFILE="{output_dir}/{label}.out"
 export SGLFILE="{output_dir}/{label}.sgl"
-export JOBID=$$"""
-
-SOCKET_HANDLES_STR = """export SOCNAME="{sockname}"
-export JOBID=$$
 """
 
+SOCKET_HANDLES_STR = """export SOCNAME="{socket_name}"
+"""
+
+STDOUT_STR = "{output_dir}/{label}.run"
+STDERR_STR = "{output_dir}/{label}.err"
+OUTPUT_PATH_STR = "{output_dir}/{label}"
+
 #TODO eventually add other serialization options besides json
+DEFAULT_KEY_ARGS = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'output_path', 'socket_name'}
 
 SUPPORTS = { #TODO numpy handling? or binary serialization?
     'INT': int,
@@ -104,7 +108,7 @@ EXTENSIONS = { #anything that can be found in a path name to be included.
     STDOUT: r'[a-zA-Z0-9\{\}_/\.]*\.run',
     MSGOUT: r'[a-zA-Z0-9\{\}_/\.]*\.out',
     SGLOUT: r'[a-zA-Z0-9\{\}_/\.]*\.sgl', #TODO more like a lock file, would https://github.com/harlowja/fasteners be relevant?
-    SOCKET: r'(\{sockname\})',
+    SOCKET: r'(\{socket_name\})',
 } # standardize names between EXTENSIONS and ALIASES?
 
 

@@ -16,10 +16,11 @@ import subprocess
 from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
-from batchtk.header import FILE_HANDLES_STR, SOCKET_HANDLES_STR
+from batchtk.header import FILE_HANDLES_STR, SOCKET_HANDLES_STR, STDOUT_STR, STDERR_STR, OUTPUT_PATH_STR
 from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
 import warnings
 import socket
+from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
 
 class Dispatcher(object):
     """
@@ -189,7 +190,10 @@ class SHDispatcher(Dispatcher):
     """
     Extension of base Dispatcher that extends functionality to handle shell script submissions, fs, and cmd objects
     """
-    def __init__(self, submit=None, project_dir=None, output_dir=".", fs = None, cmd = None, instance_kwargs = None, **kwargs):
+
+    @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7",
+                    removal_when="0.1.9")
+    def __init__(self, submit=None, project_dir=None, output_dir=".", fs = None, cmd = None, instance_kwargs = None, handles = None, **kwargs):
         """
         initializes dispatcher
         project_dir - current directory where the relevant files to run are located.
@@ -211,8 +215,10 @@ class SHDispatcher(Dispatcher):
         self.project_dir = project_dir
         self.output_dir = create_path(project_dir, output_dir, self.fs)
         self.submit = submit
-        self.handles = None
+        self.handles = handles
         self.job_id = -1
+        self.submit.update_template('script', stdout=STDOUT_STR, stderr=STDERR_STR, output_path=OUTPUT_PATH_STR) # stdout and stderr can to be established across all dispatchers
+        # handles should be established for any custom dispatcher class...
         # create a "self.target" that contains the output_dir and label?
         #self.label = self.label
 
@@ -350,9 +356,7 @@ class QSDispatcher(SHDispatcher):
             raise ValueError("fs either not created or is not a subclass of BaseFS")
         if not hasattr(self, 'cmd') and not isinstance(self.cmd, BaseCmd):
             raise ValueError("cmd either not created or is not a subclass of BaseCmd")
-        # initialize the handles for rest of class
         self.submit.update_template('script', handles=FILE_HANDLES_STR)
-
 
     def get_handles(self):
         if not self.handles:
@@ -424,7 +428,7 @@ class SSHDispatcher(QSDispatcher):
         host - the ssh host
         cmdstr - the command to run on the remote machine
         env - any environmental variables to be inherited by the created runner
-        N.B. - project_dir is the project directory on the REMOTE machine
+        N.B. - project_dir is the absolute path to the project directory on the REMOTE machine
         """
         self.fs = None
         self.connection = None

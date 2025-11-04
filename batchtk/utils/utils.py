@@ -14,6 +14,8 @@ from warnings import warn
 from typing import Optional, Dict, List, Any
 from collections import namedtuple
 
+
+#TODO: fix up connections ... (why no close method, why only one retry...
 @runtime_checkable
 class FS_Protocol(Protocol):
     """
@@ -280,17 +282,18 @@ class CustomCmd(BaseCmd):
         self.proc = self.cmd.run(command)
         return self.cmd.run(command)
 
-class TOTPConnection(object):
+class TOTPConnection(BaseCmd):
     def __init__(self, host, key):
         import pyotp
         from fabric import Connection
+        super().__init__()
         self.totp = pyotp.TOTP(key)
         self.connection = Connection(host=host, connect_kwargs={'password': self.totp.now()})
 
     def sftp(self):
         return self.connection.sftp()
 
-    def open(self):# multithreading checks for TOTP
+    def open(self):# multithreading checks for TOTP #TODO improve this code logic ...
         from paramiko.ssh_exception import BadAuthenticationType
         orig = self.totp.now()
         while True:

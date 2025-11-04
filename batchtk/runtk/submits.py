@@ -5,6 +5,7 @@ from batchtk import runtk
 from batchtk.utils import flush_fptr
 import re
 import warnings
+from traceback import print_stack
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
 
 class Template(object):
@@ -17,9 +18,10 @@ class Template(object):
         else:
             return super().__new__(cls)
 
-    def __init__(self, template, key_args = None, **kwargs):
+    def __init__(self, template, key_args = None, **kwargs): # ensure idempotency with the first check
         if isinstance(template, Template): # passthrough if already a Template
-            return
+            return # why is this necessary?
+        # if a template is passed to __new__, it returns an instance of Template, therefore calling the __init__ function
         self.template = template
         if key_args:
             self.key_args = {key: "{" + key + "}" for key in key_args}
@@ -44,7 +46,15 @@ class Template(object):
         try:
             return self.template.format(**mkwargs)
         except KeyError as e:
-            warnings.warn(f"KeyError: {e} found when formatting template: {self.template}")
+            message = (
+                f"Warning:"
+                f"In Template.format({kwargs}): argument '{e.args}' was found in the script:"
+                f"{self.template}"
+                f"Recommend user provide '{e.args}' to Template.key_args or in kwargs."
+                f"current self.key_args:\n{self.key_args}"
+                f"see traceback:\n{print_stack(limit=5)}" # avoid recursion?
+            )
+            warnings.warn(message)
             self.key_args = {key: "{" + key + "}" for key in self.get_args()}
             mkwargs = self.key_args | kwargs
             return self.template.format(**mkwargs)
@@ -93,17 +103,23 @@ def serialize(args, var ='env', serializer ='sh'):
 _Job = namedtuple('job', 'submit script path handles')
 
 class Submit(object):
-    def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None, protected_args=('label', 'project_dir', 'output_dir', 'env', 'handles', 'sockname'), **kwargs):
-        self.submit_template = Template(submit_template)
-        self.script_template = Template(script_template)
+    def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None,
+                 key_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'command', 'stdout', 'stderr', 'path'),
+                 protected_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'stdout', 'stderr', 'path'),
+                 **kwargs):
+
+        #key_args can be updated and formatted,
+        #protected_args can only be formatted
+        self.submit_template = Template(submit_template, key_args=key_args)
+        self.script_template = Template(script_template, key_args=key_args)
         self.path_template = path_template or Template(self.submit_template.template.split(' ')[-1])
         self.key_args = self.submit_template.key_args | self.script_template.key_args | self.path_template.key_args
         self.protected_args = set(protected_args)
         handles = handles or self.create_handles() # can only call after submit and script template attributes are created.
         if not handles:#TODO need better serialization of handles # move handles logic elsewhere
             handles = self.create_handles()
-        self.handles = Template(serializers['eq'](handles),
-                                key_args=('label', 'project_dir', 'output_dir', 'sockname'))
+        self.handles = Template(serializers['eq'](handles), # maybe just pass key_args ...
+                                key_args=('label', 'project_dir', 'output_dir', 'output_path', 'socket_name'))
 
         self.templates = _Job(self.submit_template, self.script_template, self.path_template, self.handles)
         self.job = None
@@ -174,7 +190,7 @@ class Submit(object):
     def update_templates(self, **kwargs): # called from submit --
         #kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
         if self.protected_args & kwargs.keys():
-            raise KeyError("Protected args {} cannot be updated, only formatted".format(self.protected_args & kwargs.keys()))
+            raise KeyError("Protected args {} cannot be updated through Submit.update_templates(), only formatted".format(self.protected_args & kwargs.keys()))
         for template in self.templates:
             template.update(**kwargs)
         self.key_args = self.key_args | kwargs
@@ -245,41 +261,61 @@ protected args:
         else:
             return deserializers['eq'](self.handles.template)
 
-_default_submit = Template(template="sh {output_dir}/{label}.sh",
-                          key_args={'output_dir', 'label'})
+_DEFAULT_SUBMIT = Template(template="sh {output_dir}/{label}.sh",
+                           key_args={'output_dir', 'label'})
 
-_default_script = Template(
+_DEFAULT_SCRIPT = Template(
     template= \
 """\
 #!/bin/sh
 cd {project_dir}
+
+{handles}
+
 export JOBID=$$
+
 {env}
-nohup {command} > {output_dir}/{label}.run 2>&1 &
+nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1
 """,
-    key_args={'label', 'project_dir', 'output_dir', 'env', 'command'}
+    key_args={'label', 'project_dir', 'output_dir', 'socket_name', 'stdout', 'stderr', 'env', 'command', 'handles'}
 )
 
-_default_handles = runtk.ALL_HANDLES
+_DEFAULT_PATH = Template(template="{output_path}.sh",
+                         key_args={'output_dir', 'label', 'output_path'})
+_DEFAULT_HANDLES = runtk.ALL_HANDLES
 
+_DEFAULT_KEY_ARGS = ('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'command', 'stdout', 'stderr', 'path')
 class SHSubmit(Submit):
+    # class attributes -- can be overridden in the calling __init__
+    # or can be used via type( )
+
+    SUBMIT_TEMPLATE  = _DEFAULT_SUBMIT
+    SCRIPT_TEMPLATE  = _DEFAULT_SCRIPT
+    PATH_TEMPLATE    = _DEFAULT_PATH
+    HANDLES          = _DEFAULT_HANDLES
+    KEY_ARGS         = _DEFAULT_KEY_ARGS
+
     def __init__(self,
                  submit_template = None,
                  script_template = None,
                  handles = None,
+                 key_args = None,
                  **kwargs):
         #check for class attributes first, then passed arguments, then default values
-        submit_template = hasattr(self, 'submit_template') and self.submit_template or submit_template or _default_submit
-        script_template = hasattr(self, 'script_template') and self.script_template or script_template or _default_script
-        handles = hasattr(self, 'handles') and self.handles or handles or _default_handles
+        submit_template = submit_template or self.__class__.SUBMIT_TEMPLATE
+        script_template = script_template or self.__class__.SCRIPT_TEMPLATE
+        handles = handles or self.__class__.HANDLES
+        key_args = key_args or self.__class__.KEY_ARGS
         super().__init__(
             submit_template = submit_template,
             script_template = script_template,
             handles = handles,
+            key_args = key_args,
             **kwargs
         )
+
     def set_handles(self):
         pass
 
@@ -296,8 +332,8 @@ class SHSubmit(Submit):
 # reference classes used as examples and for testing.
 #TODO implement an option to autocomplete MSGFILE, SGLFILE, SOCNAME, JOBID... in submit_exports ...?
 class SHSubmitSFS(SHSubmit):
-    script_args = {'label', 'project_dir', 'output_dir', 'env', 'command'}
-    script_template = \
+    #KEY_ARGS = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
+    SCRIPT_TEMPLATE = \
         """\
 #!/bin/sh
 cd {project_dir}
@@ -305,15 +341,15 @@ cd {project_dir}
 {handles}
 
 {env}
-nohup {command} > {output_dir}/{label}.run 2>&1 &
+nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    handles = runtk.ALL_HANDLES
+    HANDLES = runtk.ALL_HANDLES
 
 class SHSubmitSOCK(SHSubmit):
-    script_args = {'label', 'project_dir', 'output_dir', 'env', 'command'}
-    script_template = \
+    #KEY_ARGS = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
+    SCRIPT_TEMPLATE = \
         """\
 #!/bin/sh
 cd {project_dir}
@@ -321,8 +357,8 @@ cd {project_dir}
 {handles}
 
 {env}
-nohup {command} > {output_dir}/{label}.run 2>&1 &
+nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    handles = runtk.ALL_HANDLES
+    HANDLES = runtk.ALL_HANDLES
