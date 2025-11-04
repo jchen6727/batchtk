@@ -28,7 +28,7 @@ class TestJOBS:
                                               env=env,
                                               label='test' + _Dispatcher.__name__ + _Submit.__name__)
         yield namedtuple('Setup', ['dispatcher', 'submit', 'env'])(dispatcher, submit, env)
-        #CLEAN_OUTPUTS(dispatcher)
+        #CLEAN_OUTPUTS(dispatcher) not good for
 
     def test_init(self, setup):
         dispatcher, env = setup.dispatcher, setup.env

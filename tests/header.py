@@ -34,6 +34,6 @@ def CLEAN_OUTPUTS(dispatcher, runner=None):
         print("cleanup, removing handles: \n{}".format('\n'.join(dispatcher.get_handles().values())))
         print("cleanup, removing output directory: \n{}".format(dispatcher.output_dir))
         dispatcher.clean(dispatcher.handles)
-    os.rmdir(dispatcher.output_dir)
+    #os.rmdir(dispatcher.output_dir)
     if runner is not None:
         runner.close()
