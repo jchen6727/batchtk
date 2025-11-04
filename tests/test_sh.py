@@ -2,7 +2,7 @@ import pytest
 import os
 from batchtk import runtk
 from batchtk.runtk.dispatchers import INETDispatcher, UNIXDispatcher
-from batchtk.runtk.submits import SHSubmitSOCK
+from batchtk.runtk.submits import SHSubmit
 #from batchtk.utils import get_port_info #TODO implement a more universal get_port_info
 import logging
 import json
@@ -11,8 +11,8 @@ from header import CLEAN_OUTPUTS, LOG_PATH, OUTPUT_PATH
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit'])
 JOBS = [
-        Job(INETDispatcher, SHSubmitSOCK),
-        Job(UNIXDispatcher, SHSubmitSOCK)
+        Job(INETDispatcher, SHSubmit),
+        Job(UNIXDispatcher, SHSubmit)
         ]
 
 logger = logging.getLogger('test')
@@ -37,7 +37,7 @@ class TestSHINET:
                                'fltvalue': 3.0})
         dispatcher.submit.update_templates(command='python runner_scripts/socket_py.py')
         yield dispatcher
-        CLEAN_OUTPUTS(dispatcher)
+        #CLEAN_OUTPUTS(dispatcher)
 
     def test_job(self, setup):
         dispatcher = setup
@@ -68,7 +68,7 @@ class TestSHINET:
         #logger.info("port info (runner connect):\n{}".format(get_port_info(dispatcher.socket.name[1])))
         #logger.info("result:\n{}".format(recv_message))
         #logger.info("port info (runner close):\n{}".format(get_port_info(dispatcher.socket.name[1])))
-        dispatcher.clean()
+        dispatcher.clean()#dispatcher.handles)
         #logger.info("port info (dispatcher close:\n{}".format(get_port_info(dispatcher.socket.name[1])))
 
 if __name__ == '__main__':
