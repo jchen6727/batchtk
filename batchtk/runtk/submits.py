@@ -104,8 +104,8 @@ _Job = namedtuple('job', 'submit script path handles')
 
 class Submit(object):
     def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None,
-                 key_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'sockname', 'command', 'stdout', 'stderr', 'path'),
-                 protected_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'sockname', 'stdout', 'stderr', 'path'),
+                 key_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'command', 'stdout', 'stderr', 'path'),
+                 protected_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'stdout', 'stderr', 'path'),
                  **kwargs):
 
         #key_args can be updated and formatted,
@@ -118,8 +118,8 @@ class Submit(object):
         handles = handles or self.create_handles() # can only call after submit and script template attributes are created.
         if not handles:#TODO need better serialization of handles # move handles logic elsewhere
             handles = self.create_handles()
-        self.handles = Template(serializers['eq'](handles),
-                                key_args=('label', 'project_dir', 'output_dir', 'sockname'))
+        self.handles = Template(serializers['eq'](handles), # maybe just pass key_args ...
+                                key_args=('label', 'project_dir', 'output_dir', 'output_path', 'socket_name'))
 
         self.templates = _Job(self.submit_template, self.script_template, self.path_template, self.handles)
         self.job = None
@@ -269,20 +269,24 @@ _DEFAULT_SCRIPT = Template(
 """\
 #!/bin/sh
 cd {project_dir}
+
+{handles}
+
 export JOBID=$$
+
 {env}
 nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1
 """,
-    key_args={'label', 'project_dir', 'output_dir', 'stdout', 'stderr', 'env', 'command'}
+    key_args={'label', 'project_dir', 'output_dir', 'socket_name', 'stdout', 'stderr', 'env', 'command', 'handles'}
 )
 
 _DEFAULT_PATH = Template(template="{output_path}.sh",
                          key_args={'output_dir', 'label', 'output_path'})
 _DEFAULT_HANDLES = runtk.ALL_HANDLES
 
-_DEFAULT_KEY_ARGS = ('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'sockname', 'command', 'stdout', 'stderr', 'path')
+_DEFAULT_KEY_ARGS = ('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'command', 'stdout', 'stderr', 'path')
 class SHSubmit(Submit):
     # class attributes -- can be overridden in the calling __init__
     # or can be used via type( )
@@ -328,8 +332,8 @@ class SHSubmit(Submit):
 # reference classes used as examples and for testing.
 #TODO implement an option to autocomplete MSGFILE, SGLFILE, SOCNAME, JOBID... in submit_exports ...?
 class SHSubmitSFS(SHSubmit):
-    key_args = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
-    script_template = \
+    #KEY_ARGS = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
+    SCRIPT_TEMPLATE = \
         """\
 #!/bin/sh
 cd {project_dir}
@@ -341,11 +345,11 @@ nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    handles = runtk.ALL_HANDLES
+    HANDLES = runtk.ALL_HANDLES
 
 class SHSubmitSOCK(SHSubmit):
-    key_args = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
-    script_template = \
+    #KEY_ARGS = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'path'}
+    SCRIPT_TEMPLATE = \
         """\
 #!/bin/sh
 cd {project_dir}
@@ -357,4 +361,4 @@ nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1
 """
-    handles = runtk.ALL_HANDLES
+    HANDLES = runtk.ALL_HANDLES

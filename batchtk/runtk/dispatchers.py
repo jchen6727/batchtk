@@ -20,6 +20,7 @@ from batchtk.header import FILE_HANDLES_STR, SOCKET_HANDLES_STR, STDOUT_STR, STD
 from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
 import warnings
 import socket
+from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
 
 class Dispatcher(object):
     """
@@ -189,7 +190,10 @@ class SHDispatcher(Dispatcher):
     """
     Extension of base Dispatcher that extends functionality to handle shell script submissions, fs, and cmd objects
     """
-    def __init__(self, submit=None, project_dir=None, output_dir=".", fs = None, cmd = None, instance_kwargs = None, **kwargs):
+
+    @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7",
+                    removal_when="0.1.9")
+    def __init__(self, submit=None, project_dir=None, output_dir=".", fs = None, cmd = None, instance_kwargs = None, handles = None, **kwargs):
         """
         initializes dispatcher
         project_dir - current directory where the relevant files to run are located.
@@ -211,7 +215,7 @@ class SHDispatcher(Dispatcher):
         self.project_dir = project_dir
         self.output_dir = create_path(project_dir, output_dir, self.fs)
         self.submit = submit
-        self.handles = None
+        self.handles = handles
         self.job_id = -1
         self.submit.update_template('script', stdout=STDOUT_STR, stderr=STDERR_STR, output_path=OUTPUT_PATH_STR) # stdout and stderr can to be established across all dispatchers
         # handles should be established for any custom dispatcher class...

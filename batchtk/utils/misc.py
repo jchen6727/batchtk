@@ -27,7 +27,7 @@ def expand_local_path(path, create_dirs=False):
     return return_path
 
 expand_path = expand_local_path # alias this for now ...
-def expand_remote_path(path, create_dirs=False, remote_connection=None):
+def expand_remote_path(path, create_dirs=False, remote_connection=None): # unstable fix
     if not isinstance(remote_connection, BaseCmd):
         raise ValueError('remote_connection must be an instance of BaseCmd, however, type({}) was provided'.format(type(remote_connection)))
     path = remote_connection.run('readlink -f -n {}'.format(path)).stdout
