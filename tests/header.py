@@ -32,8 +32,8 @@ def GET_PORT_INFO(port):
 def CLEAN_OUTPUTS(dispatcher, runner=None):
     if dispatcher.handles is not None:
         print("cleanup, removing handles: \n{}".format('\n'.join(dispatcher.get_handles().values())))
-        print("cleanup, removing output directory: \n{}".format(dispatcher.output_path))
-        dispatcher.clean('all')
-    os.rmdir(dispatcher.output_path)
+        print("cleanup, removing output directory: \n{}".format(dispatcher.output_dir))
+        dispatcher.clean(dispatcher.handles)
+    os.rmdir(dispatcher.output_dir)
     if runner is not None:
         runner.close()

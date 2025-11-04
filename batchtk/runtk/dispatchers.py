@@ -20,6 +20,7 @@ from batchtk.header import FILE_HANDLES_STR, SOCKET_HANDLES_STR, STDOUT_STR, STD
 from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
 import warnings
 import socket
+
 from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
 
 class Dispatcher(object):
@@ -193,7 +194,7 @@ class SHDispatcher(Dispatcher):
 
     @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7",
                     removal_when="0.1.9")
-    def __init__(self, submit=None, project_dir=None, output_dir=".", fs = None, cmd = None, instance_kwargs = None, handles = None, **kwargs):
+    def __init__(self, submit=None, project_dir=None, output_dir=".", fs = None, cmd = None, instance_kwargs = None, **kwargs):
         """
         initializes dispatcher
         project_dir - current directory where the relevant files to run are located.
@@ -215,7 +216,7 @@ class SHDispatcher(Dispatcher):
         self.project_dir = project_dir
         self.output_dir = create_path(project_dir, output_dir, self.fs)
         self.submit = submit
-        self.handles = handles
+        #self.handles = None # put handles in QS and Socket
         self.job_id = -1
         self.submit.update_template('script', stdout=STDOUT_STR, stderr=STDERR_STR, output_path=OUTPUT_PATH_STR) # stdout and stderr can to be established across all dispatchers
         # handles should be established for any custom dispatcher class...
@@ -261,7 +262,8 @@ class SHDispatcher(Dispatcher):
                                output_dir=self.output_dir,
                                env=self.env,
                                **kwargs)
-        self.handles = self.submit.get_handles()
+        #for handle in self.handles:
+
 
     def submit_job(self):
         """
@@ -357,6 +359,7 @@ class QSDispatcher(SHDispatcher):
         if not hasattr(self, 'cmd') and not isinstance(self.cmd, BaseCmd):
             raise ValueError("cmd either not created or is not a subclass of BaseCmd")
         self.submit.update_template('script', handles=FILE_HANDLES_STR)
+        self.handles = runtk.FILE_HANDLES
 
     def get_handles(self):
         if not self.handles:
@@ -374,6 +377,12 @@ class QSDispatcher(SHDispatcher):
         #if self.fs.exists(sglout):
         #    return _Status(runtk.STATUS.COMPLETED, msg)
         return _Status(runtk.STATUS.COMPLETED, msg)
+
+    def create_job(self, **kwargs):
+        super().create_job(**kwargs)
+        self.handles = {
+            handle: _string.format(output_dir=self.output_dir, label=self.label) for handle, _string in self.handles.items()
+        }
 
     def submit_job(self):
         """
@@ -488,7 +497,7 @@ class SOCKETDispatcher(SHDispatcher):
         self.instance_kwargs = None
         self.socket = None
         self.set_instances()
-        self.handles = None
+        self.handles = runtk.SOCKET_HANDLES
         super().__init__(**kwargs)
         self.submit.update_template('script', handles=SOCKET_HANDLES_STR)
 
@@ -545,7 +554,12 @@ class UNIXDispatcher(SOCKETDispatcher):
         self.socket.listen()
         self.submit.create_job(label=self.label, project_dir=self.project_dir,
                                output_dir=self.output_dir, env=self.env, sockname=socket_name, **kwargs)
-        self.handles = self.submit.get_handles()
+        self.handles = {
+            handle: _string.format(socket_name=socket_name) for handle, _string in
+            self.handles.items()
+        }
+
+        #self.handles = self.submit.get_handles()
         #TODO if doing stale socket handling....
         #try:
         #    os.unlink(socket_name)
@@ -562,8 +576,11 @@ class INETDispatcher(SOCKETDispatcher):
         self.socket = INETSocket()
         socket_name = self.socket.listen() # one server <-> one client
         self.submit.create_job(label=self.label, project_dir=self.project_dir,
-                               output_dir=self.output_dir, env=self.env, sockname=socket_name, **kwargs)
-        self.handles = self.submit.get_handles()
+                               output_dir=self.output_dir, env=self.env, socket_name=socket_name, **kwargs)
+        self.handles = {
+            handle: _string.format(socket_name=socket_name) for handle, _string in
+            self.handles.items()
+        }
 
 class NOFDispatcher(Dispatcher):
     """
