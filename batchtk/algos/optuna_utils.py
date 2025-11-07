@@ -5,7 +5,8 @@ from batchtk import runtk
 from batchtk.utils import SQLStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 
-from batchtk.runtk.trial import LABEL_POINTER, PATH_POINTER
+from batchtk.runtk.trial import LABEL_POINTER, DIR_POINTER
+from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
 
 from logging import Logger
 from optuna.storages import JournalStorage, JournalFileStorage
@@ -17,10 +18,11 @@ _SAMPLERS = {
     'cmaes': optuna.samplers.CmaEsSampler,
 }
 
+@deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
 def optuna_search(study_label: str = None, param_space: dict = None, metrics: dict = None,
            param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,
-           dispatcher_constructor: callable = None, project_path: str = None,
-           output_path: str = None, submit_constructor: callable = None,
+           dispatcher_constructor: callable = None, project_dir: str = None,
+           output_dir: str = None, submit_constructor: callable = None,
            algo: Optional[str] = None, algo_kwargs: Optional[dict] = None,
            seed: Optional[int] = None,
            dispatcher_kwargs: Optional[dict] = None,
@@ -40,8 +42,8 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
     num_trials: int - number of trials to run
     num_workers: int - number of trials to be run in parallel (uses multiprocessing)
     dispatcher_constructor: callable - calling function to a dispatcher class -- see dispatchers.py
-    project_path: str - path to the project directory containing the source code to be executed
-    output_path: str - path to the output directory where runtime files, results and logs will be stored
+    project_dir: str - path to the project directory containing the source code to be executed
+    output_dir: str - path to the output directory where runtime files, results and logs will be stored
     submit_constructor: callable - calling function to a submit class -- see submits.py
     algo: str - optimization algorithm to use, one of 'nsgaii', 'random', 'tspe' (defaults to tspe for single objective, nsgaii for multi-objective)
     algo_kwargs: dict - additional keyword arguments to pass to the optimization algorithm constructor
@@ -71,14 +73,14 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
         cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
         tid = "{}".format(trial.number)
         cfg['_batchtk_label_pointer'] = LABEL_POINTER
-        cfg['_batchtk_path_pointer'] = PATH_POINTER
+        cfg['_batchtk_path_pointer'] = DIR_POINTER
         data = runtk_trial(
             config=cfg,
             label=study_label,
             tid=tid,
             dispatcher_constructor=dispatcher_constructor,
-            project_path=project_path,
-            output_path=output_path,
+            project_dir=project_dir,
+            output_dir=output_dir,
             submit_constructor=submit_constructor,
             dispatcher_kwargs=dispatcher_kwargs,
             submit_kwargs=submit_kwargs,
@@ -99,7 +101,7 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
     study_name = "".join(('_' + _str for _str in (algo, seed) if _str)) # fix later.
     study_name = "{}{}".format(study_label, study_name)
     if optuna_storage is None:
-        optuna_storage = JournalStorage(JournalFileStorage("{}/{}.optuna.journal.log".format(output_path, study_name)))
+        optuna_storage = JournalStorage(JournalFileStorage("{}/{}.optuna.journal.log".format(output_dir, study_name)))
     study = optuna.create_study(directions=directions,
                                 storage=optuna_storage,
                                 load_if_exists=True,

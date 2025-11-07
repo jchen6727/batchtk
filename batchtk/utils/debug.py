@@ -1,9 +1,11 @@
-from logging import Logger, StreamHandler, FileHandler, Formatter
+from logging import Logger, StreamHandler, FileHandler, Formatter, getLogger
 from datetime import datetime
 from typing import Optional
 from sys import stdout
 from batchtk.utils import _get_obj_args
 import _io
+
+#TODO rewrite this to be a factory function rather than a class...
 #Custom ScriptLogger
 class ScriptLogger(Logger):
     def __init__(
