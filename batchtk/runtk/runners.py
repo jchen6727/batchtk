@@ -1,6 +1,7 @@
 import os
 import json
 from batchtk import runtk
+from batchtk.utils import flush_fptr
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
 import socket
 import logging
@@ -242,12 +243,17 @@ class FileRunner(Runner):
         super().__init__(**kwargs)
 
     def signal(self):
+        #pass # dummy function until another .signal is needed.
         open(self.signal_file, 'w').close()
 
-    def write(self, data, mode = 'w'):
-        with open(self.write_file, mode) as fptr:
+    def write(self, data, mode = 'w'): # change to an atomic operation on single file instead of using a signal file...
+        tmpfile = self.write_file + '.tmp'
+        with open(tmpfile, mode) as fptr:
             fptr.write(data)
-            fptr.flush()
+            flush_fptr(fptr)
+            os.fsync(fptr.fileno())
+        os.replace(tmpfile, self.write_file)
+
 
     def send(self, data, mode = 'w'):
         self.write(data, mode)

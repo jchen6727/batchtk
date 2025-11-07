@@ -13,9 +13,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 from batchtk.runtk.trial import trial as runtk_trial
 
-from batchtk.runtk.trial import LABEL_POINTER, PATH_POINTER
+from batchtk.runtk.trial import LABEL_POINTER, DIR_POINTER
 
 from logging import Logger
+
+from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
 
 _SAMPLERS = { # refer #https://github.com/CyberAgentAILab/cmaes/tree/main
     'base': cmaes.CMA,
@@ -40,11 +42,12 @@ def _xzc_to_cfg(x_names, z_names, c_names, x_vals, z_vals, c_bools, c_vals):
             cfg[name] = vals[index]
     return cfg
 
+@deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
 def cmaes_search(
     study_label: str = None, param_space: dict = None, metrics: dict = None,
     param_space_samplers = None, num_trials: int = 0, num_workers: int = None,
-    dispatcher_constructor: callable = None, project_path: str = None,
-    output_path: str = None, submit_constructor: callable = None,
+    dispatcher_constructor: callable = None, project_dir: str = None,
+    output_dir: str = None, submit_constructor: callable = None,
     algo: Optional[str] = 'base', algo_kwargs: Optional[dict] = None,
     seed: Optional[int] = None,
     dispatcher_kwargs: Optional[dict] = None,
@@ -64,8 +67,8 @@ def cmaes_search(
     num_trials: int - number of trials to run
     num_workers: int - number of trials to be run in parallel (uses multiprocessing)
     dispatcher_constructor: callable - calling function to a dispatcher class -- see dispatchers.py
-    project_path: str - path to the project directory containing the source code to be executed
-    output_path: str - path to the output directory where runtime files, results and logs will be stored
+    project_dir: str - path to the project directory containing the source code to be executed
+    output_dir: str - path to the output directory where runtime files, results and logs will be stored
     submit_constructor: callable - calling function to a submit class -- see submits.py
     algo: str - optimization algorithm to use, one of 'nsgaii', 'random', 'tspe' (defaults to tspe for single objective, nsgaii for multi-objective)
     algo_kwargs: dict - additional keyword arguments to pass to the optimization algorithm constructor
@@ -136,7 +139,7 @@ def cmaes_search(
         algo_kwargs['population_size'] = num_workers
 
     debug_log = debug_log or ScriptLogger()
-    data_storage = data_storage or SQLiteStorage(directory=output_path, filename='cmaes.sqlite.db')
+    data_storage = data_storage or SQLiteStorage(directory=output_dir, filename='cmaes.sqlite.db')
     if not isinstance(data_storage, SQLStorage):
         raise ValueError("data_storage must be a SQLStorage instance")
     # call
@@ -147,14 +150,14 @@ def cmaes_search(
 
     def eval_trial(cfg, tid):
         cfg['_batchtk_label_pointer'] = LABEL_POINTER
-        cfg['_batchtk_path_pointer'] = PATH_POINTER
+        cfg['_batchtk_path_pointer'] = DIR_POINTER
         loss = runtk_trial(
             config=cfg,
             label=study_label,
             tid=tid,
             dispatcher_constructor=dispatcher_constructor,
-            project_path=project_path,
-            output_path=output_path,
+            project_dir=project_dir,
+            output_dir=output_dir,
             submit_constructor=submit_constructor,
             dispatcher_kwargs=dispatcher_kwargs,
             submit_kwargs=submit_kwargs,
