@@ -320,7 +320,7 @@ class SHSubmit(Submit):
         pass
 
     def submit_job(self, **kwargs):
-        proc = super().submit_job()
+        proc = super().submit_job()#TODO remove this.
         try:
             self.job_id = int(proc.stdout)
         except Exception as e:
