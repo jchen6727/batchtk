@@ -8,7 +8,6 @@ import json
 import warnings
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from deprecated import deprecated
 from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
 
 _DEPRECATED = {
