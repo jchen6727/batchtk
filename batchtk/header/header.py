@@ -1,7 +1,7 @@
 import ast
 from enum import Enum
 
-BATCHTK_VER = 'v0.1.2'
+BATCHTK_VER = 'v0.1.6'
 """
 ENVIRONMENT CONSTANTS
 used in creating and extracting values from the environment
@@ -27,7 +27,7 @@ used for environment variables relevant for Dispatcher -> Runner communication
 i.e. make sure that MSGFILE, SGLFILE, SOCNAME, JOBID are assigned in the relevant Submit
 """
 MSGOUT, MSGOUT_ENV = 'write_file'  , 'MSGFILE'
-SGLOUT, SGLOUT_ENV = 'signal_file' , 'SGLFILE'
+SGLOUT, SGLOUT_ENV = 'signal_file' , 'SGLFILE' # deprecating SGLOUT and SGLOUT_ENV for atomic write operations...
 SOCKET, SOCKET_ENV = 'socket_name' , 'SOCNAME'
 JOBID ,  JOBID_ENV = 'job_id'      , 'JOBID'
 """
@@ -57,17 +57,36 @@ HANDLES = {SUBMIT: 'runtk.SUBMIT',
            SOCKET: 'runtk.SOCKET',
 }
 
-SOCKET_HANDLES = {SUBMIT: '{output_path}/{label}.sh',
-                  STDOUT: '{output_path}/{label}.run',
-                  SOCKET: '{sockname}'
+SOCKET_HANDLES = {SUBMIT: '{output_dir}/{label}.sh',
+                  STDOUT: '{output_dir}/{label}.run',
+                  SOCKET: '{socket_name}'
                   }
 
-FILE_HANDLES   = {SUBMIT: '{output_path}/{label}.sh',
-                  STDOUT: '{output_path}/{label}.run',
-                  MSGOUT: '{output_path}/{label}.out',
-                  SGLOUT: '{output_path}/{label}.sgl'}
+FILE_HANDLES   = {SUBMIT: '{output_dir}/{label}.sh',
+                  STDOUT: '{output_dir}/{label}.run',
+                  MSGOUT: '{output_dir}/{label}.out',
+                  SGLOUT: '{output_dir}/{label}.sgl'}
+
+ALL_HANDLES   = {SUBMIT: '{output_dir}/{label}.sh',
+                 STDOUT: '{output_dir}/{label}.run',
+                 SOCKET: '{socket_name}',
+                 MSGOUT: '{output_dir}/{label}.out',
+                 SGLOUT: '{output_dir}/{label}.sgl'
+                 }
+
+FILE_HANDLES_STR = """export MSGFILE="{output_dir}/{label}.out"
+export SGLFILE="{output_dir}/{label}.sgl"
+"""
+
+SOCKET_HANDLES_STR = """export SOCNAME="{socket_name}"
+"""
+
+STDOUT_STR = "{output_dir}/{label}.run"
+STDERR_STR = "{output_dir}/{label}.err"
+OUTPUT_PATH_STR = "{output_dir}/{label}"
 
 #TODO eventually add other serialization options besides json
+DEFAULT_KEY_ARGS = {'label', 'handles', 'project_dir', 'output_dir', 'env', 'command', 'stdout', 'stderr', 'output_path', 'socket_name'}
 
 SUPPORTS = { #TODO numpy handling? or binary serialization?
     'INT': int,
@@ -89,7 +108,7 @@ EXTENSIONS = { #anything that can be found in a path name to be included.
     STDOUT: r'[a-zA-Z0-9\{\}_/\.]*\.run',
     MSGOUT: r'[a-zA-Z0-9\{\}_/\.]*\.out',
     SGLOUT: r'[a-zA-Z0-9\{\}_/\.]*\.sgl', #TODO more like a lock file, would https://github.com/harlowja/fasteners be relevant?
-    SOCKET: r'(\{sockname\})',
+    SOCKET: r'(\{socket_name\})',
 } # standardize names between EXTENSIONS and ALIASES?
 
 

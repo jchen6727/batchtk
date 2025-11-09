@@ -16,9 +16,12 @@ import subprocess
 from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
+from batchtk.header import FILE_HANDLES_STR, SOCKET_HANDLES_STR, STDOUT_STR, STDERR_STR, OUTPUT_PATH_STR
 from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
 import warnings
 import socket
+
+from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
 
 class Dispatcher(object):
     """
@@ -188,11 +191,14 @@ class SHDispatcher(Dispatcher):
     """
     Extension of base Dispatcher that extends functionality to handle shell script submissions, fs, and cmd objects
     """
-    def __init__(self, submit=None, project_path=None, output_path=".", fs = None, cmd = None, instance_kwargs = None, **kwargs):
+
+    @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7",
+                    removal_when="0.1.9")
+    def __init__(self, submit=None, project_dir=None, output_dir=".", fs = None, cmd = None, instance_kwargs = None, **kwargs):
         """
         initializes dispatcher
-        project_path - current directory where the relevant files to run are located.
-        output_path  - path to output directory, can be either relative if starting with '.' or absolute if starting
+        project_dir - current directory where the relevant files to run are located.
+        output_dir  - path to output directory, can be either relative if starting with '.' or absolute if starting
                        with '/'. defaults to current directory
         submit       - Submit object (see batchtk.runk.submit)
         in **kwargs:
@@ -207,12 +213,14 @@ class SHDispatcher(Dispatcher):
             self.instance_kwargs = instance_kwargs or {} # set the kwargs to initialize any instances
             self.instance_kwargs.update({'fs': fs, 'cmd': cmd}) # provide the filesystem and command instances
             self.set_instances(**self.instance_kwargs) # set the instance attributes
-        self.project_path = project_path
-        self.output_path = create_path(project_path, output_path, self.fs)
+        self.project_dir = project_dir
+        self.output_dir = create_path(project_dir, output_dir, self.fs)
         self.submit = submit
-        self.handles = None
+        #self.handles = None # put handles in QS and Socket
         self.job_id = -1
-        # create a "self.target" that contains the output_path and label?
+        self.submit.update_template('script', stdout=STDOUT_STR, stderr=STDERR_STR, output_path=OUTPUT_PATH_STR) # stdout and stderr can to be established across all dispatchers
+        # handles should be established for any custom dispatcher class...
+        # create a "self.target" that contains the output_dir and label?
         #self.label = self.label
 
     def set_instances(self, fs, cmd, **kwargs):
@@ -250,11 +258,12 @@ class SHDispatcher(Dispatcher):
         :return:
         """
         self.submit.create_job(label=self.label,
-                               project_path=self.project_path,
-                               output_path=self.output_path,
+                               project_dir=self.project_dir,
+                               output_dir=self.output_dir,
                                env=self.env,
                                **kwargs)
-        self.handles = self.submit.get_handles()
+        #for handle in self.handles:
+
 
     def submit_job(self):
         """
@@ -349,6 +358,8 @@ class QSDispatcher(SHDispatcher):
             raise ValueError("fs either not created or is not a subclass of BaseFS")
         if not hasattr(self, 'cmd') and not isinstance(self.cmd, BaseCmd):
             raise ValueError("cmd either not created or is not a subclass of BaseCmd")
+        self.submit.update_template('script', handles=FILE_HANDLES_STR)
+        self.handles = runtk.FILE_HANDLES
 
     def get_handles(self):
         if not self.handles:
@@ -356,16 +367,23 @@ class QSDispatcher(SHDispatcher):
         return self.handles
 
     def check_status(self):
-        handles = self.get_handles()
+        #handles = self.get_handles() # unknown side effect: handles was none,,,
+        handles = self.handles
         submit, msgout, sglout = handles[runtk.SUBMIT], handles[runtk.MSGOUT], handles[runtk.SGLOUT]
         if not self.fs.exists(submit):
             return _Status(runtk.STATUS.NOTFOUND, None)
         if not self.fs.exists(msgout):
             return _Status(runtk.STATUS.PENDING, None)
         msg = self.fs.tail(msgout)
-        if self.fs.exists(sglout):
-            return _Status(runtk.STATUS.COMPLETED, msg)
-        return _Status(runtk.STATUS.RUNNING, msg)
+        #if self.fs.exists(sglout):
+        #    return _Status(runtk.STATUS.COMPLETED, msg)
+        return _Status(runtk.STATUS.COMPLETED, msg)
+
+    def create_job(self, **kwargs): # create_job should create the handles
+        super().create_job(**kwargs)
+        self.handles = {
+            handle: _string.format(output_dir=self.output_dir, label=self.label) for handle, _string in self.handles.items()
+        }
 
     def submit_job(self):
         """
@@ -376,6 +394,7 @@ class QSDispatcher(SHDispatcher):
         if status.status in [runtk.STATUS.PENDING, runtk.STATUS.RUNNING, runtk.STATUS.COMPLETED]:
             return status
         if status.status is runtk.STATUS.NOTFOUND:
+            self.create_job()
             proc = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
             self.job_id = proc
             return self.check_status()
@@ -412,22 +431,22 @@ class SSHDispatcher(QSDispatcher):
     SSH Dispatcher, for running jobs on remote machines
     uses fabric, paramiko
     """
-    def __init__(self, connection=None, fs=None, cmd=None, submit=None, project_path=None,
-                 output_path='.', env=None, label=None, **kwargs):
+    def __init__(self, connection_constructor=None, connection_kwargs=None, fs=None, cmd=None, submit=None, project_dir=None,
+                 output_dir='.', env=None, label=None, **kwargs):
         """
         Parameters
         ----------
         host - the ssh host
         cmdstr - the command to run on the remote machine
         env - any environmental variables to be inherited by the created runner
-        N.B. - project_path is the project path on the REMOTE machine
+        N.B. - project_dir is the absolute path to the project directory on the REMOTE machine
         """
         self.fs = None
         self.connection = None
         self.cmd = None
         self.instance_kwargs = None
-        self.set_instances(connection=connection, fs=fs, cmd=cmd)
-        super().__init__(submit=submit, project_path=project_path, output_path=output_path, label=label, env=env,
+        self.set_instances(connection=connection_constructor(**connection_kwargs), fs=fs, cmd=cmd)
+        super().__init__(submit=submit, project_dir=project_dir, output_dir=output_dir, label=label, env=env,
                          fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, connection=self.connection, **kwargs)
 
     def set_instances(self, connection, fs=None, cmd=None, **kwargs):
@@ -452,8 +471,8 @@ class LocalDispatcher(QSDispatcher):
     """
     SH Dispatcher, for running jobs on local machines (LocalProcCmd and LocalFS)
     """
-    def __init__(self, fs=None, cmd=None, submit=None, project_path=None,
-                 output_path='.', env=None, label=None, **kwargs):
+    def __init__(self, fs=None, cmd=None, submit=None, project_dir=None,
+                 output_dir='.', env=None, label=None, **kwargs):
         """
         Parameters
         ----------
@@ -464,7 +483,7 @@ class LocalDispatcher(QSDispatcher):
         self.cmd = None
         self.instance_kwargs = None
         self.set_instances(fs=fs, cmd=cmd)
-        super().__init__(submit=submit, project_path=project_path, output_path=output_path, label=label, env=env,
+        super().__init__(submit=submit, project_dir=project_dir, output_dir=output_dir, label=label, env=env,
                          fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, **kwargs)
 
     def set_instances(self, fs=None, cmd=None, **kwargs):
@@ -480,8 +499,9 @@ class SOCKETDispatcher(SHDispatcher):
         self.instance_kwargs = None
         self.socket = None
         self.set_instances()
-        self.handles = None
+        self.handles = runtk.SOCKET_HANDLES
         super().__init__(**kwargs)
+        self.submit.update_template('script', handles=SOCKET_HANDLES_STR)
 
     def set_instances(self, fs=None, cmd=None, **kwargs):
         _set_local_instances(self, fs=fs, cmd=cmd, **kwargs)
@@ -531,12 +551,17 @@ class UNIXDispatcher(SOCKETDispatcher):
     #TODO can we consolidate UNIXDispatcher and INETDispatcher into a single class?
     """
     def create_job(self, **kwargs):
-        socket_name = "{}/{}.s".format(self.output_path, self.label)  # the socket file
+        socket_name = "{}/{}.s".format(self.output_dir, self.label)  # the socket file
         self.socket = UNIXSocket(socket_name = socket_name)
         self.socket.listen()
-        self.submit.create_job(label=self.label, project_path=self.project_path,
-                               output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
-        self.handles = self.submit.get_handles()
+        self.submit.create_job(label=self.label, project_dir=self.project_dir,
+                               output_dir=self.output_dir, env=self.env, socket_name=socket_name, **kwargs)
+        self.handles = {
+            handle: _string.format(socket_name=socket_name, output_dir=self.output_dir, label=self.label) for handle, _string in
+            self.handles.items()
+        }
+
+        #self.handles = self.submit.get_handles()
         #TODO if doing stale socket handling....
         #try:
         #    os.unlink(socket_name)
@@ -552,9 +577,12 @@ class INETDispatcher(SOCKETDispatcher):
     def create_job(self, **kwargs):
         self.socket = INETSocket()
         socket_name = self.socket.listen() # one server <-> one client
-        self.submit.create_job(label=self.label, project_path=self.project_path,
-                               output_path=self.output_path, env=self.env, sockname=socket_name, **kwargs)
-        self.handles = self.submit.get_handles()
+        self.submit.create_job(label=self.label, project_dir=self.project_dir,
+                               output_dir=self.output_dir, env=self.env, socket_name=socket_name, **kwargs)
+        self.handles = {
+            handle: _string.format(socket_name=socket_name, output_dir=self.output_dir, label=self.label) for handle, _string in
+            self.handles.items()
+        }
 
 class NOFDispatcher(Dispatcher):
     """
