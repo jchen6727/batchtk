@@ -431,7 +431,7 @@ class SSHDispatcher(QSDispatcher):
     SSH Dispatcher, for running jobs on remote machines
     uses fabric, paramiko
     """
-    def __init__(self, connection=None, fs=None, cmd=None, submit=None, project_dir=None,
+    def __init__(self, connection_constructor=None, connection_kwargs=None, fs=None, cmd=None, submit=None, project_dir=None,
                  output_dir='.', env=None, label=None, **kwargs):
         """
         Parameters
@@ -445,7 +445,7 @@ class SSHDispatcher(QSDispatcher):
         self.connection = None
         self.cmd = None
         self.instance_kwargs = None
-        self.set_instances(connection=connection, fs=fs, cmd=cmd)
+        self.set_instances(connection=connection_constructor(**connection_kwargs), fs=fs, cmd=cmd)
         super().__init__(submit=submit, project_dir=project_dir, output_dir=output_dir, label=label, env=env,
                          fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, connection=self.connection, **kwargs)
 

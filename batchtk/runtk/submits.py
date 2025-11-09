@@ -319,12 +319,14 @@ class SHSubmit(Submit):
     def set_handles(self):
         pass
 
-    def _parse_job_id(self, proc):
+    def _parse_proc(self, proc) -> str:
         """
         [PROTECTED INTERNAL METHOD]
-        self.submit_job calls this
-        takes the string returned by submitting job:
-        (either directly via shell call or through job scheduler)
+        SHSubmit.submit_job() calls this after Submit.submit_job()
+        This internal method
+        takes the proc returned by submitting job:
+        (for instance the results of the shell call or through job scheduler)
+        and returns a job_id.
 
         any logic (i.e. parsing proc in order to tell if the job submission succeeded or failed, and raising Error)
         should also be implemented here
@@ -332,8 +334,8 @@ class SHSubmit(Submit):
         return proc
 
     def submit_job(self, **kwargs):
-        proc = super().submit_job()
-        self.job_id = self._parse_job_id(proc)
+        proc = super().submit_job(**kwargs)
+        self.job_id = self._parse_proc(proc)
         return self.job_id
 
 # reference classes used as examples and for testing.

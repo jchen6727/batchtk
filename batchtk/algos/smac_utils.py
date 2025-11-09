@@ -3,7 +3,7 @@ from typing import Optional
 import numpy, pandas
 from smac import HyperparameterOptimizationFacade, Scenario
 from batchtk import runtk
-from batchtk.utils import SQLStorage, ScriptLogger, expand_path
+from batchtk.utils import SQLStorage, SQLiteStorage, ScriptLogger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 from batchtk.runtk.trial import LABEL_POINTER, DIR_POINTER
 from logging import Logger
@@ -35,9 +35,9 @@ def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace 
            cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
            check_storage: Optional[bool] = True
 ) -> (HyperparameterOptimizationFacade, Configuration):
-    if num_workers > 1:
-        warnings.warn('smac_search implementation currently only supports single process search.')
-        num_workers = 1
+    #if num_workers > 1:
+    #    warnings.warn('smac_search implementation currently only supports single process search.')
+    #    num_workers = 1
     if isinstance(debug_log, str):
         debug_log = ScriptLogger(debug_log)
     configuration_space = None
@@ -57,7 +57,7 @@ def smac_search(study_label: str = None, param_space: dict | ConfigurationSpace 
             space= {key: param_space_samplers[i](name=key, bounds=args) for i, (key, args) in enumerate(param_space.items())}
         )
     debug_log = debug_log or ScriptLogger()
-    data_storage = data_storage or SQLStorage(directory=output_dir, filename='smac3.sqlite.db')
+    data_storage = data_storage or SQLiteStorage(directory=output_dir, filename='smac3.sqlite.db')
     if not isinstance(data_storage, SQLStorage):
         raise ValueError("data_storage must be a SQLStorage instance")
     keys, directions = zip(*metrics.items())
