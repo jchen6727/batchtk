@@ -123,10 +123,13 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         filename = filename or "{}.sqlite.db".format(label)
         self.path = "{}/{}".format(directory, filename)
         self.timeout = timeout
+
+        self.instance_kwargs = {}
         self.type_map = check_default(type_map, self._DEFAULT_TYPE_MAP)
         self.type_rules = check_default(type_rules, self._DEFAULT_TYPE_RULES)
         self.adapters = check_default(adapters, self._DEFAULT_ADAPTERS)
         self.converters = check_default(converters, self._DEFAULT_CONVERTERS)
+
         for py_type, adapter in self.adapters:
             sqlite3.register_adapter(py_type, adapter)
         for py_type, converter in self.converters:
@@ -141,6 +144,12 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         conn = self._connect(self.path, timeout=timeout)
         conn.execute("PRAGMA journal_mode=WAL")
         return conn
+
+    def set_instances(self):
+        self.type_map = check_default(type_map, self._DEFAULT_TYPE_MAP)
+        self.type_rules = check_default(type_rules, self._DEFAULT_TYPE_RULES)
+        self.adapters = check_default(adapters, self._DEFAULT_ADAPTERS)
+        self.converters = check_default(converters, self._DEFAULT_CONVERTERS)
 
     def read_schema(self):
         with self._wal_connect() as conn:

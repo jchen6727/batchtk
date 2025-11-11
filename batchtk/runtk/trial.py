@@ -38,10 +38,10 @@ def _lctf(val):
     except:
         return val
 
-@deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
+@deprecated_arg({"output_path": "output_dir", "project_path": "project_dir", "data_storage": "storage_constructor", }, deprecated_since="0.1.7", removal_when="0.1.9")
 def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: callable, project_dir: str,
-          output_dir: str, submit_constructor: callable, dispatcher_kwargs: Optional[dict] =None,
-          submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, data_storage: Optional[Storage]=None,
+          output_dir: str, submit_constructor: callable, checkpoint_dir: Optional[str] = None, dispatcher_kwargs: Optional[dict] =None,
+          submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, storage_constructor: Optional[callable]=None, storage_kwargs: Optional[dict] = None,
           debug_log: Optional[Logger|str]=None, report: Optional[list]=('path', 'config', 'data'), cleanup: Optional[bool|list|tuple] = (runtk.SGLOUT, runtk.MSGOUT), check_storage: Optional[bool]=True, **kwargs) -> pandas.Series:
     """
     Run a single trial:
@@ -76,6 +76,10 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
     for k, v in config.items(): #assign values to pointers/future values referenced in config.
         if isinstance(v, types.FunctionType):
             config[k] = v()
+    if storage_constructor:
+        storage_kwargs = storage_kwargs or {'directory': checkpoint_dir or project_dir,
+                                            'label': label}
+    data_storage = storage_constructor()
     data_storage_enabled = isinstance(data_storage, Storage)
     if check_storage:
         data = None
