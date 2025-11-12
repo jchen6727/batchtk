@@ -124,7 +124,7 @@ class SQLiteStorage(SQLStorage): #SQLiteTable...
         self.path = "{}/{}".format(directory, filename)
         self.timeout = timeout
 
-        self.instance_kwargs = {}
+        #self.instance_kwargs = {}
         self.type_map = check_default(type_map, self._DEFAULT_TYPE_MAP)
         self.type_rules = check_default(type_rules, self._DEFAULT_TYPE_RULES)
         self.adapters = check_default(adapters, self._DEFAULT_ADAPTERS)
