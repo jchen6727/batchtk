@@ -17,7 +17,7 @@ from batchtk import runtk
 from batchtk.runtk.submits import Submit
 from batchtk.runtk.sockets import INETSocket, UNIXSocket
 from batchtk.header import FILE_HANDLES_STR, SOCKET_HANDLES_STR, STDOUT_STR, STDERR_STR, OUTPUT_PATH_STR
-from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol
+from batchtk.utils import create_path, format_env, BaseFS, CustomFS, BaseCmd, CustomCmd, FS_Protocol, Cmd_Protocol, StateMixin
 import warnings
 import socket
 
@@ -187,7 +187,7 @@ def _get_obj_args(self, __class__, **kwargs):
     kwargs.update(kwargs.pop('kwargs'))
     return kwargs
 
-class SHDispatcher(Dispatcher):
+class SHDispatcher(Dispatcher, StateMixin):
     """
     Extension of base Dispatcher that extends functionality to handle shell script submissions, fs, and cmd objects
     """

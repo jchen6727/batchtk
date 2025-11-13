@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-
+from typing import Any
 class StateMixin(ABC):
     """
     A mixin for classes that manage transient state (like file handles,
@@ -44,7 +44,7 @@ class StateMixin(ABC):
                 f"{self.__class__.__name__} must define a '_state_attributes' list to use StateMixin."
             )
 
-        for attr in self._tstate_attributes:
+        for attr in self._state_attributes:
             state.pop(attr, None)
         return state
 
@@ -67,5 +67,10 @@ class StateMixin(ABC):
         # We can call it knowing it exists.
         self._recreate_state_from_config()
 
-    def _setattrs(self, attr_dict):
-        for attr, value in attr_dict.items():
+    def set_attrs(self, attrs_dict:dict[str, Any]):
+        for attr, value in attrs_dict.items():
+            if attr in getattr(self, attr, None) is not None:
+                setattr(self, attr, value)
+            else:
+                raise AttributeError(f"{self.__class__.__name__} has no attribute '{attr}'")
+
