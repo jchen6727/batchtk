@@ -192,9 +192,10 @@ class SHDispatcher(Dispatcher, StateMixin):
     Extension of base Dispatcher that extends functionality to handle shell script submissions, fs, and cmd objects
     """
 
-    @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7",
+    _state_attributes = ('fs', 'cmd')
+    @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir", "instance_kwargs": "state_config"}, deprecated_since="0.1.7",
                     removal_when="0.1.9")
-    def __init__(self, submit=None, project_dir=None, output_dir=".", fs = None, cmd = None, instance_kwargs = None, **kwargs):
+    def __init__(self, submit=None, project_dir=None, output_dir=".", fs = None, cmd = None, state_config = None, **kwargs):
         """
         initializes dispatcher
         project_dir - current directory where the relevant files to run are located.
@@ -205,14 +206,15 @@ class SHDispatcher(Dispatcher, StateMixin):
             label    - string to identify dispatcher by the created runner
             env      - dictionary of environmental variables to be passed to the created runner
         """
-        kwargs = _get_obj_args(**locals())
+        #kwargs = _get_obj_args(**locals())
         super().__init__(**kwargs)
         # check all instances are set properly
-        if not hasattr(self, 'instance_kwargs') and not hasattr(self, 'fs') and not hasattr(self, 'cmd'):
+
+        if not hasattr(self, 'state_config') and not hasattr(self, 'fs') and not hasattr(self, 'cmd'):
             self.cmd, self.fs = None, None
-            self.instance_kwargs = instance_kwargs or {} # set the kwargs to initialize any instances
-            self.instance_kwargs.update({'fs': fs, 'cmd': cmd}) # provide the filesystem and command instances
-            self.set_instances(**self.instance_kwargs) # set the instance attributes
+            self.state_config = state_config or {} # set the kwargs to initialize any instances
+            self.state_config.update({'fs': CustomFS(fs), 'cmd': CustomCmd(cmd)}) # provide the filesystem and command instances
+            self._create_state_from_config()
         self.project_dir = project_dir
         self.output_dir = create_path(project_dir, output_dir, self.fs)
         self.submit = submit
@@ -222,6 +224,15 @@ class SHDispatcher(Dispatcher, StateMixin):
         # handles should be established for any custom dispatcher class...
         # create a "self.target" that contains the output_dir and label?
         #self.label = self.label
+
+    def _create_state_from_config(self):
+        for attr in self._state_attributes:
+            val = self.state_config.get(attr)
+            if callable(val):
+                kwargs = self.state_config.get( attr + "_kwargs", {})
+                setattr(self, attr, val(**kwargs))
+            else:
+                setattr( self, attr, val)
 
     def set_instances(self, fs, cmd, **kwargs):
         """
@@ -233,20 +244,13 @@ class SHDispatcher(Dispatcher, StateMixin):
         self.fs = CustomFS(fs) #passthrough if valid BaseFS
         self.cmd = CustomCmd(cmd) #passthrough if valid BaseCmd
 
-    def unset_instances(self):
+    def close_state(self):
         """
         unsets instances
         """
         self.fs.close()
         self.cmd.close()
         self.fs, self.cmd = None, None
-
-    def reset_instances(self):
-        """
-        resets instances
-        """
-        self.unset_instances()
-        self.set_instances(**self.instance_kwargs)
 
     def create_job(self, **kwargs):
         """
@@ -354,10 +358,6 @@ class QSDispatcher(SHDispatcher):
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if not hasattr(self, 'fs') and not isinstance(self.fs, BaseFS):
-            raise ValueError("fs either not created or is not a subclass of BaseFS")
-        if not hasattr(self, 'cmd') and not isinstance(self.cmd, BaseCmd):
-            raise ValueError("cmd either not created or is not a subclass of BaseCmd")
         self.submit.update_template('script', handles=FILE_HANDLES_STR)
         self.handles = runtk.FILE_HANDLES
 
@@ -441,14 +441,15 @@ class SSHDispatcher(QSDispatcher):
         env - any environmental variables to be inherited by the created runner
         N.B. - project_dir is the absolute path to the project directory on the REMOTE machine
         """
-        self.fs = None
+        self.fs, self.cmd = None, None
         self.connection = None
-        self.cmd = None
-        self.instance_kwargs = None
+        self.state_config = None
         self.set_instances(connection=connection_constructor(**connection_kwargs), fs=fs, cmd=cmd)
         super().__init__(submit=submit, project_dir=project_dir, output_dir=output_dir, label=label, env=env,
                          fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, connection=self.connection, **kwargs)
 
+    def _create_state_from_config(self):
+        self.connection = connection_constructor
     def set_instances(self, connection, fs=None, cmd=None, **kwargs):
         from batchtk.utils import RemoteConnFS, RemoteConnCmd
         self.connection = connection

@@ -22,14 +22,14 @@ class StateMixin(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _recreate_state_from_config(self):
+    def _create_state_from_config(self):
         """
         [Abstract Method] Subclass must implement this.
 
-        This method is responsible for rebuilding the transient
+        This method is responsible for building
         attributes after deserialization or during a state reset.
-        It should use the persistent config (e.con, self.adapters_config)
-        to re-create the transient state (e.g., self.fs, self.cmd).
+        It should use the persistent config (e.con, self.state_config)
+        to re-create any transient attributes.
         """
         pass
 
@@ -51,7 +51,7 @@ class StateMixin(ABC):
     def __setstate__(self, state):
         """Restores the object after unpickling and rebuilds transient state."""
         self.__dict__.update(state)
-        self._recreate_state_from_config()
+        self._create_state_from_config()
 
     def reset_state(self):
         """
@@ -65,12 +65,15 @@ class StateMixin(ABC):
 
         # '_recreate_state_from_config' is REQUIRED.
         # We can call it knowing it exists.
-        self._recreate_state_from_config()
+        self._create_state_from_config()
 
     def set_attrs(self, attrs_dict:dict[str, Any]):
+        if not hasattr(self, '_state_attributes'):
+            raise TypeError(
+                f"{self.__class__.__name__} must define a '_state_attributes' list to use StateMixin."
+            )
         for attr, value in attrs_dict.items():
-            if attr in getattr(self, attr, None) is not None:
-                setattr(self, attr, value)
-            else:
-                raise AttributeError(f"{self.__class__.__name__} has no attribute '{attr}'")
+            if attr not in self._state_attributes:
+                raise ValueError(f"{attr} is not a valid attribute in self._state_attributes")
+            setattr(self, attr, value)
 
