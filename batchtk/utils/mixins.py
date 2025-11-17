@@ -67,7 +67,7 @@ class StateMixin(ABC):
         # We can call it knowing it exists.
         self._create_state_from_config()
 
-    def set_attrs(self, attrs_dict:dict[str, Any]):
+    def _set_attrs(self, attrs_dict:dict[str, Any]):
         if not hasattr(self, '_state_attributes'):
             raise TypeError(
                 f"{self.__class__.__name__} must define a '_state_attributes' list to use StateMixin."
@@ -77,3 +77,35 @@ class StateMixin(ABC):
                 raise ValueError(f"{attr} is not a valid attribute in self._state_attributes")
             setattr(self, attr, value)
 
+    def _create_state_from_config(self):
+        """
+        Default implementation for recreating transient state.
+
+        This method relies on two attributes being set by the subclass:
+        1. self._transient_attributes
+        2. self.state_config
+
+        This method is responsible for building
+        attributes after deserialization or during a state reset.
+        It should use the persistent config (e.con, self.state_config)
+        to re-create any transient attributes.
+        """
+
+        if not hasattr(self, '_transient_attributes'):
+            raise TypeError(f"{self.__class__.__name__} must define '_transient_attributes'.")
+        if not hasattr(self, '_state_config'):
+            raise TypeError(f"{self.__class__.__name__} must define '_state_config' in its __init__.")
+
+        for attr in self._transient_attributes:
+            # Get the value/constructor from the config
+            val = self.state_config.get(attr)
+
+            if callable(val):
+                # It's a constructor (e.g., CustomFS)
+                # Look for associated kwargs (e.g., 'fs_kwargs')
+                kwargs = self.state_config.get(f"{attr}_kwargs", {})
+                # Create the instance
+                setattr(self, attr, val(**kwargs))
+            else:
+                # It's a simple value (or None)
+                setattr(self, attr, val)
