@@ -210,10 +210,11 @@ class SHDispatcher(Dispatcher, StateMixin):
         super().__init__(**kwargs)
         # check all instances are set properly
 
-        if not hasattr(self, 'state_config') and not hasattr(self, 'fs') and not hasattr(self, 'cmd'):
+
+        if not hasattr(self, '_state_config') and not hasattr(self, 'fs') and not hasattr(self, 'cmd'):
             self.cmd, self.fs = None, None
-            self.state_config = state_config or {} # set the kwargs to initialize any instances
-            self.state_config.update({'fs': CustomFS(fs), 'cmd': CustomCmd(cmd)}) # provide the filesystem and command instances
+            self._state_config = state_config or {} # set the kwargs to initialize any instances
+            self._state_config.update({'fs': CustomFS(fs), 'cmd': CustomCmd(cmd)}) # provide the filesystem and command instances
             self._create_state_from_config()
         self.project_dir = project_dir
         self.output_dir = create_path(project_dir, output_dir, self.fs)
@@ -431,7 +432,7 @@ class SSHDispatcher(QSDispatcher):
     SSH Dispatcher, for running jobs on remote machines
     uses fabric, paramiko
     """
-    def __init__(self, connection_constructor=None, connection_kwargs=None, fs=None, cmd=None, submit=None, project_dir=None,
+    def __init__(self, connection_constructor=None, connection_kwargs=None, submit=None, project_dir=None,
                  output_dir='.', env=None, label=None, **kwargs):
         """
         Parameters
@@ -441,9 +442,12 @@ class SSHDispatcher(QSDispatcher):
         env - any environmental variables to be inherited by the created runner
         N.B. - project_dir is the absolute path to the project directory on the REMOTE machine
         """
-        self.fs, self.cmd = None, None
-        self.connection = None
-        self.state_config = None
+        # create the fs and cmd instances:
+        from batchtk.utils import RemoteConnFS, RemoteConnCmd
+        connection_kwargs = connection_kwargs or {}
+        self.connection = connection_constructor(**connection_kwargs)
+        self.fs, self.cmd = RemoteConnFS(self.connection), RemoteConnCmd(self.connection)
+        self._state_config =
         self.set_instances(connection=connection_constructor(**connection_kwargs), fs=fs, cmd=cmd)
         super().__init__(submit=submit, project_dir=project_dir, output_dir=output_dir, label=label, env=env,
                          fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, connection=self.connection, **kwargs)

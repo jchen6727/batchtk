@@ -7,6 +7,8 @@ class StateMixin(ABC):
 
     This provides a robust, fail-fast contract for serialization
     and state management.
+
+    Note -- all attributes and methods prepended with _
     """
 
     @property
@@ -21,17 +23,17 @@ class StateMixin(ABC):
         # additional RTC in __getstate__:
         raise NotImplementedError
 
+    @property
     @abstractmethod
-    def _create_state_from_config(self):
+    def _state_config(self) -> dict:
         """
-        [Abstract Method] Subclass must implement this.
-
-        This method is responsible for building
-        attributes after deserialization or during a state reset.
-        It should use the persistent config (e.con, self.state_config)
-        to re-create any transient attributes.
+        [Abstract Property] Subclass must define this as a class
+        or instance attribute. It must be a list or tuple of
+        attribute names (strings) that should not be pickled.
         """
-        pass
+        # abstract property, here to signal importance.
+        # additional RTC in __getstate__:
+        raise NotImplementedError
 
     def __getstate__(self):
         """Prepares the object for pickling by removing transient state."""
@@ -53,7 +55,7 @@ class StateMixin(ABC):
         self.__dict__.update(state)
         self._create_state_from_config()
 
-    def reset_state(self):
+    def _reset_state(self):
         """
         Public method to forcibly close and rebuild the object's
         transient state.
@@ -77,35 +79,64 @@ class StateMixin(ABC):
                 raise ValueError(f"{attr} is not a valid attribute in self._state_attributes")
             setattr(self, attr, value)
 
-    def _create_state_from_config(self):
+    def _recreate_state_from_config(self):
         """
-        Default implementation for recreating transient state.
-
-        This method relies on two attributes being set by the subclass:
-        1. self._transient_attributes
-        2. self.state_config
-
-        This method is responsible for building
-        attributes after deserialization or during a state reset.
-        It should use the persistent config (e.con, self.state_config)
-        to re-create any transient attributes.
+        Populates all transient attributes using a two-pass build
+        to support shared component references.
         """
+        if not hasattr(self, 'state_config'):
+            raise TypeError(f"{self.__class__.__name__} must define 'state_config' in its __init__.")
 
+        # This cache will hold shared instances (from _components_)
+        # AND literal values for referencing.
+        self._built_components_cache = {}
+
+        # --- Pass 1: Process Shared Components & Literals ---
+        component_specs = self.state_config.get('_components_', {})
+        for name, spec in component_specs.items():
+            # Build the component and store it in the cache
+            self._built_components_cache[name] = self._build_from_spec(spec)
+
+        # --- Pass 2: Build Transient Attributes ---
         if not hasattr(self, '_transient_attributes'):
-            raise TypeError(f"{self.__class__.__name__} must define '_transient_attributes'.")
-        if not hasattr(self, '_state_config'):
-            raise TypeError(f"{self.__class__.__name__} must define '_state_config' in its __init__.")
+            raise TypeError(...)
 
         for attr in self._transient_attributes:
-            # Get the value/constructor from the config
-            val = self.state_config.get(attr)
+            spec = self.state_config.get(attr)
+            setattr(self, attr, self._build_from_spec(spec))
 
-            if callable(val):
-                # It's a constructor (e.g., CustomFS)
-                # Look for associated kwargs (e.g., 'fs_kwargs')
-                kwargs = self.state_config.get(f"{attr}_kwargs", {})
-                # Create the instance
-                setattr(self, attr, val(**kwargs))
-            else:
-                # It's a simple value (or None)
-                setattr(self, attr, val)
+        # Clean up the cache, it's no longer needed
+        del self._built_components_cache
+
+    def _build_from_spec(self, spec: Any) -> Any:
+        """
+        Recursively builds an object from a "spec",
+        now with support for references.
+        """
+
+        # --- 1. Check for Reference ---
+        # A "reference spec" is a dict with a '_ref_' key
+        if isinstance(spec, dict) and '_ref_' in spec:
+            ref_name = spec['_ref_']
+            try:
+                # Look up the already-built instance from the cache
+                return self._built_components_cache[ref_name]
+            except KeyError:
+                raise ValueError(f"Invalid reference. Component '{ref_name}' is not defined in '_components_'.")
+
+        # --- 2. Check for Constructor ---
+        # A "build spec" is a dict containing a '_constructor_' key
+        if isinstance(spec, dict) and '_constructor_' in spec:
+            constructor = spec['_constructor_']
+            kwargs_spec = spec.get('_kwargs_', {})
+
+            final_kwargs = {}
+            for key, value_spec in kwargs_spec.items():
+                # RECURSIVE CALL
+                final_kwargs[key] = self._build_from_spec(value_spec)
+
+            return constructor(**final_kwargs)
+
+        # --- 3. Base Case: Literal Value ---
+        # The spec is a literal (e.g., a string, int, or None)
+        return spec
