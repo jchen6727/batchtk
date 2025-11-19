@@ -79,64 +79,78 @@ class StateMixin(ABC):
                 raise ValueError(f"{attr} is not a valid attribute in self._state_attributes")
             setattr(self, attr, value)
 
-    def _recreate_state_from_config(self):
+    def _create_state_from_config(self):
         """
-        Populates all transient attributes using a two-pass build
-        to support shared component references.
+        Populates all state attributes. The build order
+        is resolved lazily by _get_component.
         """
-        if not hasattr(self, 'state_config'):
+        if not hasattr(self, '_state_config'):
             raise TypeError(f"{self.__class__.__name__} must define 'state_config' in its __init__.")
-
-        # This cache will hold shared instances (from _components_)
-        # AND literal values for referencing.
-        self._built_components_cache = {}
-
-        # --- Pass 1: Process Shared Components & Literals ---
-        component_specs = self.state_config.get('_components_', {})
-        for name, spec in component_specs.items():
-            # Build the component and store it in the cache
-            self._built_components_cache[name] = self._build_from_spec(spec)
-
-        # --- Pass 2: Build Transient Attributes ---
-        if not hasattr(self, '_transient_attributes'):
+        if not hasattr(self, '_state_attributes'):
             raise TypeError(...)
 
-        for attr in self._transient_attributes:
-            spec = self.state_config.get(attr)
+        # Initialize the cache for this build cycle
+        self._component_cache = {}
+
+        # There is no "Pass 1" anymore. We just build the
+        # main attributes. Shared components will be built
+        # on-demand when they are first referenced.
+        for attr in self._state_attributes:
+            spec = self._state_config.get(attr)
             setattr(self, attr, self._build_from_spec(spec))
 
-        # Clean up the cache, it's no longer needed
-        del self._built_components_cache
+        # Clean up the cache
+        del self._component_cache
+
+    def _get_component(self, name: str) -> Any:
+        """
+        Resolves a component reference.
+
+        This is the core of the on-demand logic. It checks the cache,
+        and if the component isn't built yet, it finds its spec
+        and builds it recursively *before* returning it.
+        """
+        # 1. Check if already built and cached
+        if name in self._component_cache:
+            return self._component_cache[name]
+
+        # 2. Not in cache. Find its "spec" in the config.
+        if '_components_' not in self._state_config or \
+                name not in self._state_config['_components_']:
+            raise ValueError(f"Invalid reference. Component '{name}' is not defined in '_components_'.")
+
+        spec = self._state_config['_components_'][name]
+
+        # 3. Build it from the spec (this might trigger other
+        #    recursive calls to _get_component)
+        instance = self._build_from_spec(spec)
+
+        # 4. Cache the instance
+        self._component_cache[name] = instance
+
+        return instance
 
     def _build_from_spec(self, spec: Any) -> Any:
         """
-        Recursively builds an object from a "spec",
-        now with support for references.
+        Recursively builds an object from a "spec".
         """
 
         # --- 1. Check for Reference ---
-        # A "reference spec" is a dict with a '_ref_' key
         if isinstance(spec, dict) and '_ref_' in spec:
-            ref_name = spec['_ref_']
-            try:
-                # Look up the already-built instance from the cache
-                return self._built_components_cache[ref_name]
-            except KeyError:
-                raise ValueError(f"Invalid reference. Component '{ref_name}' is not defined in '_components_'.")
+            # Delegate to the component resolver
+            return self._get_component(spec['_ref_'])
 
         # --- 2. Check for Constructor ---
-        # A "build spec" is a dict containing a '_constructor_' key
         if isinstance(spec, dict) and '_constructor_' in spec:
             constructor = spec['_constructor_']
             kwargs_spec = spec.get('_kwargs_', {})
 
             final_kwargs = {}
             for key, value_spec in kwargs_spec.items():
-                # RECURSIVE CALL
+                # RECURSIVE CALL to build the arguments
                 final_kwargs[key] = self._build_from_spec(value_spec)
 
             return constructor(**final_kwargs)
 
         # --- 3. Base Case: Literal Value ---
-        # The spec is a literal (e.g., a string, int, or None)
         return spec

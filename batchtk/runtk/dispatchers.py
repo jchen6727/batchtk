@@ -193,9 +193,10 @@ class SHDispatcher(Dispatcher, StateMixin):
     """
 
     _state_attributes = ('fs', 'cmd')
+    _state_config = None
     @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir", "instance_kwargs": "state_config"}, deprecated_since="0.1.7",
                     removal_when="0.1.9")
-    def __init__(self, submit=None, project_dir=None, output_dir=".", fs = None, cmd = None, state_config = None, **kwargs):
+    def __init__(self, submit=None, project_dir=None, output_dir=".", state_config = None, **kwargs):
         """
         initializes dispatcher
         project_dir - current directory where the relevant files to run are located.
@@ -210,12 +211,15 @@ class SHDispatcher(Dispatcher, StateMixin):
         super().__init__(**kwargs)
         # check all instances are set properly
 
-
-        if not hasattr(self, '_state_config') and not hasattr(self, 'fs') and not hasattr(self, 'cmd'):
-            self.cmd, self.fs = None, None
-            self._state_config = state_config or {} # set the kwargs to initialize any instances
-            self._state_config.update({'fs': CustomFS(fs), 'cmd': CustomCmd(cmd)}) # provide the filesystem and command instances
-            self._create_state_from_config()
+        if not isinstance(state_config, dict):
+            raise TypeError('must provide a populated dict to state_config')
+        self._state_config = state_config
+        #if not hasattr(self, '_state_config') and not hasattr(self, 'fs') and not hasattr(self, 'cmd'):
+        #    self.cmd, self.fs = None, None
+        #    self._state_config = state_config or {} # set the kwargs to initialize any instances
+        #    self._state_config.update({'fs': CustomFS(fs), 'cmd': CustomCmd(cmd)}) # provide the filesystem and command instances
+        #    self._create_state_from_config()
+        self._create_state_from_config()
         self.project_dir = project_dir
         self.output_dir = create_path(project_dir, output_dir, self.fs)
         self.submit = submit
@@ -226,14 +230,14 @@ class SHDispatcher(Dispatcher, StateMixin):
         # create a "self.target" that contains the output_dir and label?
         #self.label = self.label
 
-    def _create_state_from_config(self):
-        for attr in self._state_attributes:
-            val = self.state_config.get(attr)
-            if callable(val):
-                kwargs = self.state_config.get( attr + "_kwargs", {})
-                setattr(self, attr, val(**kwargs))
-            else:
-                setattr( self, attr, val)
+    #def _create_state_from_config(self):
+    #    for attr in self._state_attributes:
+    #        val = self.state_config.get(attr)
+    #        if callable(val):
+    #            kwargs = self.state_config.get( attr + "_kwargs", {})
+    #            setattr(self, attr, val(**kwargs))
+    #        else:
+    #            setattr( self, attr, val)
 
     def set_instances(self, fs, cmd, **kwargs):
         """
@@ -445,21 +449,37 @@ class SSHDispatcher(QSDispatcher):
         # create the fs and cmd instances:
         from batchtk.utils import RemoteConnFS, RemoteConnCmd
         connection_kwargs = connection_kwargs or {}
-        self.connection = connection_constructor(**connection_kwargs)
-        self.fs, self.cmd = RemoteConnFS(self.connection), RemoteConnCmd(self.connection)
-        self._state_config =
-        self.set_instances(connection=connection_constructor(**connection_kwargs), fs=fs, cmd=cmd)
+        #self.connection = connection_constructor(**connection_kwargs)
+        #self.fs, self.cmd = RemoteConnFS(self.connection), RemoteConnCmd(self.connection)
+        state_config = {
+            '_components_': {
+                'connection': {
+                    '_constructor_': connection_constructor,
+                    '_kwargs_': connection_kwargs,
+                },
+            },
+            'fs': {
+                '_constructor_': RemoteConnFS,
+                '_kwargs_': {
+                    'connection': {'_ref_': 'connection'},
+                },
+            },
+            'cmd': {
+                '_constructor_': RemoteConnCmd,
+                '_kwargs_': {
+                    'connection': {'_ref_': 'connection'},
+                },
+            },
+        }
         super().__init__(submit=submit, project_dir=project_dir, output_dir=output_dir, label=label, env=env,
-                         fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, connection=self.connection, **kwargs)
+                         state_config = state_config, **kwargs)
 
-    def _create_state_from_config(self):
-        self.connection = connection_constructor
-    def set_instances(self, connection, fs=None, cmd=None, **kwargs):
-        from batchtk.utils import RemoteConnFS, RemoteConnCmd
-        self.connection = connection
-        self.fs = fs or RemoteConnFS(self.connection)
-        self.cmd = cmd or RemoteConnCmd(self.connection)
-        super().set_instances(fs=self.fs, cmd=self.cmd, connection=self.connection)
+#    def set_instances(self, connection, fs=None, cmd=None, **kwargs):
+#        from batchtk.utils import RemoteConnFS, RemoteConnCmd
+#        self.connection = connection
+#        self.fs = fs or RemoteConnFS(self.connection)
+#        self.cmd = cmd or RemoteConnCmd(self.connection)
+#        super().set_instances(fs=self.fs, cmd=self.cmd, connection=self.connection)
 
     def unset_instances(self):
         super().unset_instances()
@@ -484,6 +504,17 @@ class LocalDispatcher(QSDispatcher):
         cmdstr - the command to run on the remote machine
         env - any environmental variables to be inherited by the created runner
         """
+        state_config = {
+            'fs': {
+                '_constructor_': RemoteConnFS,
+                '_kwargs_': {
+                    'connection': {'_ref_': 'connection'},
+                },
+            },
+            'cmd': {
+                '_constructor_': RemoteConnCmd,
+            },
+        }
         self.fs = None
         self.cmd = None
         self.instance_kwargs = None
