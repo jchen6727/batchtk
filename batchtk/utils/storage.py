@@ -70,7 +70,7 @@ def check_default(val: Any, default: Any):
     return val
 
 class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
-    _state_attributes = ['']
+
     # relevant for adding columns to schema
     # serves as the initial LUT for type inference
     # any key in _DEFAULT_TYPE_MAP is considered registered --- that is
@@ -102,6 +102,8 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
         ("PBLOB", _SQLitePBLOBConverter)
     ]
 
+    _state_attributes = ['_oe', '_connect', '']
+
     def __init__(self,
                  label: str ='trials',
                  directory: str = '.',
@@ -125,10 +127,21 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
         self.timeout = timeout
 
         #self.instance_kwargs = {}
-        self.type_map = check_default(type_map, self._DEFAULT_TYPE_MAP)
-        self.type_rules = check_default(type_rules, self._DEFAULT_TYPE_RULES)
-        self.adapters = check_default(adapters, self._DEFAULT_ADAPTERS)
-        self.converters = check_default(converters, self._DEFAULT_CONVERTERS)
+        self.type_map = type_map or self._DEFAULT_TYPE_MAP
+        self.type_rules = type_rules or self._DEFAULT_TYPE_RULES
+        self.adapters = adapters or self._DEFAULT_ADAPTERS
+        self.converters = converters or self._DEFAULT_CONVERTERS
+
+        self._state_config = {
+            '_connect': sqlite3.connect,
+            '_oe': sqlite3.OperationalError,
+            'type_map': {
+                '_constructor_': self.type_map.copy
+            },
+            'type_rules': {
+                '_constructor_': self.type_rules.copy
+            },
+        }
 
         for py_type, adapter in self.adapters:
             sqlite3.register_adapter(py_type, adapter)
@@ -145,11 +158,12 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
         conn.execute("PRAGMA journal_mode=WAL")
         return conn
 
-    def set_instances(self):
-        self.type_map = check_default(type_map, self._DEFAULT_TYPE_MAP)
-        self.type_rules = check_default(type_rules, self._DEFAULT_TYPE_RULES)
-        self.adapters = check_default(adapters, self._DEFAULT_ADAPTERS)
-        self.converters = check_default(converters, self._DEFAULT_CONVERTERS)
+    def _create_state_from_config(self):
+        super()._create_state_from_config()
+        for py_type, adapter in self.adapters:
+            sqlite3.register_adapter(py_type, adapter)
+        for py_type, converter in self.converters:
+            sqlite3.register_converter(py_type, converter)
 
     def read_schema(self):
         with self._wal_connect() as conn:
