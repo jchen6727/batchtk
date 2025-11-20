@@ -3,6 +3,7 @@ import numpy
 from typing import Any
 from batchtk.utils.misc import expand_path
 from batchtk.utils.serializer import SQLiteTypeRule
+from batchtk.utils.mixins import StateMixin
 
 from collections import namedtuple
 
@@ -68,10 +69,9 @@ def check_default(val: Any, default: Any):
         return default
     return val
 
-class SQLiteStorage(SQLStorage): #SQLiteTable...
+class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
+    _state_attributes = ['']
     # relevant for adding columns to schema
-
-
     # serves as the initial LUT for type inference
     # any key in _DEFAULT_TYPE_MAP is considered registered --- that is
     # an ADAPTER is registered for that type (and a CONVERTER if necessary)

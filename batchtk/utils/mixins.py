@@ -36,10 +36,10 @@ class StateMixin(ABC):
         raise NotImplementedError
 
     def __getstate__(self):
-        """Prepares the object for pickling by removing transient state."""
+        """Prepares the object for pickling by removing transient state attributes."""
         state = self.__dict__.copy()
 
-        # We still check for _transient_attributes at runtime,
+        # We still check for _state_attributes at runtime,
         # as it's an attribute, not a method.
         if not hasattr(self, '_state_attributes'):
             raise TypeError(

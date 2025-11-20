@@ -196,7 +196,7 @@ class SHDispatcher(Dispatcher, StateMixin):
     _state_config = None
     @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir", "instance_kwargs": "state_config"}, deprecated_since="0.1.7",
                     removal_when="0.1.9")
-    def __init__(self, submit=None, project_dir=None, output_dir=".", state_config = None, **kwargs):
+    def __init__(self, label=None, submit=None, project_dir=None, output_dir=".", state_config = None, **kwargs):
         """
         initializes dispatcher
         project_dir - current directory where the relevant files to run are located.
@@ -207,47 +207,19 @@ class SHDispatcher(Dispatcher, StateMixin):
             label    - string to identify dispatcher by the created runner
             env      - dictionary of environmental variables to be passed to the created runner
         """
-        #kwargs = _get_obj_args(**locals())
+        kwargs = _get_obj_args(**locals())
         super().__init__(**kwargs)
         # check all instances are set properly
 
         if not isinstance(state_config, dict):
             raise TypeError('must provide a populated dict to state_config')
         self._state_config = state_config
-        #if not hasattr(self, '_state_config') and not hasattr(self, 'fs') and not hasattr(self, 'cmd'):
-        #    self.cmd, self.fs = None, None
-        #    self._state_config = state_config or {} # set the kwargs to initialize any instances
-        #    self._state_config.update({'fs': CustomFS(fs), 'cmd': CustomCmd(cmd)}) # provide the filesystem and command instances
-        #    self._create_state_from_config()
         self._create_state_from_config()
         self.project_dir = project_dir
         self.output_dir = create_path(project_dir, output_dir, self.fs)
         self.submit = submit
-        #self.handles = None # put handles in QS and Socket
         self.job_id = -1
         self.submit.update_template('script', stdout=STDOUT_STR, stderr=STDERR_STR, output_path=OUTPUT_PATH_STR) # stdout and stderr can to be established across all dispatchers
-        # handles should be established for any custom dispatcher class...
-        # create a "self.target" that contains the output_dir and label?
-        #self.label = self.label
-
-    #def _create_state_from_config(self):
-    #    for attr in self._state_attributes:
-    #        val = self.state_config.get(attr)
-    #        if callable(val):
-    #            kwargs = self.state_config.get( attr + "_kwargs", {})
-    #            setattr(self, attr, val(**kwargs))
-    #        else:
-    #            setattr( self, attr, val)
-
-    def set_instances(self, fs, cmd, **kwargs):
-        """
-        creates/assigns any instances to the class
-        """
-        if not hasattr(self, 'instance_kwargs'):
-            kwargs = _get_obj_args(**locals())
-            self.instance_kwargs = kwargs
-        self.fs = CustomFS(fs) #passthrough if valid BaseFS
-        self.cmd = CustomCmd(cmd) #passthrough if valid BaseCmd
 
     def close_state(self):
         """
@@ -366,13 +338,7 @@ class QSDispatcher(SHDispatcher):
         self.submit.update_template('script', handles=FILE_HANDLES_STR)
         self.handles = runtk.FILE_HANDLES
 
-    def get_handles(self):
-        if not self.handles:
-            self.create_job()
-        return self.handles
-
     def check_status(self):
-        #handles = self.get_handles() # unknown side effect: handles was none,,,
         handles = self.handles
         submit, msgout, sglout = handles[runtk.SUBMIT], handles[runtk.MSGOUT], handles[runtk.SGLOUT]
         if not self.fs.exists(submit):
@@ -416,19 +382,24 @@ class QSDispatcher(SHDispatcher):
 
     def start(self, restart=False, **kwargs):
         if restart:
-            # manually create job, then ensure call to submit.submit_job
+            # manually create job, then call to submit.submit_job
             self.create_job(**kwargs)
             self.job_id = self.submit.submit_job(fs=self.fs, cmd=self.cmd)
         else:
+            # without restart, run a check_status first
+            # then call:
+            # .submit_job() -> .create_job() -> .submit.submit_job()
             self.job_id = self.submit_job()
 
     def recv(self, interval=60, **kwargs):
         data = False
         while not data:
+            # infinite wait state until data.
             data = self.check_msg()
             if data:
                 return data
             time.sleep(interval)
+        return None
 
 
 class SSHDispatcher(QSDispatcher):
@@ -436,8 +407,8 @@ class SSHDispatcher(QSDispatcher):
     SSH Dispatcher, for running jobs on remote machines
     uses fabric, paramiko
     """
-    def __init__(self, connection_constructor=None, connection_kwargs=None, submit=None, project_dir=None,
-                 output_dir='.', env=None, label=None, **kwargs):
+    def __init__(self, label=None, connection_constructor=None, connection_kwargs=None, submit=None, project_dir=None,
+                 output_dir='.', env=None, **kwargs):
         """
         Parameters
         ----------
@@ -449,8 +420,6 @@ class SSHDispatcher(QSDispatcher):
         # create the fs and cmd instances:
         from batchtk.utils import RemoteConnFS, RemoteConnCmd
         connection_kwargs = connection_kwargs or {}
-        #self.connection = connection_constructor(**connection_kwargs)
-        #self.fs, self.cmd = RemoteConnFS(self.connection), RemoteConnCmd(self.connection)
         state_config = {
             '_components_': {
                 'connection': {
@@ -471,7 +440,7 @@ class SSHDispatcher(QSDispatcher):
                 },
             },
         }
-        super().__init__(submit=submit, project_dir=project_dir, output_dir=output_dir, label=label, env=env,
+        super().__init__(label=label, submit=submit, project_dir=project_dir, output_dir=output_dir, env=env,
                          state_config = state_config, **kwargs)
 
 #    def set_instances(self, connection, fs=None, cmd=None, **kwargs):
@@ -496,51 +465,49 @@ class LocalDispatcher(QSDispatcher):
     """
     SH Dispatcher, for running jobs on local machines (LocalProcCmd and LocalFS)
     """
-    def __init__(self, fs=None, cmd=None, submit=None, project_dir=None,
-                 output_dir='.', env=None, label=None, **kwargs):
+    def __init__(self, label=None, submit=None, project_dir=None,
+                 output_dir='.', env=None, **kwargs):
         """
         Parameters
         ----------
         cmdstr - the command to run on the remote machine
         env - any environmental variables to be inherited by the created runner
         """
+        from batchtk.utils import LocalProcCmd, LocalFS
         state_config = {
             'fs': {
-                '_constructor_': RemoteConnFS,
-                '_kwargs_': {
-                    'connection': {'_ref_': 'connection'},
-                },
+                '_constructor_': LocalFS,
             },
             'cmd': {
-                '_constructor_': RemoteConnCmd,
+                '_constructor_': LocalProcCmd,
             },
         }
-        self.fs = None
-        self.cmd = None
-        self.instance_kwargs = None
-        self.set_instances(fs=fs, cmd=cmd)
-        super().__init__(submit=submit, project_dir=project_dir, output_dir=output_dir, label=label, env=env,
-                         fs=self.fs, cmd=self.cmd, instance_kwargs=self.instance_kwargs, **kwargs)
+        super().__init__(label=label, submit=submit, project_dir=project_dir, output_dir=output_dir, env=env,
+                         state_config = state_config, **kwargs)
 
     def set_instances(self, fs=None, cmd=None, **kwargs):
         _set_local_instances(self, fs=fs, cmd=cmd, **kwargs)
 
 class SOCKETDispatcher(SHDispatcher):
     """
-    Base class for socket-based dispatchers
+    Base class for socket-based dispatchers, local file system
     """
-    def __init__(self, **kwargs):
-        self.fs = None
-        self.cmd = None
-        self.instance_kwargs = None
+    def __init__(self, label=None, submit=None, project_dir=None,
+                 output_dir='.', env=None, **kwargs):
+        from batchtk.utils import LocalProcCmd, LocalFS
         self.socket = None
-        self.set_instances()
         self.handles = runtk.SOCKET_HANDLES
-        super().__init__(**kwargs)
+        state_config = {
+            'fs': {
+                '_constructor_': LocalFS,
+            },
+            'cmd': {
+                '_constructor_': LocalProcCmd,
+            },
+        }
+        super().__init__(label=label, submit=submit, project_dir=project_dir, output_dir=output_dir, env=env,
+                         state_config = state_config, **kwargs)
         self.submit.update_template('script', handles=SOCKET_HANDLES_STR)
-
-    def set_instances(self, fs=None, cmd=None, **kwargs):
-        _set_local_instances(self, fs=fs, cmd=cmd, **kwargs)
 
     def start(self, **kwargs):
         self.create_job(**kwargs)
