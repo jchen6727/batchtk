@@ -50,11 +50,12 @@ SQLiteTypeRuleResult=namedtuple('SQLiteTypeRuleResult', ['type', 'adapter'])
 ### the bigger issue is that a TypeRuleResult must be paired with an adapter function
 def _SQLiteINTEGERRule(val: Any) -> SQLiteTypeRuleResult | None:
     """return SQLiteTypeRuleResult("INTEGER", int) for all numpy integer types. else returns None, None"""
-    return SQLiteTypeRuleResult("INTEGER", int) if isinstance(val, numpy.integer) else None, None
+    return SQLiteTypeRuleResult("INTEGER", int) if isinstance(val, numpy.integer) else None#, None
 
 def _SQLiteREALRule(val: Any) -> SQLiteTypeRuleResult | None:
-    """return SQLiteTypeRuleResult("REAL", float) for all numpy floating types. else returns None, None"""
-    return SQLiteTypeRuleResult("REAL", float) if isinstance(val, numpy.floating) else None, None
+    """return SQLiteTypeRuleResult("REAL", float) for all numpy floating types. else returns None"""
+    # returning None, None causes a tuple to be anticipated
+    return SQLiteTypeRuleResult("REAL", float) if isinstance(val, numpy.floating) else None#, None
 
 def _SQLitePBLOBAdapter(val: Any) -> memoryview:
     """serialize any object to a pickled blob."""
@@ -103,6 +104,7 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
     ]
 
     _state_attributes = ['_oe', '_connect', '']
+    _state_config = {}  # overwritten in __init__
 
     def __init__(self,
                  label: str ='trials',
@@ -142,13 +144,7 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
                 '_constructor_': self.type_rules.copy
             },
         }
-
-        for py_type, adapter in self.adapters:
-            sqlite3.register_adapter(py_type, adapter)
-        for py_type, converter in self.converters:
-            sqlite3.register_converter(py_type, converter)
-        self._connect = sqlite3.connect
-        self._oe = sqlite3.OperationalError
+        self._create_state_from_config()
         self.default_type = default_type
         self.init_db()
 
@@ -184,9 +180,10 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
         self.schema.update(schema) # add things to self.schema that are in the db
 
     def _create_db(self):
-        exec_str = "id INTEGER PRIMARY KEY AUTOINCREMENT"
-        if self.schema:
-            exec_str += "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["[{}] {}".format(k, v) for k, v in self.schema.items()]))
+        if not self.schema:
+            exec_str = "id INTEGER PRIMARY KEY AUTOINCREMENT"
+        else:
+            exec_str = "id INTEGER PRIMARY KEY AUTOINCREMENT, {}".format(','.join(["[{}] {}".format(k, v) for k, v in self.schema.items()]))
         exec_str = "CREATE TABLE IF NOT EXISTS {} ({})".format(self.label, exec_str)
         with self._wal_connect() as conn:
             cursor = conn.cursor()
@@ -197,11 +194,6 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
         if os.path.exists(self.path): # new db
             self._sync_schema()
             return
-        # fails if os.path.exists(self.path)...
-        #for _type, adapter in self.adapters:
-        #    sqlite3.register_adapter(_type, adapter)
-        #for _type, converter in self.converters:
-        #    sqlite3.register_converter(_type, converter)
         self._create_db()
 
     def insert(self, entry: dict, allow_schema_updates: bool = True):
