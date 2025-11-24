@@ -2,7 +2,7 @@ import optuna
 import pandas
 from typing import Optional
 from batchtk import runtk
-from batchtk.utils import SQLStorage, ScriptLogger, expand_path
+from batchtk.utils import SQLStorage, create_logger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 
 from batchtk.runtk.trial import LABEL_POINTER, DIR_POINTER
@@ -60,8 +60,8 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
     check_storage: bool - whether to check data_storage for existing trials and skip if found (only if data_storage is provided)
     """
     checkpoint_dir = checkpoint_dir or output_dir
-    if isinstance(debug_log, str):
-        debug_log = ScriptLogger(debug_log)
+    if isinstance(debug_log, (str, bool)):
+        debug_log = create_logger(file_out=debug_log)
     if param_space_samplers is None:
         param_space_samplers = ['suggest_float'] * len(param_space)
     else:
@@ -70,7 +70,7 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
         if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
             raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
         param_space_samplers = [ 'suggest_' + sampler for sampler in param_space_samplers]
-    debug_log = debug_log or ScriptLogger()
+    debug_log = debug_log or create_logger(file_out=False)
     keys, directions = zip(*metrics.items())
     def eval_trial(trial):
         cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}

@@ -1,7 +1,7 @@
 import types
 import pandas
 from io import StringIO
-from batchtk.utils import SQLStorage, ScriptLogger, Storage
+from batchtk.utils import SQLStorage, create_logger, Storage
 from logging import Logger
 from batchtk import runtk # handles
 import json
@@ -69,9 +69,9 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
     trial.run_label = run_label
     trial.output_dir = output_dir
     if not debug_log:
-        debug_log = ScriptLogger(file_out=False) # only use debug_log for warning level prints to console --
+        debug_log = create_logger(file_out=False) # only use debug_log for warning level prints to console --
     if isinstance(debug_log, str) or isinstance(debug_log, bool):
-        debug_log = ScriptLogger(name='batchtk', file_out=debug_log)
+        debug_log = create_logger(name='batchtk', file_out=debug_log)
     assert isinstance(debug_log, Logger)
     for k, v in config.items(): #assign values to pointers/future values referenced in config.
         if isinstance(v, types.FunctionType):

@@ -1,6 +1,6 @@
 import cmaes
 
-from batchtk.utils import SQLStorage, SQLiteStorage, ScriptLogger, expand_path
+from batchtk.utils import SQLStorage, SQLiteStorage, create_logger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 import pandas
 from typing import Optional
@@ -82,9 +82,9 @@ def cmaes_search(
     cleanup: bool | list | tuple - whether to cleanup runtime files (if bool is supplied), or a sequence of handles (runtk.SGLOUT, runtk.MSGOUT...) to cleanup upon successful trial completion
     check_storage: bool - whether to check data_storage for existing trials and skip if found (only if data_storage is provided)
     """
-    if isinstance(debug_log, str):
-        debug_log = ScriptLogger(debug_log)
-    debug_log = debug_log or ScriptLogger()
+    if isinstance(debug_log, (str, bool)):
+        debug_log = create_logger(file_out=debug_log)
+    debug_log = debug_log or create_logger(file_out=False)
 
     algo_kwargs = algo_kwargs or {}
     bounds = []
@@ -138,7 +138,7 @@ def cmaes_search(
     if num_workers is not None:
         algo_kwargs['population_size'] = num_workers
 
-    debug_log = debug_log or ScriptLogger()
+
     data_storage = data_storage or SQLiteStorage(directory=output_dir, filename='cmaes.sqlite.db')
     if not isinstance(data_storage, SQLStorage):
         raise ValueError("data_storage must be a SQLStorage instance")
