@@ -77,13 +77,13 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
     # any key in _DEFAULT_TYPE_MAP is considered registered --- that is
     # an ADAPTER is registered for that type (and a CONVERTER if necessary)
     _DEFAULT_TYPE_MAP = { # serves as the initial LUT for type inference
-        numpy.int64: "INTEGER",
-        numpy.float64: "REAL",
+        numpy.int64: SQLiteTypeRuleResult("INTEGER", int),
+        numpy.float64: SQLiteTypeRuleResult("REAL", float),
         #numpy.bool_: "INTEGER", # if numpy themselves aren't going to figure out numpy.bool or numpy.bool_ then I'm not going to support it
-        bool: "INTEGER",
-        int: "INTEGER",
-        float: "REAL",
-        str: "TEXT",
+        bool: SQLiteTypeRuleResult("INTEGER", int),
+        int: SQLiteTypeRuleResult("INTEGER", int),
+        float: SQLiteTypeRuleResult("REAL", float),
+        str: SQLiteTypeRuleResult("TEXT", str),
     }
 
     _DEFAULT_TYPE_RULES= [
@@ -117,6 +117,7 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
                  type_rules: list = None,
                  adapters: list = None,
                  converters: list = None,
+                 dynamic_schema: bool = True,
                  ):
         ## handle the serialization of numpy objects
         super().__init__()
@@ -133,7 +134,7 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
         self.type_rules = type_rules or self._DEFAULT_TYPE_RULES
         self.adapters = adapters or self._DEFAULT_ADAPTERS
         self.converters = converters or self._DEFAULT_CONVERTERS
-
+        self.dynamic_schema = dynamic_schema
         self._state_config = {
             '_connect': sqlite3.connect,
             '_oe': sqlite3.OperationalError,
@@ -156,6 +157,9 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
 
     def _create_state_from_config(self):
         super()._create_state_from_config()
+        # make sure all adapters in type_map become registered.
+        for py_type, cached in self.type_map.items():
+            sqlite3.register_adapter(py_type, cached.adapter)
         for py_type, adapter in self.adapters:
             sqlite3.register_adapter(py_type, adapter)
         for py_type, converter in self.converters:
@@ -196,15 +200,18 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
             return
         self._create_db()
 
-    def insert(self, entry: dict, allow_schema_updates: bool = True):
-
+    def insert(self, entry: dict):
+        # perform type inference
+        # needed in case of user providing type (i.e. "PBLOB" in schema) as this will not automatically be registered
+        columns = {key: self.infer_and_register_type(entry[key]) for key in entry.keys()}
         diff = entry.keys() - self.schema.keys() #unordered
-        if allow_schema_updates:
-            diff = {key: self.infer_and_register_type(entry[key]) for key in entry.keys() if key not in self.schema.keys()} #ordered
-            self.add_columns(diff)
-        # record/add/insert/save
-        if diff and not allow_schema_updates:
-            raise ValueError(f"entry keys {diff} do not exist in the db schema and allow_schema_updates set to False.")
+        if diff:
+            new_columns = {key: columns[key] for key in diff}
+            if self.dynamic_schema:
+                self.add_columns(new_columns)
+            else:
+                raise ValueError(f"Entry keys {diff} do not exist in the db schema and dynamic_schema is False.",
+                                 f" consider setting dynamic_schema=True and evaluating the db schema after insertion.")
         keys, vals = zip(*entry.items())
         exec_str = "INSERT INTO {} ([{}]) VALUES ({})".format(self.label, '],['.join(keys), ','.join(['?'] * len(vals)))
         with self._wal_connect() as conn:
@@ -212,27 +219,33 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
             cursor.execute(exec_str, vals)
             conn.commit()
 
+    def register_adapter(self, py_type: type, adapter: callable):
+        sqlite3.register_adapter(py_type, adapter)
+        self.type_map[py_type] = SQLiteTypeRuleResult()
     def infer_and_register_type(self, val: Any) -> str:
         # move out .register_adapter from here.
         val_type = type(val)
+
         # LUT first
-        inferred = self.type_map.get(val_type, None) ## essentially, if it hits on type_map, it is registered
-        if inferred: return inferred
-        # Rules next
+        cached = self.type_map.get(val_type, None) ## essentially, if it hits on type_map, it is registered
+        if cached: return cached.type
+
+        # Rules list second
         for rule in self.type_rules:
-            inferred = rule(val)
-            if inferred:
-                self.type_map[val_type] = inferred.type
-                sqlite3.register_adapter(val_type, inferred.adapter)
-                return inferred.type
-        # default (TEXT or PBLOB)
+            cached = rule(val)
+            if cached:
+                self.type_map[val_type] = SQLiteTypeRuleResult(type=cached.type, adapter=cached.adapter)
+                sqlite3.register_adapter(val_type, cached.adapter)
+                return cached.type
+
+        # fall back to default (TEXT or PBLOB)
         if self.default_type == 'TEXT':
-            self.type_map[type(val)] = "TEXT"
-            sqlite3.register_adapter(type(val), str)
+            self.type_map[val_type] = SQLiteTypeRuleResult(type="TEXT", adapter=str)
+            sqlite3.register_adapter(val_type, str)
             return 'TEXT'
         if self.default_type == 'PBLOB':
-            self.type_map[type(val)] = "PBLOB"
-            sqlite3.register_adapter(type(val), _SQLitePBLOBAdapter)
+            self.type_map[val_type] = SQLiteTypeRuleResult(type="TEXT", adapter=_SQLitePBLOBAdapter)
+            sqlite3.register_adapter(val_type, _SQLitePBLOBAdapter)
             return 'PBLOB'
         raise(RuntimeError("no type inference for {}, and default_type {} not recognized".format(val, self.default_type)))
 

@@ -112,7 +112,7 @@ class TestSQLiteStorageMultithreading:
             entries = []
             for i in range(5):
                 entry = {'base_id': thread_id * 100 + i, col_name: i * 1.5}
-                storage.insert(entry, allow_schema_updates=True)
+                storage.insert(entry)
                 entries.append(entry)
             return col_name, entries
 
@@ -161,7 +161,7 @@ class TestSQLiteStorageDatatypes:
         """Test that basic Python types are correctly inferred."""
         col_name = f'col_{type(value).__name__}'
         entry = {'id_col': 1, col_name: value}
-        storage.insert(entry, allow_schema_updates=True)
+        storage.insert(entry)
 
         schema = storage.read_schema()
         assert col_name in schema
@@ -177,7 +177,7 @@ class TestSQLiteStorageDatatypes:
         """Test that numpy types are correctly inferred via type rules."""
         col_name = f'col_{type(value).__name__}'
         entry = {'id_col': 1, col_name: value}
-        storage.insert(entry, allow_schema_updates=True)
+        storage.insert(entry)
 
         schema = storage.read_schema()
         assert col_name in schema
@@ -195,7 +195,7 @@ class TestSQLiteStorageDatatypes:
 
         for col_name, value in complex_values:
             entry = {'id_col': hash(col_name) % 10000, col_name: value}
-            storage.insert(entry, allow_schema_updates=True)
+            storage.insert(entry)
 
         schema = storage.read_schema()
         for col_name, _ in complex_values:
@@ -220,7 +220,7 @@ class TestSQLiteStorageDatatypes:
             'array_val': np.array([[1, 2], [3, 4]]),
         }
 
-        storage.insert(test_data, allow_schema_updates=True)
+        storage.insert(test_data)
         result = storage.find('trial_id', 1)
 
         assert result is not None
@@ -249,7 +249,7 @@ class TestSQLiteStorageDatatypes:
                 return f"CustomObj({self.val})"
 
         entry = {'trial_id': 1, 'custom': CustomObj(42)}
-        storage.insert(entry, allow_schema_updates=True)
+        storage.insert(entry)
 
         schema = storage.read_schema()
         assert schema['custom'] == 'TEXT'
@@ -262,7 +262,7 @@ class TestSQLiteStorageDatatypes:
 
         # Insert a numpy type that should trigger rule-based inference
         entry = {'trial_id': 1, 'np_val': np.int16(100)}
-        storage.insert(entry, allow_schema_updates=True)
+        storage.insert(entry)
 
         # type_map should have grown
         assert len(storage.type_map) > initial_type_map_size
@@ -330,7 +330,7 @@ class TestSQLiteStoragePickleSerialization:
             'str_col': 'test',
             'np_int': np.int64(42),
             'np_float': np.float64(3.14),
-        }, allow_schema_updates=True)
+        })
 
         original_type_map = storage.type_map.copy()
         original_schema = storage.schema.copy()
@@ -551,11 +551,12 @@ class TestSQLiteStorageEdgeCases:
             directory=storage_dir,
             filename='test_no_update.sqlite.db',
             schema={'known_col': 'INTEGER'},
-            timeout=30
+            timeout=30,
+            dynamic_schema=False,
         )
 
         with pytest.raises(ValueError, match="do not exist"):
-            storage.insert({'known_col': 1, 'unknown_col': 2}, allow_schema_updates=False)
+            storage.insert({'known_col': 1, 'unknown_col': 2})
 
         storage.close()
 
