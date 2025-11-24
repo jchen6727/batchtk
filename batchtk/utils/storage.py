@@ -244,7 +244,7 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
             sqlite3.register_adapter(val_type, str)
             return 'TEXT'
         if self.default_type == 'PBLOB':
-            self.type_map[val_type] = SQLiteTypeRuleResult(type="TEXT", adapter=_SQLitePBLOBAdapter)
+            self.type_map[val_type] = SQLiteTypeRuleResult(type="PBLOB", adapter=_SQLitePBLOBAdapter)
             sqlite3.register_adapter(val_type, _SQLitePBLOBAdapter)
             return 'PBLOB'
         raise(RuntimeError("no type inference for {}, and default_type {} not recognized".format(val, self.default_type)))
