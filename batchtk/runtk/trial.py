@@ -71,6 +71,7 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
     if not debug_log:
         debug_log = create_logger(file_out=False) # only use debug_log for warning level prints to console --
     if isinstance(debug_log, str) or isinstance(debug_log, bool):
+        file_out = debug_log if isinstance(debug_log, str) else 'batchtk.log'.format(time.strftime("%Y%m%d_%H%M%S"))
         debug_log = create_logger(name='batchtk', file_out=debug_log)
     assert isinstance(debug_log, Logger)
     for k, v in config.items(): #assign values to pointers/future values referenced in config.
