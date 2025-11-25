@@ -42,7 +42,7 @@ def _lctf(val):
 def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: callable, project_dir: str,
           output_dir: str, submit_constructor: callable, checkpoint_dir: Optional[str] = None, dispatcher_kwargs: Optional[dict] =None,
           submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, storage_constructor: Optional[callable]=None, storage_kwargs: Optional[dict] = None,
-          debug_log: Optional[Logger|str]=None, report: Optional[list]=('path', 'config', 'data'), cleanup: Optional[bool|list|tuple] = (runtk.SGLOUT, runtk.MSGOUT), check_storage: Optional[bool]=True, **kwargs) -> pandas.Series:
+          log_constructor: Optional[Logger|str]=None, report: Optional[list]=('path', 'config', 'data'), cleanup: Optional[bool|list|tuple] = (runtk.SGLOUT, runtk.MSGOUT), check_storage: Optional[bool]=True, **kwargs) -> pandas.Series:
     """
     Run a single trial:
     config: dict - parameter configuration for the trial (variables to be passed by the dispatcher to the receiving script)
@@ -68,7 +68,7 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
     run_label = '{}_{}'.format(label, tid)
     trial.run_label = run_label
     trial.output_dir = output_dir
-    if not debug_log:
+    if not debug_log: # if no logger provided, utilize a default one (or rather reference the "batchtk" logger)
         debug_log = create_logger(file_out=False) # only use debug_log for warning level prints to console --
     if isinstance(debug_log, str) or isinstance(debug_log, bool):
         file_out = debug_log if isinstance(debug_log, str) else 'batchtk.log'.format(time.strftime("%Y%m%d_%H%M%S"))

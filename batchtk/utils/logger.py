@@ -4,6 +4,17 @@ from typing import Optional
 from sys import stdout
 import _io
 
+def _is_configured(logger: Logger) -> bool:
+    """
+    Check if a logger is already configured.
+    """
+    return (logger.hasHandlers() or
+            logger.level != 0 or
+            (logger.parent and logger.parent.hasHandlers()))
+
+# logger.level != 0 -> uninitialized loggers have level 0
+# logger.propagate
+# logger.hasHandlers
 
 def create_logger(
         name: Optional[str] = 'batchtk',
@@ -12,18 +23,19 @@ def create_logger(
         console_level: Optional[int] = 30, # WARNING will be printed to console
         console_out: Optional[_io.TextIOWrapper] = stdout,
         format_str: Optional[str] = '%(message)s',
-        **kwargs,
         ) -> Logger:
     """
     Factory function to create a logger instance.
     """
-    logger = getLogger(name)
-    logger.setLevel(min(file_level if file_out else console_level, console_level))
 
-    # Avoid adding handlers if they already exist
-    if logger.hasHandlers():
+    logger = getLogger(name)
+    # ensure that create_logger() is idempotent
+    # do not modify an existing logger's configuration
+    if logger.hasHandlers() or logger.level != 0:
         return logger
 
+    # configure logger with our defaults...
+    logger.setLevel(min(file_level if file_out else console_level, console_level))
     handler = StreamHandler(console_out)
     handler.setLevel(console_level)
     handler.setFormatter(Formatter(format_str))
