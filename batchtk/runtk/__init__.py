@@ -1,5 +1,6 @@
 from batchtk.header import *
 from batchtk.utils import TOTPConnection, SQLiteStorage
+from fabric import Connection
 from .dispatchers import *
 from .runners import *
 from .submits import *
@@ -12,6 +13,7 @@ class ConstructorRegistry:
         self.LocalDispatcher = LocalDispatcher
         self.SHSubmit = SHSubmit
         self.TOTPConnection = TOTPConnection
+        self.Connection = Connection
         self.SQLiteStorage = SQLiteStorage
 
     def register(self, name: str, constructor_class: type):
