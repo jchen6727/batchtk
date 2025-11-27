@@ -1,5 +1,5 @@
 from batchtk.header import *
-from batchtk.utils import TOTPConnection, SQLiteStorage
+from batchtk.utils import TOTPConnection, SQLiteStorage, create_logger
 from fabric import Connection
 from .dispatchers import *
 from .runners import *
@@ -15,10 +15,11 @@ class ConstructorRegistry:
         self.TOTPConnection = TOTPConnection
         self.Connection = Connection
         self.SQLiteStorage = SQLiteStorage
+        self.BatchtkLogger = create_logger
 
     def register(self, name: str, constructor_class: type):
         if not callable(constructor_class):
-            raise TypeError("The provided 'constructor_class' must be a callable class.")
+            raise TypeError("The provided 'constructor_class' must be a callable class or a class constructor.")
 
         if hasattr(self, name):
             warn(f"Overwriting existing constructor '{name}' in this registry.")
