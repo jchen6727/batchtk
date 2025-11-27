@@ -2,8 +2,10 @@ import cmaes
 
 from batchtk.utils import SQLStorage, SQLiteStorage, create_logger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
+from batchtk.runtk import constructors
+
 import pandas
-from typing import Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from batchtk import runtk
 import numpy
 from collections import namedtuple
@@ -44,20 +46,21 @@ def _xzc_to_cfg(x_names, z_names, c_names, x_vals, z_vals, c_bools, c_vals):
 
 @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
 def cmaes_search(
+    # algo args
     study_label: str = None, param_space: dict = None, metrics: dict = None,
     param_space_samplers = None, num_trials: int = 0, num_workers: int = None,
-    dispatcher_constructor: callable = None, project_dir: str = None,
-    output_dir: str = None, submit_constructor: callable = None,
     algo: Optional[str] = 'base', algo_kwargs: Optional[dict] = None,
     seed: Optional[int] = None,
-    dispatcher_kwargs: Optional[dict] = None,
-    submit_kwargs: Optional[dict] = None, interval: Optional[int] = 60,
-    data_storage: Optional[SQLStorage] = None, optuna_storage: Optional = None,
-    debug_log: Optional[Logger | str] = None,
-    report: Optional[list] = ('path', 'config', 'data'),
+    # trial args
+    dispatcher_constructor: callable = None, project_dir: str = None,
+    output_dir: str = None, submit_constructor: callable = None,
+    checkpoint_dir: str =None, dispatcher_kwargs: Optional[dict] = None,
+    submit_kwargs : Optional[dict] = None, interval: Optional[int] = 60,
+    storage_constructor: Optional[callable] = constructors.SQLiteStorage,
+    log_constructor: Optional[callable]=constructors.BatchtkLogger,
+    log_kwargs: Optional[dict] = None, report: Optional[list] = ('path', 'config', 'data'),
     cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
-    check_storage: Optional[bool] = True
-) -> dict:
+    check_storage: Optional[bool] = True, ** kwargs) -> dict:
     """
     Perform an optimization search using CMAES.
     study_label: str - label for the study (used in storage and logging)
