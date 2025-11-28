@@ -85,9 +85,18 @@ def cmaes_search(
     cleanup: bool | list | tuple - whether to cleanup runtime files (if bool is supplied), or a sequence of handles (runtk.SGLOUT, runtk.MSGOUT...) to cleanup upon successful trial completion
     check_storage: bool - whether to check data_storage for existing trials and skip if found (only if data_storage is provided)
     """
-    if isinstance(debug_log, (str, bool)):
-        debug_log = create_logger(file_out=debug_log)
-    debug_log = debug_log or create_logger(file_out=False)
+
+    # set up debug_log first...
+    log_kwargs = log_kwargs or {'file_out': f"{project_dir}/{study_label}.log"}
+    if log_constructor:
+        try:
+            debug_log = log_constructor(**log_kwargs)
+            assert isinstance(debug_log, Logger)
+        except Exception as e:
+            raise ValueError(
+                f"log_constructor {log_constructor} must return an instance of class Logger when called with **log_kwargs {log_kwargs}, instead encountered error: {e}.")
+    else:
+        debug_log = None
 
     algo_kwargs = algo_kwargs or {}
     bounds = []
@@ -141,10 +150,6 @@ def cmaes_search(
     if num_workers is not None:
         algo_kwargs['population_size'] = num_workers
 
-
-    data_storage = data_storage or SQLiteStorage(directory=output_dir, filename='cmaes.sqlite.db')
-    if not isinstance(data_storage, SQLStorage):
-        raise ValueError("data_storage must be a SQLStorage instance")
     # call
     debug_log.warn("cmaes search with the following meta-parameters:\n{}".format(algo_kwargs))
     sampler = _SAMPLERS[algo](**algo_kwargs)
@@ -162,11 +167,13 @@ def cmaes_search(
             project_dir=project_dir,
             output_dir=output_dir,
             submit_constructor=submit_constructor,
+            checkpoint_dir=checkpoint_dir,
             dispatcher_kwargs=dispatcher_kwargs,
             submit_kwargs=submit_kwargs,
             interval=interval,
-            data_storage=data_storage,
-            debug_log=debug_log,
+            storage_constructor=storage_constructor,
+            log_constructor=log_constructor,
+            log_kwargs=log_kwargs,
             report=report,
             cleanup=cleanup,
             check_storage=check_storage

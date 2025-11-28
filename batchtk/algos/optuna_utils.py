@@ -19,20 +19,23 @@ _SAMPLERS = {
 }
 
 @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
-def optuna_search(study_label: str = None, param_space: dict = None, metrics: dict = None,
-           param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,
-           dispatcher_constructor: callable = None, project_dir: str = None,
-           output_dir: str = None, checkpoint_dir: str = None,
-           submit_constructor: callable = None,
-           algo: Optional[str] = None, algo_kwargs: Optional[dict] = None,
-           seed: Optional[int] = None,
-           dispatcher_kwargs: Optional[dict] = None,
-           submit_kwargs: Optional[dict] = None, interval: Optional[int] = 60,
-           data_storage: Optional[SQLStorage] = None, optuna_storage: Optional = None,
-           debug_log: Optional[Logger | str] = None,
-           report: Optional[list] = ('path', 'config', 'data'),
-           cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
-           check_storage: Optional[bool] = True
+def optuna_search(
+    # algo args
+    study_label: str = None, param_space: dict = None, metrics: dict = None,
+    param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,
+
+    dispatcher_constructor: callable = None, project_dir: str = None,
+    output_dir: str = None, checkpoint_dir: Optional[str] = None,
+    submit_constructor: callable = None,
+    algo: Optional[str] = None, algo_kwargs: Optional[dict] = None,
+    seed: Optional[int] = None,
+    dispatcher_kwargs: Optional[dict] = None,
+    submit_kwargs: Optional[dict] = None, interval: Optional[int] = 60,
+    data_storage: Optional[SQLStorage] = None, optuna_storage: Optional = None,
+    debug_log: Optional[Logger | str] = None,
+    report: Optional[list] = ('path', 'config', 'data'),
+    cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
+    check_storage: Optional[bool] = True
 ) -> pandas.DataFrame:
     """
     Perform an optimization search using Optuna.

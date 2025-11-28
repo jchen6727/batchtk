@@ -73,23 +73,30 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
     dispatcher_kwargs = dispatcher_kwargs or {}
     submit_kwargs = submit_kwargs or {}
     log_kwargs = log_kwargs or {'file_out': f"{project_dir}/{label}.log",}
-    storage_kwargs = storage_kwargs or {'directory': checkpoint_dir or project_dir,
+    storage_kwargs = storage_kwargs or {'directory': checkpoint_dir or output_dir,
                                         'label': label}
 
     # instantiate from various constructors, may populate relevant instance variables as None:
     submit = submit_constructor()
     if not isinstance(submit, runtk.Submit):
         raise ValueError("submit_constructor must return an instance of class Submit when called, instead got: {}".format(type(submit)))
+
     if log_constructor:
-        debug_log = log_constructor(**log_kwargs)
-        if not isinstance(debug_log, Logger):
-            raise ValueError("log_constructor must return an instance of class Logger when called, instead got: {}".format(type(debug_log)))
+        try:
+            debug_log = log_constructor(**log_kwargs)
+            assert isinstance(debug_log, Logger)
+        except Exception as e:
+            raise ValueError(
+                f"log_constructor {log_constructor} must return an instance of class Logger when called with **log_kwargs {log_kwargs}, instead encountered error: {e}.")
     else:
-        raise ValueError("log_constructor must be provided to create a debug_log instance.")
+        debug_log = None
+
     if storage_constructor:
-        data_storage = storage_constructor(**storage_kwargs)
-        if not isinstance(data_storage, Storage):
-            raise ValueError("storage_constructor must return an instance of class Storage when called, instead got: {}".format(type(data_storage)))
+        try:
+            data_storage = storage_constructor(**storage_kwargs)
+            assert isinstance(data_storage, Storage)
+        except Exception as e:
+            raise ValueError(f"storage_constructor {storage_constructor} must return an instance of class Storage when called with **storage_kwargs {storage_kwargs}, instead encountered error: {e}")
     else:
         data_storage = None
 
