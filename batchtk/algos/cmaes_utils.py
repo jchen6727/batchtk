@@ -96,7 +96,7 @@ def cmaes_search(
             raise ValueError(
                 f"log_constructor {log_constructor} must return an instance of class Logger when called with **log_kwargs {log_kwargs}, instead encountered error: {e}.")
     else:
-        debug_log = None
+        raise ValueError(f"log_constructor must be provided for cmaes_search to set up debug_log.")
 
     algo_kwargs = algo_kwargs or {}
     bounds = []
@@ -159,7 +159,7 @@ def cmaes_search(
     def eval_trial(cfg, tid):
         cfg['_batchtk_label_pointer'] = LABEL_POINTER
         cfg['_batchtk_path_pointer'] = DIR_POINTER
-        loss = runtk_trial(
+        algo = runtk_trial(
             config=cfg,
             label=study_label,
             tid=tid,
@@ -178,7 +178,7 @@ def cmaes_search(
             cleanup=cleanup,
             check_storage=check_storage
         )
-        return float(loss[key])
+        return float(loss[key]) #NOTE CMA-ES ONLY SUPPORTS SINGLE OBJECTIVE, MINIMIZATION.
     gens_summary = {}
     best = (None, numpy.inf)
     for gen in range(num_generations):

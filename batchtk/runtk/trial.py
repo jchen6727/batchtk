@@ -89,7 +89,7 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
             raise ValueError(
                 f"log_constructor {log_constructor} must return an instance of class Logger when called with **log_kwargs {log_kwargs}, instead encountered error: {e}.")
     else:
-        debug_log = None
+        raise ValueError(f"log_constructor must be provided for cmaes_search to set up debug_log.")
 
     if storage_constructor:
         try:
