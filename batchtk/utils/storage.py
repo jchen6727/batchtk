@@ -304,11 +304,3 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
 
     def close(self):
         pass
-
-
-"""
-What is a round-trip()
-serialization and deserialization
-"""
-
-# 100 lines of code for the predictable API --

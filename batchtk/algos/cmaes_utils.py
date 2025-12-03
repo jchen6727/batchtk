@@ -1,9 +1,11 @@
 import cmaes
 
-from batchtk.utils import SQLStorage, SQLiteStorage, ScriptLogger, expand_path
+from batchtk.utils import SQLStorage, SQLiteStorage, create_logger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
+from batchtk.runtk import constructors
+
 import pandas
-from typing import Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from batchtk import runtk
 import numpy
 from collections import namedtuple
@@ -28,13 +30,13 @@ _futuretuple = namedtuple('FutureTuple', ['id', 'future', 'vals', 'cfg'])
 
 def _xzc_to_cfg(x_names, z_names, c_names, x_vals, z_vals, c_bools, c_vals):
     cfg = {}
-    if x_vals is not None:
+    if x_vals is not None and len(x_vals) > 0: # returns numpy arrays, so len()
         for name, val in zip(x_names, x_vals):
             cfg[name] = val
-    if z_vals is not None:
+    if z_vals is not None and len(z_vals) > 0:
         for name, val in zip(z_names, z_vals):
             cfg[name] = val
-    if c_vals is not None:
+    if c_vals is not None and len(c_vals) > 0:
         for name, bools, vals in zip(c_names, c_bools, c_vals):
             #final = [val if _bool else None for val, _bool in zip(vals, onehot)]
             # but onehot through numpy cleaner---
@@ -44,20 +46,22 @@ def _xzc_to_cfg(x_names, z_names, c_names, x_vals, z_vals, c_bools, c_vals):
 
 @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
 def cmaes_search(
+    # algo args
     study_label: str = None, param_space: dict = None, metrics: dict = None,
     param_space_samplers = None, num_trials: int = 0, num_workers: int = None,
-    dispatcher_constructor: callable = None, project_dir: str = None,
-    output_dir: str = None, submit_constructor: callable = None,
     algo: Optional[str] = 'base', algo_kwargs: Optional[dict] = None,
     seed: Optional[int] = None,
-    dispatcher_kwargs: Optional[dict] = None,
-    submit_kwargs: Optional[dict] = None, interval: Optional[int] = 60,
-    data_storage: Optional[SQLStorage] = None, optuna_storage: Optional = None,
-    debug_log: Optional[Logger | str] = None,
-    report: Optional[list] = ('path', 'config', 'data'),
+    # trial args
+    dispatcher_constructor: callable = None, project_dir: str = None,
+    output_dir: str = None, submit_constructor: callable = None,
+    checkpoint_dir: str =None, dispatcher_kwargs: Optional[dict] = None,
+    submit_kwargs : Optional[dict] = None, interval: Optional[int] = 60,
+    storage_constructor: Optional[callable] = constructors.SQLiteStorage,
+    storage_kwargs: Optional[dict] = None,
+    log_constructor: Optional[callable]=constructors.BatchtkLogger,
+    log_kwargs: Optional[dict] = None, report: Optional[list] = ('path', 'config', 'data'),
     cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
-    check_storage: Optional[bool] = True
-) -> dict:
+    check_storage: Optional[bool] = True, ** kwargs) -> dict:
     """
     Perform an optimization search using CMAES.
     study_label: str - label for the study (used in storage and logging)
@@ -82,9 +86,18 @@ def cmaes_search(
     cleanup: bool | list | tuple - whether to cleanup runtime files (if bool is supplied), or a sequence of handles (runtk.SGLOUT, runtk.MSGOUT...) to cleanup upon successful trial completion
     check_storage: bool - whether to check data_storage for existing trials and skip if found (only if data_storage is provided)
     """
-    if isinstance(debug_log, str):
-        debug_log = ScriptLogger(debug_log)
-    debug_log = debug_log or ScriptLogger()
+    checkpoint_dir = checkpoint_dir or output_dir
+    # set up debug_log first...
+    log_kwargs = log_kwargs or {'file_out': f"{checkpoint_dir}/{study_label}.log"}
+    if log_constructor:
+        try:
+            debug_log = log_constructor(**log_kwargs)
+            assert isinstance(debug_log, Logger)
+        except Exception as e:
+            raise ValueError(
+                f"log_constructor {log_constructor} must return an instance of class Logger when called with **log_kwargs {log_kwargs}, instead encountered error: {e}.")
+    else:
+        raise ValueError(f"log_constructor must be provided for cmaes_search to set up debug_log.")
 
     algo_kwargs = algo_kwargs or {}
     bounds = []
@@ -138,10 +151,6 @@ def cmaes_search(
     if num_workers is not None:
         algo_kwargs['population_size'] = num_workers
 
-    debug_log = debug_log or ScriptLogger()
-    data_storage = data_storage or SQLiteStorage(directory=output_dir, filename='cmaes.sqlite.db')
-    if not isinstance(data_storage, SQLStorage):
-        raise ValueError("data_storage must be a SQLStorage instance")
     # call
     debug_log.warn("cmaes search with the following meta-parameters:\n{}".format(algo_kwargs))
     sampler = _SAMPLERS[algo](**algo_kwargs)
@@ -159,16 +168,18 @@ def cmaes_search(
             project_dir=project_dir,
             output_dir=output_dir,
             submit_constructor=submit_constructor,
+            checkpoint_dir=checkpoint_dir,
             dispatcher_kwargs=dispatcher_kwargs,
             submit_kwargs=submit_kwargs,
             interval=interval,
-            data_storage=data_storage,
-            debug_log=debug_log,
+            storage_constructor=storage_constructor,
+            log_constructor=log_constructor,
+            log_kwargs=log_kwargs,
             report=report,
             cleanup=cleanup,
             check_storage=check_storage
         )
-        return float(loss[key])
+        return float(loss[key]) #NOTE CMA-ES ONLY SUPPORTS SINGLE OBJECTIVE, MINIMIZATION.
     gens_summary = {}
     best = (None, numpy.inf)
     for gen in range(num_generations):

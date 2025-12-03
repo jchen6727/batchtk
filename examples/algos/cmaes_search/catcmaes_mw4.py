@@ -20,11 +20,13 @@ results = cmaes_search(
     submit_constructor=SHSubmitSFS,
     submit_kwargs={'command': 'python ../functions/mw4.py'},  # normal run
     interval=3,
-    project_path='.',
-    output_path=expand_path('./optimization', create_dirs=True),
+    project_dir='.',
+    output_dir=expand_path('./optimization', create_dirs=True),
+    checkpoint_dir=expand_path('./checkpoint_mw4', create_dirs=True),
 )
 
 with open('mw4_results.txt', 'w') as f:
     f.write(str(results))
 
 print(results)
+

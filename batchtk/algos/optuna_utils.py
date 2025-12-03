@@ -2,9 +2,10 @@ import optuna
 import pandas
 from typing import Optional
 from batchtk import runtk
-from batchtk.utils import SQLStorage, ScriptLogger, expand_path
+from batchtk.utils import SQLStorage, create_logger, expand_path
 from batchtk.runtk.trial import trial as runtk_trial
 
+from batchtk.runtk import constructors
 from batchtk.runtk.trial import LABEL_POINTER, DIR_POINTER
 from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
 
@@ -19,21 +20,24 @@ _SAMPLERS = {
 }
 
 @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
-def optuna_search(study_label: str = None, param_space: dict = None, metrics: dict = None,
-           param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,
-           dispatcher_constructor: callable = None, project_dir: str = None,
-           output_dir: str = None, checkpoint_dir: str = None,
-           submit_constructor: callable = None,
-           algo: Optional[str] = None, algo_kwargs: Optional[dict] = None,
-           seed: Optional[int] = None,
-           dispatcher_kwargs: Optional[dict] = None,
-           submit_kwargs: Optional[dict] = None, interval: Optional[int] = 60,
-           data_storage: Optional[SQLStorage] = None, optuna_storage: Optional = None,
-           debug_log: Optional[Logger | str] = None,
-           report: Optional[list] = ('path', 'config', 'data'),
-           cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
-           check_storage: Optional[bool] = True
-) -> pandas.DataFrame:
+def optuna_search(
+    # algo args
+    study_label: str = None, param_space: dict = None, metrics: dict = None,
+    param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,
+    algo: Optional[str] = None, algo_kwargs: Optional[dict] = None,
+    seed: Optional[int] = None, optuna_storage: Optional = None,
+
+    # trial args
+    dispatcher_constructor: callable = None, project_dir: str = None,
+    output_dir: str = None, submit_constructor: callable = None,
+    checkpoint_dir: str = None, dispatcher_kwargs: Optional[dict] = None,
+    submit_kwargs: Optional[dict] = None, interval: Optional[int] = 60,
+    storage_constructor: Optional[callable] = constructors.SQLiteStorage,
+    storage_kwargs: Optional[dict] = None,
+    log_constructor: Optional[callable] = constructors.BatchtkLogger,
+    log_kwargs: Optional[dict] = None, report: Optional[list] = ('path', 'config', 'data'),
+    cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
+    check_storage: Optional[bool] = True, **kwargs) -> pandas.DataFrame:
     """
     Perform an optimization search using Optuna.
     study_label: str - label for the study (used in storage and logging)
@@ -59,9 +63,20 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
     cleanup: bool | list | tuple - whether to cleanup runtime files (if bool is supplied), or a sequence of handles (runtk.SGLOUT, runtk.MSGOUT...) to cleanup upon successful trial completion
     check_storage: bool - whether to check data_storage for existing trials and skip if found (only if data_storage is provided)
     """
+
+    # set up debug_log first...
     checkpoint_dir = checkpoint_dir or output_dir
-    if isinstance(debug_log, str):
-        debug_log = ScriptLogger(debug_log)
+    log_kwargs = log_kwargs or {'file_out': f"{project_dir}/{study_label}.log"}
+    if log_constructor:
+        try:
+            debug_log = log_constructor(**log_kwargs)
+            assert isinstance(debug_log, Logger)
+        except Exception as e:
+            raise ValueError(
+                f"log_constructor {log_constructor} must return an instance of class Logger when called with **log_kwargs {log_kwargs}, instead encountered error: {e}.")
+    else:
+        raise ValueError(f"log_constructor must be provided for cmaes_search to set up debug_log.")
+
     if param_space_samplers is None:
         param_space_samplers = ['suggest_float'] * len(param_space)
     else:
@@ -70,7 +85,7 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
         if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
             raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
         param_space_samplers = [ 'suggest_' + sampler for sampler in param_space_samplers]
-    debug_log = debug_log or ScriptLogger()
+
     keys, directions = zip(*metrics.items())
     def eval_trial(trial):
         cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
@@ -85,17 +100,19 @@ def optuna_search(study_label: str = None, param_space: dict = None, metrics: di
             project_dir=project_dir,
             output_dir=output_dir,
             submit_constructor=submit_constructor,
+            checkpoint_dir=checkpoint_dir,
             dispatcher_kwargs=dispatcher_kwargs,
             submit_kwargs=submit_kwargs,
             interval=interval,
-            data_storage=data_storage,
-            debug_log=debug_log,
+            storage_constructor=storage_constructor,
+            log_constructor=log_constructor,
+            log_kwargs=log_kwargs,
             report=report,
             cleanup=cleanup,
             check_storage=check_storage
         )
-        loss = [float(data[key]) for key in keys]
-        return loss
+        scores = [float(data[key]) for key in keys]
+        return scores
     algo_kwargs = algo_kwargs or {}
     if seed:
         algo_kwargs['seed'] = seed
