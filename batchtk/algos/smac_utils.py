@@ -1,6 +1,7 @@
 from ConfigSpace import Configuration, ConfigurationSpace, Float, Integer, Categorical
 from typing import Optional
 import numpy, pandas
+import uuid
 from smac import HyperparameterOptimizationFacade, Scenario
 from batchtk import runtk
 from batchtk.utils import SQLStorage, SQLiteStorage, create_logger, expand_path
@@ -82,11 +83,13 @@ def smac_search(
     keys, directions = zip(*metrics.items())
     directions = [1 if direction == 'minimize' else -1 for direction in directions]
 
-    def eval_trial(cfg, tid):
-        cfg['_batchtk_label_pointer'] = LABEL_POINTER
-        cfg['_batchtk_path_pointer'] = DIR_POINTER
+    def eval_trial(cfg, seed):
+        config_dict = cfg.get_dictionary() # cfg is a configspace.Configuration, not a dictionary...
+        tid = str(uuid.uuid4())  # SMAC3 smac doesn't provide a way to handle ID.
+        config_dict['_batchtk_label_pointer'] = LABEL_POINTER
+        config_dict['_batchtk_path_pointer'] = DIR_POINTER
         data = runtk_trial(
-            config=cfg,
+            config=config_dict,
             label=study_label,
             tid=tid,
             dispatcher_constructor=dispatcher_constructor,
@@ -121,6 +124,11 @@ def smac_search(
     algo_kwargs = {
         "objective_weights": None,
     }
+    #File
+    #"batchtk/batchtk/algos/smac_utils.py", line
+    #134, in smac_search
+    #smac = HyperparameterOptimizationFacade(**facade_kwargs)
+    #^^^
 
     facade_kwargs = {
         "scenario": scenario,

@@ -30,20 +30,3 @@ with open('mw4_results.txt', 'w') as f:
 
 print(results)
 
-results = cmaes_search(
-    study_label='rosenbrock',
-    param_space={'x0': (-5, 5), 'x1': (-5, 5)},
-    param_space_samplers=['int', 'int'],  # specify integer sampling for both parameters
-    metrics={'fx': 'minimize'},
-    num_trials=12, num_workers=3,
-    dispatcher_constructor=Dispatcher,
-    dispatcher_kwargs = {'connection_constructor': TOTPConnection,
-                         'connection_kwargs': {'host': 'expanse0',
-                                               'key': secret_key}},
-    submit_constructor=Submit,
-    submit_kwargs=slurm_args, # normal run
-    interval=10,
-    project_dir='/home/jchen12/dev/test_batchtk_netpyne/sim_scripts',
-    output_dir='/home/jchen12/dev/test_batchtk_netpyne/output_cmaes',
-    checkpoint_dir=expand_path('/Users/jchen/dev/test_batchtk_netpyne/checkpoint_cmaes', create_dirs=True),
-)
