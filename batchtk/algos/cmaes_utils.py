@@ -30,13 +30,13 @@ _futuretuple = namedtuple('FutureTuple', ['id', 'future', 'vals', 'cfg'])
 
 def _xzc_to_cfg(x_names, z_names, c_names, x_vals, z_vals, c_bools, c_vals):
     cfg = {}
-    if x_vals is not None:
+    if x_vals is not None and len(x_vals) > 0: # returns numpy arrays, so len()
         for name, val in zip(x_names, x_vals):
             cfg[name] = val
-    if z_vals is not None:
+    if z_vals is not None and len(z_vals) > 0:
         for name, val in zip(z_names, z_vals):
             cfg[name] = val
-    if c_vals is not None:
+    if c_vals is not None and len(c_vals) > 0:
         for name, bools, vals in zip(c_names, c_bools, c_vals):
             #final = [val if _bool else None for val, _bool in zip(vals, onehot)]
             # but onehot through numpy cleaner---
@@ -57,6 +57,7 @@ def cmaes_search(
     checkpoint_dir: str =None, dispatcher_kwargs: Optional[dict] = None,
     submit_kwargs : Optional[dict] = None, interval: Optional[int] = 60,
     storage_constructor: Optional[callable] = constructors.SQLiteStorage,
+    storage_kwargs: Optional[dict] = None,
     log_constructor: Optional[callable]=constructors.BatchtkLogger,
     log_kwargs: Optional[dict] = None, report: Optional[list] = ('path', 'config', 'data'),
     cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
@@ -85,9 +86,9 @@ def cmaes_search(
     cleanup: bool | list | tuple - whether to cleanup runtime files (if bool is supplied), or a sequence of handles (runtk.SGLOUT, runtk.MSGOUT...) to cleanup upon successful trial completion
     check_storage: bool - whether to check data_storage for existing trials and skip if found (only if data_storage is provided)
     """
-
+    checkpoint_dir = checkpoint_dir or output_dir
     # set up debug_log first...
-    log_kwargs = log_kwargs or {'file_out': f"{project_dir}/{study_label}.log"}
+    log_kwargs = log_kwargs or {'file_out': f"{checkpoint_dir}/{study_label}.log"}
     if log_constructor:
         try:
             debug_log = log_constructor(**log_kwargs)
@@ -159,7 +160,7 @@ def cmaes_search(
     def eval_trial(cfg, tid):
         cfg['_batchtk_label_pointer'] = LABEL_POINTER
         cfg['_batchtk_path_pointer'] = DIR_POINTER
-        algo = runtk_trial(
+        loss = runtk_trial(
             config=cfg,
             label=study_label,
             tid=tid,

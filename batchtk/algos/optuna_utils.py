@@ -33,6 +33,7 @@ def optuna_search(
     checkpoint_dir: str = None, dispatcher_kwargs: Optional[dict] = None,
     submit_kwargs: Optional[dict] = None, interval: Optional[int] = 60,
     storage_constructor: Optional[callable] = constructors.SQLiteStorage,
+    storage_kwargs: Optional[dict] = None,
     log_constructor: Optional[callable] = constructors.BatchtkLogger,
     log_kwargs: Optional[dict] = None, report: Optional[list] = ('path', 'config', 'data'),
     cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
@@ -64,6 +65,7 @@ def optuna_search(
     """
 
     # set up debug_log first...
+    checkpoint_dir = checkpoint_dir or output_dir
     log_kwargs = log_kwargs or {'file_out': f"{project_dir}/{study_label}.log"}
     if log_constructor:
         try:
