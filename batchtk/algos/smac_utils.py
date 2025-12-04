@@ -33,7 +33,7 @@ def smac_search(
     #trial args
     dispatcher_constructor: callable = None, project_dir: str = None,
     output_dir: str = None, submit_constructor: callable = None,
-    checkpoint_dir: str = None, dispatcher_kwargs: Optional[dict] = None,
+    storage_dir: str = None, dispatcher_kwargs: Optional[dict] = None,
     submit_kwargs: Optional[dict] = None, interval: Optional[int] = 60,
     storage_constructor: Optional[callable] = constructors.SQLiteStorage,
     log_constructor: Optional[callable] = constructors.BatchtkLogger,
@@ -41,9 +41,9 @@ def smac_search(
     cleanup: Optional[bool | list | tuple] = (runtk.SGLOUT, runtk.MSGOUT),
     check_storage: Optional[bool] = True, ** kwargs) -> (HyperparameterOptimizationFacade, Configuration):
 
-    checkpoint_dir = checkpoint_dir or output_dir
+    storage_dir = storage_dir or output_dir
     # set up debug_log first...
-    log_kwargs = log_kwargs or {'file_out': f"{checkpoint_dir}/{study_label}.log"}
+    log_kwargs = log_kwargs or {'file_out': f"{storage_dir}/{study_label}.log"}
     if log_constructor:
         try:
             debug_log = log_constructor(**log_kwargs)
@@ -56,7 +56,7 @@ def smac_search(
 
     # generate the storage kwargs:
     storage_kwargs = {
-        'directory': checkpoint_dir,
+        'directory': storage_dir,
         'label': study_label
     }
 
@@ -96,7 +96,7 @@ def smac_search(
             project_dir=project_dir,
             output_dir=output_dir,
             submit_constructor=submit_constructor,
-            checkpoint_dir=checkpoint_dir,
+            storage_dir=storage_dir,
             dispatcher_kwargs=dispatcher_kwargs,
             submit_kwargs=submit_kwargs,
             interval=interval,

@@ -54,7 +54,7 @@ def cmaes_search(
     # trial args
     dispatcher_constructor: callable = None, project_dir: str = None,
     output_dir: str = None, submit_constructor: callable = None,
-    checkpoint_dir: str =None, dispatcher_kwargs: Optional[dict] = None,
+    storage_dir: str =None, dispatcher_kwargs: Optional[dict] = None,
     submit_kwargs : Optional[dict] = None, interval: Optional[int] = 60,
     storage_constructor: Optional[callable] = constructors.SQLiteStorage,
     storage_kwargs: Optional[dict] = None,
@@ -86,9 +86,9 @@ def cmaes_search(
     cleanup: bool | list | tuple - whether to cleanup runtime files (if bool is supplied), or a sequence of handles (runtk.SGLOUT, runtk.MSGOUT...) to cleanup upon successful trial completion
     check_storage: bool - whether to check data_storage for existing trials and skip if found (only if data_storage is provided)
     """
-    checkpoint_dir = checkpoint_dir or output_dir
+    storage_dir = storage_dir or output_dir
     # set up debug_log first...
-    log_kwargs = log_kwargs or {'file_out': f"{checkpoint_dir}/{study_label}.log"}
+    log_kwargs = log_kwargs or {'file_out': f"{storage_dir}/{study_label}.log"}
     if log_constructor:
         try:
             debug_log = log_constructor(**log_kwargs)
@@ -168,7 +168,7 @@ def cmaes_search(
             project_dir=project_dir,
             output_dir=output_dir,
             submit_constructor=submit_constructor,
-            checkpoint_dir=checkpoint_dir,
+            storage_dir=storage_dir,
             dispatcher_kwargs=dispatcher_kwargs,
             submit_kwargs=submit_kwargs,
             interval=interval,

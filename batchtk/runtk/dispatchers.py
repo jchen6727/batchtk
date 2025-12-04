@@ -220,7 +220,7 @@ class SHDispatcher(Dispatcher, StateMixin):
         self.submit = submit
         self.job_id = -1
         self.submit.update_template('script', stdout=STDOUT_STR, stderr=STDERR_STR, output_path=OUTPUT_PATH_STR) # stdout and stderr can to be established across all dispatchers
-
+        self.submit.update_template('submit', output_path=OUTPUT_PATH_STR)
     def close_state(self):
         """
         unsets instances

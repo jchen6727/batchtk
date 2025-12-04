@@ -7,3 +7,4 @@ from .serializer import *
 from .file import flush_fptr
 from .version import deprecated_arg
 from .mixins import StateMixin
+from .parser import TomlParser

@@ -30,7 +30,7 @@ def optuna_search(
     # trial args
     dispatcher_constructor: callable = None, project_dir: str = None,
     output_dir: str = None, submit_constructor: callable = None,
-    checkpoint_dir: str = None, dispatcher_kwargs: Optional[dict] = None,
+    storage_dir: str = None, dispatcher_kwargs: Optional[dict] = None,
     submit_kwargs: Optional[dict] = None, interval: Optional[int] = 60,
     storage_constructor: Optional[callable] = constructors.SQLiteStorage,
     storage_kwargs: Optional[dict] = None,
@@ -49,7 +49,7 @@ def optuna_search(
     dispatcher_constructor: callable - calling function to a dispatcher class -- see dispatchers.py
     project_dir: str - path to the project directory containing the source code to be executed
     output_dir: str - path to the output directory where runtime files, results and logs will be stored
-    checkpoint_dir: str - optional additional path to the directory where checkpoints will be stored (otherwise defaults to output_dir)
+    storage_dir: str - optional additional path to the directory where checkpoints will be stored (otherwise defaults to output_dir)
     submit_constructor: callable - calling function to a submit class -- see submits.py
     algo: str - optimization algorithm to use, one of 'nsgaii', 'random', 'tspe' (defaults to tspe for single objective, nsgaii for multi-objective)
     algo_kwargs: dict - additional keyword arguments to pass to the optimization algorithm constructor
@@ -65,8 +65,8 @@ def optuna_search(
     """
 
     # set up debug_log first...
-    checkpoint_dir = checkpoint_dir or output_dir
-    log_kwargs = log_kwargs or {'file_out': f"{project_dir}/{study_label}.log"}
+    storage_dir = storage_dir or output_dir
+    log_kwargs = log_kwargs or {'file_out': f"{storage_dir}/{study_label}.log"}
     if log_constructor:
         try:
             debug_log = log_constructor(**log_kwargs)
@@ -100,7 +100,7 @@ def optuna_search(
             project_dir=project_dir,
             output_dir=output_dir,
             submit_constructor=submit_constructor,
-            checkpoint_dir=checkpoint_dir,
+            storage_dir=storage_dir,
             dispatcher_kwargs=dispatcher_kwargs,
             submit_kwargs=submit_kwargs,
             interval=interval,
@@ -121,7 +121,7 @@ def optuna_search(
     study_name = "".join(('_' + _str for _str in (algo, seed) if _str)) # fix later.
     study_name = "{}{}".format(study_label, study_name)
     if optuna_storage is None:
-        optuna_storage = JournalStorage(JournalFileStorage("{}/{}.optuna.journal.log".format(checkpoint_dir, study_name)))
+        optuna_storage = JournalStorage(JournalFileStorage("{}/{}.optuna.journal.log".format(storage_dir, study_name)))
     study = optuna.create_study(directions=directions,
                                 storage=optuna_storage,
                                 load_if_exists=True,

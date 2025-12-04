@@ -26,7 +26,7 @@ __getattr__, __dir__ = create_deprecation_handlers(
 
 @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
 def trials(configs: list, label: str, gen: [str|int], dispatcher_constructor: callable, project_dir:str,
-           output_dir: str, submit_constructor: callable, checkpoint_dir: Optional[str] = None, dispatcher_kwargs: Optional[dict]=None,
+           output_dir: str, submit_constructor: callable, storage_dir: Optional[str] = None, dispatcher_kwargs: Optional[dict]=None,
            submit_kwargs: Optional[dict] = None, interval: Optional[int]=60, storage_constructor: Optional[callable]=constructors.SQLiteStorage,
            storage_kwargs: Optional[dict]=None, log_constructor: Optional[callable]=constructors.BatchtkLogger,
            log_kwargs: Optional[dict] = None, report: Optional[list]=('path', 'config', 'data'), cleanup: Optional[bool|list|tuple] =(runtk.SGLOUT, runtk.MSGOUT), check_storage: Optional[bool]=True, **kwargs):
@@ -34,7 +34,7 @@ def trials(configs: list, label: str, gen: [str|int], dispatcher_constructor: ca
     results = [] #TODO parallelize this or remove function...
     for tid, config in enumerate(configs):
         results.append(trial(config, label, tid, dispatcher_constructor, project_dir,
-                             output_dir, submit_constructor, checkpoint_dir, dispatcher_kwargs,
+                             output_dir, submit_constructor, storage_dir, dispatcher_kwargs,
                              submit_kwargs, interval, storage_constructor, storage_kwargs, log_constructor,
                              log_kwargs, report, cleanup, check_storage, **kwargs))
     return results
@@ -46,9 +46,9 @@ def _lctf(val):
     except:
         return val
 
-@deprecated_arg({"output_path": "output_dir", "project_path": "project_dir", "data_storage": "storage_constructor", }, deprecated_since="0.1.7", removal_when="0.1.9")
+@deprecated_arg({"output_path": "output_dir", "project_path": "project_dir", "checkpoint_dir": "storage_dir", "data_storage": "storage_constructor", }, deprecated_since="0.1.7", removal_when="0.1.9")
 def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: callable, project_dir: str,
-          output_dir: str, submit_constructor: callable, checkpoint_dir: Optional[str] = None, dispatcher_kwargs: Optional[dict] =None,
+          output_dir: str, submit_constructor: callable, storage_dir: Optional[str] = None, dispatcher_kwargs: Optional[dict] =None,
           submit_kwargs: Optional[dict] =None, interval: Optional[int]=60, storage_constructor: Optional[callable]=constructors.SQLiteStorage, storage_kwargs: Optional[dict] = None,
           log_constructor: Optional[callable]=constructors.BatchtkLogger, log_kwargs: Optional[dict] = None, report: Optional[list]=('path', 'config', 'data'), cleanup: Optional[bool|list|tuple] = (runtk.SGLOUT, runtk.MSGOUT), check_storage: Optional[bool]=True, **kwargs) -> pandas.Series:
     """
@@ -73,7 +73,7 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
     dispatcher_kwargs = dispatcher_kwargs or {}
     submit_kwargs = submit_kwargs or {}
     log_kwargs = log_kwargs or {'file_out': f"{project_dir}/{label}.log",}
-    storage_kwargs = storage_kwargs or {'directory': checkpoint_dir or output_dir,
+    storage_kwargs = storage_kwargs or {'directory': storage_dir or output_dir,
                                         'label': label}
 
     # instantiate from various constructors, may populate relevant instance variables as None:
@@ -120,11 +120,11 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
             try:
                 data = data_storage.find(key='trial_label', value=run_label)
             except ValueError: # this is not the ONLY error --
-                debug_log.warning("trial_label not a column in the log database, skipping log check (recommend passing at least: ('path', 'data') to arguments).")
+                debug_log.warning("trial_label not a column in the log database, skipping log check for trial {}. If this message persists, recommend passing at least: ('path', 'data') to arguments).".format(run_label))
             except Exception as e:
                 debug_log.warning("checking log database failed due to error: {}, skipping log check.".format(e))
         if data is not None: # skip the trail if trial_label: run_label already exists in the log database.
-            debug_log.info("trial_label already exists in the log database, skipping trial and retrieved data: {}.".format(data))
+            debug_log.info("trial_label already exists in the log database, skipping trial and returning retrieved data: {}.".format(data))
             return data.apply(_lctf)
 
     # create dispatcher, update environment,
