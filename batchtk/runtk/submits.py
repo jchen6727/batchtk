@@ -319,14 +319,23 @@ class SHSubmit(Submit):
     def set_handles(self):
         pass
 
+    def _parse_proc(self, proc) -> str:
+        """
+        [PROTECTED INTERNAL METHOD]
+        SHSubmit.submit_job() calls this after Submit.submit_job()
+        This internal method
+        takes the proc returned by submitting job:
+        (for instance the results of the shell call or through job scheduler)
+        and returns a job_id.
+
+        any logic (i.e. parsing proc in order to tell if the job submission succeeded or failed, and raising Error)
+        should also be implemented here
+        """
+        return proc
+
     def submit_job(self, **kwargs):
-        proc = super().submit_job()
-        try:
-            self.job_id = int(proc.stdout)
-        except Exception as e:
-            raise(Exception("{}\nJob submission failed:\n{}\n{}\n{}\n{}".format(e, self.submit, self.script, proc.stdout, proc.stderr)))
-        if self.job_id < 0:
-            raise(Exception("Job submission failed:\n{}\n{}\n{}\n{}".format(self.submit, self.script, proc.stdout, proc.stderr)))
+        proc = super().submit_job(**kwargs)
+        self.job_id = self._parse_proc(proc)
         return self.job_id
 
 # reference classes used as examples and for testing.

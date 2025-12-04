@@ -1,0 +1,13 @@
+submit_template = "sh {output_path}.sh"
+
+script_template = """\
+#!/bin/sh
+cd {project_dir}
+
+{handles}
+
+{env}
+nohup run_trial.py > {stdout} 2>&1 &
+pid=$!
+echo $pid >&1
+"""

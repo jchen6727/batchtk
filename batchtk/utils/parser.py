@@ -20,7 +20,7 @@ except ImportError:
 
 _CHECKLIST_DEFAULTS = {
     'submit_template': (
-        '{pathout}',
+        '{output_path}',
     ),
     'script_template': (
         '{project_dir}',
@@ -69,7 +69,7 @@ class Parser(ABC):
 
 
 class MParser(Parser): #markup parser, yaml, toml
-    def __init__(self, file_path: str, strict: bool = True):
+    def __init__(self, file_path: str, strict: bool = False):
         self.file_path = file_path
         try:
             config = self._load()
