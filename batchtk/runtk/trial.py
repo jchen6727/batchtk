@@ -69,10 +69,11 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
     cleanup: bool or list/tuple - (True -> clean all files) clean up associated trial handles after a trial is completed.
     check_storage: bool - use the passed data_storage as a checkpoint for the trial, if trial data exists with a matching <label>_<tid>, then the trial is skipped and the stored data is pulled from check_storage.
     """
+    storage_dir = storage_dir or output_dir
     # set up default kwargs here:
     dispatcher_kwargs = dispatcher_kwargs or {}
     submit_kwargs = submit_kwargs or {}
-    log_kwargs = log_kwargs or {'file_out': f"{project_dir}/{label}.log",}
+    log_kwargs = log_kwargs or {'file_out': f"{storage_dir}/{label}.log",}
     storage_kwargs = storage_kwargs or {'directory': storage_dir or output_dir,
                                         'label': label}
 
@@ -135,6 +136,8 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
     # start run, connect to runner, load first message.
     try:
         dispatcher.start()
+        debug_log.warning("dispatcher starting trial: {}".format(run_label))
+        debug_log.warning("submit command status    : {}".format(dispatcher.job_id))
         dispatcher.connect()
         msg = json.loads(dispatcher.recv(interval=interval))
         dispatcher.clean() # don't do a file cleanup here, wait until successful conversion of data.
@@ -152,7 +155,7 @@ def trial(config: dict, label: str, tid: [str|int], dispatcher_constructor: call
         'data': msg,
     }
 
-    debug_log.warning("message received: {}".format(msg))
+    debug_log.warning("result received: {}".format(msg))
 
     # data formatted based on report options
     for option in report:
