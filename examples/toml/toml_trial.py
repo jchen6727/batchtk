@@ -5,7 +5,7 @@ from batchtk.utils import expand_path
 from batchtk.runtk.trial import trial, LABEL_POINTER, DIR_POINTER
 
 
-parser = TomlParser(file_path='expanse.toml')
+parser = TomlParser(file_path='local.toml')
 Submit = parser.get_submit_class()
 print(Submit())
 config = {'x0': 5,
