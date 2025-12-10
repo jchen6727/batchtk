@@ -1,4 +1,8 @@
-import optuna
+import importlib
+from typing import Tuple, Type
+
+from pymoo.core.algorithm import Algorithm
+
 import pandas
 from typing import Optional
 from batchtk import runtk
@@ -10,14 +14,35 @@ from batchtk.runtk.trial import LABEL_POINTER, DIR_POINTER
 from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
 
 from logging import Logger
-from optuna.storages import JournalStorage, JournalFileStorage
 
-_SAMPLERS = {
-    'nsgaii': optuna.samplers.NSGAIISampler,
-    'random': optuna.samplers.RandomSampler,
-    'tspe':  optuna.samplers.TPESampler,
-    'cmaes': optuna.samplers.CmaEsSampler,
-}
+# see https://pymoo.org/algorithms/list.html#nb-algorithms-list
+def _get_algo(path: Tuple[str, ...]) -> Type[Algorithm]:
+    """
+    Factory function to dynamically import and return a pymoo algorithm class.
+
+    Args:
+        path: A tuple representing the traversal path from `pymoo.algorithms`.
+                For example: `('soo', 'nonconvex', 'pso', 'PSO')` corresponds to
+                `from pymoo.algorithms.soo.nonconvex.pso import PSO`.
+
+    Returns:
+        The algorithm class.
+
+    Raises:
+        ImportError: If the module path is invalid.
+        AttributeError: If the algorithm is not found in the specified module.
+    """
+    if not path:
+        raise ValueError("Path cannot be empty.")
+    module_path_parts = path[:-1]
+    class_name = path[-1]
+    # Construct the full, dot-separated module path
+    full_module_path = f"pymoo.algorithms.{'.'.join(module_path_parts)}"
+    # Dynamically import the module
+    module = importlib.import_module(full_module_path)
+    # Get the algorithm class from the module
+    algorithm_class = getattr(module, class_name)
+    return algorithm_class
 
 @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
 def optuna_search(
@@ -76,57 +101,3 @@ def optuna_search(
                 f"log_constructor {log_constructor} must return an instance of class Logger when called with **log_kwargs {log_kwargs}, instead encountered error: {e}.")
     else:
         raise ValueError(f"log_constructor must be provided for cmaes_search to set up debug_log.")
-
-    if param_space_samplers is None:
-        param_space_samplers = ['suggest_float'] * len(param_space)
-    else:
-        if len(param_space_samplers) != len(param_space):
-            raise ValueError("param_space_samplers must have corresponding ('categorical', 'int', 'float') strings for each param_space")
-        if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
-            raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
-        param_space_samplers = [ 'suggest_' + sampler for sampler in param_space_samplers]
-
-    keys, directions = zip(*metrics.items())
-    def eval_trial(trial):
-        cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
-        tid = "{}".format(trial.number)
-        cfg['_batchtk_label_pointer'] = LABEL_POINTER
-        cfg['_batchtk_path_pointer'] = DIR_POINTER
-        data = runtk_trial(
-            config=cfg,
-            label=study_label,
-            tid=tid,
-            dispatcher_constructor=dispatcher_constructor,
-            project_dir=project_dir,
-            output_dir=output_dir,
-            submit_constructor=submit_constructor,
-            storage_dir=storage_dir,
-            dispatcher_kwargs=dispatcher_kwargs,
-            submit_kwargs=submit_kwargs,
-            interval=interval,
-            storage_constructor=storage_constructor,
-            log_constructor=log_constructor,
-            log_kwargs=log_kwargs,
-            report=report,
-            cleanup=cleanup,
-            check_storage=check_storage
-        )
-        scores = [float(data[key]) for key in keys]
-        return scores
-    algo_kwargs = algo_kwargs or {}
-    if seed:
-        algo_kwargs['seed'] = seed
-    sampler = _SAMPLERS[algo](**algo_kwargs) if algo in _SAMPLERS else None # if algo is provided...
-    algo = algo or 'optuna' # change algo to optuna for labeling.
-    study_name = "".join(('_' + _str for _str in (algo, seed) if _str)) # fix later.
-    study_name = "{}{}".format(study_label, study_name)
-    if optuna_storage is None:
-        optuna_storage = JournalStorage(JournalFileStorage("{}/{}.optuna.journal.log".format(storage_dir, study_name)))
-    study = optuna.create_study(directions=directions,
-                                storage=optuna_storage,
-                                load_if_exists=True,
-                                sampler=sampler,
-                                study_name='{}'.format(study_name))
-    study.optimize(eval_trial, n_trials=num_trials, n_jobs=num_workers)
-
-    return study.trials_dataframe()

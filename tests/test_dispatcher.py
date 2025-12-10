@@ -3,14 +3,14 @@ import os
 from collections import namedtuple
 from batchtk.runtk.dispatchers import Dispatcher, LocalDispatcher, QSDispatcher
 from batchtk import runtk
-from batchtk.runtk.submits import SHSubmitSFS
+from batchtk.runtk.submits import SHSubmit
 import uuid
 from header import OUTPUT_PATH, CLEAN_OUTPUTS
 
 
 Job = namedtuple('Job', ['Dispatcher', 'Submit'])
 JOBS = [
-        Job(LocalDispatcher, SHSubmitSFS),
+        Job(LocalDispatcher, SHSubmit),
         ]
 
 class TestJOBS:
@@ -22,13 +22,13 @@ class TestJOBS:
         uid = str(uuid.uuid4())
         key_uid = 'j_'+uid[:4]
         env = {key_uid: uid}
-        dispatcher = _Dispatcher(project_path=__file__.rsplit('/', 1)[0],
+        dispatcher = _Dispatcher(project_path='./runner_scripts',
                                  output_path=OUTPUT_PATH(__file__),
                                               submit=submit,
                                               env=env,
                                               label='test' + _Dispatcher.__name__ + _Submit.__name__)
         yield namedtuple('Setup', ['dispatcher', 'submit', 'env'])(dispatcher, submit, env)
-        CLEAN_OUTPUTS(dispatcher)
+        #CLEAN_OUTPUTS(dispatcher) not good for
 
     def test_init(self, setup):
         dispatcher, env = setup.dispatcher, setup.env
@@ -78,7 +78,7 @@ class TestJOBS:
             status = dispatcher.check_status()
             print("\nafter to job submission: {}\n".format(status))
             assert status.status == runtk.STATUS.COMPLETED
-        dispatcher.clean('all')
+        dispatcher.clean(dispatcher.handles)
         for handle in set(dispatcher.handles).difference([runtk.SOCKET]):
             assert not dispatcher.fs.exists(dispatcher.handles[handle])
 

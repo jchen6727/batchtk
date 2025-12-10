@@ -49,6 +49,8 @@ class SQLiteTypeRule(NamedFunc):
 
     def __call__(self, value):
         result = self.function(value)
+        if result is None:
+            return None
         if (result.type not in self.return_opts) or (not callable(result.adapter)):
             raise RuntimeError("SQLiteInferenceRule function must return a value in: {}".format(self.return_opts))
         return result
