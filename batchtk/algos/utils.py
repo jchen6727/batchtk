@@ -6,6 +6,7 @@ from typing import Optional
 import pandas
 from batchtk import runtk
 from batchtk.runtk import constructors
+from batchtk.runtk.trial import trial, LABEL_POINTER, DIR_POINTER
 from batchtk import runtk
 import json
 
@@ -45,6 +46,8 @@ class Trial(object):
         idn = zlib.crc32(bconfig) & 0xFFFFFFFF
         return idn
 
-    def run_trial(self, **kwargs):
+    def run_trial(self, config: dict, **kwargs):
+        config['_batchtk_label_pointer'] = LABEL_POINTER
+        config['_batchtk_path_pointer'] = DIR_POINTER
         trial_args = self._fixed_trial_args | kwargs
-        return runtk.trial(**trial_args)
+        return trial(config=config, **trial_args)

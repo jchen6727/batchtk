@@ -44,8 +44,23 @@ def _get_algo(path: Tuple[str, ...]) -> Type[Algorithm]:
     algorithm_class = getattr(module, class_name)
     return algorithm_class
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
-def optuna_search(
+def pymoo_search(
     # algo args
     study_label: str = None, param_space: dict = None, metrics: dict = None,
     param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,

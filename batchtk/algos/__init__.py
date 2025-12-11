@@ -1,7 +1,7 @@
 #import importlib.util
 # check before import 2/2 reliance on non-core dependencies...
 
-from utils import Trial
+from .utils import Trial
 
 def missing_dependency(*args, **kwargs):
     raise ImportError("This algorithm requires optional package dependencies that are not installed. Please refer to the relevant .py and install them prior to running this function.")
