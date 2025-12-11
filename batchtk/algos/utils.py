@@ -48,6 +48,6 @@ class Trial(object):
 
     def run_trial(self, config: dict, **kwargs):
         config['_batchtk_label_pointer'] = LABEL_POINTER
-        config['_batchtk_path_pointer'] = DIR_POINTER
+        config['_batchtk_dir_pointer'] = DIR_POINTER
         trial_args = self._fixed_trial_args | kwargs
         return trial(config=config, **trial_args)

@@ -91,7 +91,7 @@ def optuna_search(
         cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
         tid = "{}".format(trial.number)
         cfg['_batchtk_label_pointer'] = LABEL_POINTER
-        cfg['_batchtk_path_pointer'] = DIR_POINTER
+        cfg['_batchtk_dir_pointer'] = DIR_POINTER
         data = runtk_trial(
             config=cfg,
             label=study_label,

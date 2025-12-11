@@ -26,7 +26,10 @@ try:
 except Exception as e:
     salib_search = missing_dependency
 
-
+try:
+    from .pymoo_utils import *
+except Exception as e:
+    pymoo_search = missing_dependency
 """
 if importlib.util.find_spec('smac'):
     from .smac_utils import *

@@ -160,7 +160,7 @@ def cmaes_search(
 
     def eval_trial(cfg, tid):
         cfg['_batchtk_label_pointer'] = LABEL_POINTER
-        cfg['_batchtk_path_pointer'] = DIR_POINTER
+        cfg['_batchtk_dir_pointer'] = DIR_POINTER
         loss = runtk_trial(
             config=cfg,
             label=study_label,

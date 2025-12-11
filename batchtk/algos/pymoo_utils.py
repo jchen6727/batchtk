@@ -19,6 +19,7 @@ from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
 from batchtk.algos import Trial
 from logging import Logger
 
+import multiprocessing
 from pymoo.optimize import minimize
 
 from pymoo.core.problem import ElementwiseProblem
@@ -74,6 +75,7 @@ _SAMPLERS = {
     'UNSGA3': ('moo', 'unsga3', 'UNSGA3'),
     'RNSGA3': ('moo', 'rnsga3', 'RNSGA3'),
     'MOEAD': ('moo', 'moead', 'MOEAD'),
+    'AGEMOEA': ('moo', 'age', 'AGEMOEA'),
     'CTAEA': ('moo', 'ctaea', 'CTAEA'),
     'RVEA': ('moo', 'rvea', 'RVEA'),
     'SPEA2': ('moo', 'spea2', 'SPEA2'),
@@ -121,58 +123,13 @@ class TrialProblem(ElementwiseProblem, Trial):
         )
         out["F"] = [results[metric] for metric in self.metrics]
 
-termination = TerminationCollection(
-    get_termination("n_gen", 3),
-)
-
-dispatcher_constructor = constructors.LocalDispatcher
-project_dir = expand_path('../runner_scripts', create_dirs=True)
-output_dir = expand_path('./output', create_dirs=True)
-submit_constructor = constructors.SHSubmit
-storage_dir = expand_path('./output', create_dirs=True)
-submit_kwargs = {'command': 'python rosenbrock.py'}
-storage_constructor = constructors.SQLiteStorage
-log_constructor = constructors.BatchtkLogger
-
-workers = 5
-if __name__ == '__main__':
-    pool = multiprocessing.Pool(workers)
-    runner = StarmapParallelization(pool.starmap)
-    problem = TrialProblem(
-        label='rosenbrock',
-        params={'x0': (-3, 3), 'x1': (-3, 3)},
-        metrics={'fx': 'minimize'},
-        dispatcher_constructor=dispatcher_constructor,
-        project_dir=project_dir,
-        output_dir=output_dir,
-        submit_constructor=submit_constructor,
-        storage_dir=storage_dir,
-        submit_kwargs=submit_kwargs,
-        storage_constructor=storage_constructor,
-        log_constructor=log_constructor,
-        elementwise_runner=runner,
-    )
-
-
-    algorithm = GA(
-        pop_size=workers,
-        eliminate_duplicates=True)
-
-    res = minimize(problem,
-                   algorithm,
-                   termination,
-                   seed=1,
-                   verbose=False)
-
-    print("Best solution found: \nX = %s\nF = %s" % (res.X, res.F))
-
 @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
 def pymoo_search(
     # algo args
     study_label: str = None, param_space: dict = None, metrics: dict = None,
     param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,
     algo: Optional[str] = None, algo_kwargs: Optional[dict] = None,
-    seed: Optional[int] = None, optuna_storage: Optional = None,
+    seed: Optional[int] = None,
 
     # trial args
     dispatcher_constructor: callable = None, project_dir: str = None,
@@ -214,6 +171,11 @@ def pymoo_search(
     # set up debug_log first...
     storage_dir = storage_dir or output_dir
     log_kwargs = log_kwargs or {'file_out': f"{storage_dir}/{study_label}.log"}
+
+    storage_kwargs = storage_kwargs or {
+        'directory': storage_dir,
+        'label': study_label
+    }
     if log_constructor:
         try:
             debug_log = log_constructor(**log_kwargs)
@@ -227,9 +189,12 @@ def pymoo_search(
     algo_kwargs = algo_kwargs or {'pop_size': num_workers, 'eliminate_duplicates': True}
 
     try:
-        algo = _get_algo(_SAMPLERS[algo]) if algo else _get_algo(_SAMPLERS['NSGA3'])
-    except KeyError:
-        raise ValueError(f"algo must be one of {list(_SAMPLERS.keys())}") from None
+        algo = _get_algo(_SAMPLERS[algo])
+        algo = algo(**algo_kwargs)
+    except KeyError as e:
+        raise ValueError(f"algo must be one of {list(_SAMPLERS.keys())}, except got error {e}") from None
+    except TypeError as e:
+        raise TypeError(f"algo_kwargs {algo_kwargs} not compatible with selected algo {algo}, instead got error {e}") from None
 
     if param_space_samplers is not None:
         if len(param_space_samplers) != len(param_space):
@@ -237,9 +202,33 @@ def pymoo_search(
         if not all(sampler in ('float') for sampler in param_space_samplers):
             raise ValueError("all param_space_samplers must be one of 'float'")
 
-    search_kwargs = {
-        
-    }
-    return minimize(TrialProblem(label=study_label, params=param_space, metrics=metrics),
-                   algo,
-                   **algo_kwargs)
+    num_generations = num_trials // num_workers
+    termination = TerminationCollection(
+        get_termination("n_gen", num_generations),
+    )
+
+    pool = multiprocessing.Pool(num_workers)
+    runner = StarmapParallelization(pool.starmap)
+
+    problem = TrialProblem(
+        label=study_label,
+        params=param_space,
+        metrics=metrics,
+        dispatcher_constructor=dispatcher_constructor,
+        project_dir=project_dir,
+        output_dir=output_dir,
+        submit_constructor=submit_constructor,
+        storage_dir=storage_dir,
+        dispatcher_kwargs=dispatcher_kwargs,
+        submit_kwargs=submit_kwargs,
+        interval=interval,
+        storage_constructor=storage_constructor,
+        log_constructor=log_constructor,
+        elementwise_runner=runner,
+    )
+
+    results = minimize(problem=problem, algorithm=algo, termination=termination, seed=seed, verbose=False)
+
+    data_storage = storage_constructor(**storage_kwargs)
+    df = data_storage.to_df()
+    return df
