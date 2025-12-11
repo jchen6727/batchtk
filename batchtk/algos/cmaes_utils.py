@@ -101,6 +101,7 @@ def cmaes_search(
 
     algo_kwargs = algo_kwargs or {}
     bounds = []
+    param_space_samplers = param_space_samplers or ['float'] * len(param_space)
     if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
         raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
     if any(sampler in ('categorical', 'int') for sampler in param_space_samplers) or algo == 'margin':
