@@ -2,18 +2,31 @@ import importlib
 from typing import Tuple, Type
 
 from pymoo.core.algorithm import Algorithm
+from pymoo.parallelization.starmap import StarmapParallelization
+from pymoo.optimize import minimize
+from pymoo.core.problem import Problem, ElementwiseProblem
+from pymoo.termination import get_termination
+from pymoo.termination.collection import TerminationCollection
 
 import pandas
 from typing import Optional
 from batchtk import runtk
 from batchtk.utils import SQLStorage, create_logger, expand_path
-from batchtk.runtk.trial import trial as runtk_trial
-
+from batchtk.runtk.trial import trial, LABEL_POINTER, DIR_POINTER
 from batchtk.runtk import constructors
-from batchtk.runtk.trial import LABEL_POINTER, DIR_POINTER
+from batchtk.runtk.trial import trial, LABEL_POINTER, DIR_POINTER
 from batchtk.utils.version import deprecated_arg, create_deprecation_handlers
-
+from batchtk.algos import Trial
 from logging import Logger
+
+import multiprocessing
+from pymoo.optimize import minimize
+
+from pymoo.core.problem import ElementwiseProblem
+
+import numpy
+
+from batchtk.utils import expand_path
 
 # see https://pymoo.org/algorithms/list.html#nb-algorithms-list
 def _get_algo(path: Tuple[str, ...]) -> Type[Algorithm]:
@@ -44,13 +57,79 @@ def _get_algo(path: Tuple[str, ...]) -> Type[Algorithm]:
     algorithm_class = getattr(module, class_name)
     return algorithm_class
 
+_SAMPLERS = {
+    'GA': ('soo', 'nonconvex', 'ga', 'GA'),
+    'DE': ('soo', 'nonconvex', 'de', 'DE'),
+    'BRKGA': ('soo', 'nonconvex', 'brkga', 'BRKGA'),
+    'NelderMead': ('soo', 'nonconvex', 'nelder', 'NelderMead'),
+    'PatternSearch': ('soo', 'nonconvex', 'pattern', 'PatternSearch'),
+    'CMAES': ('soo', 'nonconvex', 'cmaes', 'CMAES'),
+    'ES': ('soo', 'nonconvex', 'es', 'ES'),
+    'SRES': ('soo', 'nonconvex', 'sres', 'SRES'),
+    'ISRES': ('soo', 'nonconvex', 'isres', 'ISRES'),
+    'PSO': ('soo', 'nonconvex', 'pso', 'PSO'),
+    'NRBO': ('soo', 'nonconvex', 'nrbo', 'NRBO'),
+    'NSGA2': ('moo', 'nsga2', 'NSGA2'),
+    'RNSGA2': ('moo', 'rnsga2', 'RNSGA2'),
+    'NSGA3': ('moo', 'nsga3', 'NSGA3'),
+    'UNSGA3': ('moo', 'unsga3', 'UNSGA3'),
+    'RNSGA3': ('moo', 'rnsga3', 'RNSGA3'),
+    'MOEAD': ('moo', 'moead', 'MOEAD'),
+    'AGEMOEA': ('moo', 'age', 'AGEMOEA'),
+    'CTAEA': ('moo', 'ctaea', 'CTAEA'),
+    'RVEA': ('moo', 'rvea', 'RVEA'),
+    'SPEA2': ('moo', 'spea2', 'SPEA2'),
+}
+
+class TrialProblem(ElementwiseProblem, Trial):
+    def __init__(self, label: str, params: dict[str, tuple[float, float]],
+                 metrics: dict, n_ieq_constr = 0, n_eq_constr = 0,
+                 dispatcher_constructor = None, project_dir = None,
+                 output_dir = None, submit_constructor = None,
+                 storage_dir = None, dispatcher_kwargs = None,
+                 submit_kwargs = None, interval = 60,
+                 storage_constructor = constructors.SQLiteStorage,
+                 storage_kwargs = None,
+                 log_constructor = constructors.BatchtkLogger,
+                 log_kwargs = None, report = ('path', 'config', 'data'),
+                 cleanup = (runtk.SGLOUT, runtk.MSGOUT),
+                 check_storage = True, **kwargs
+                 ):
+        n_var = len(params)
+        n_obj = len(metrics)
+        self.metrics = sorted(metrics)
+        self.params, xb = zip(*params.items())
+        xl, xu = zip(*xb)
+        super().__init__(n_var=n_var, n_obj=n_obj, n_ieq_constr=n_ieq_constr,
+                         n_eq_constr=n_eq_constr, xl=xl, xu=xu, **kwargs)
+        self._fixed_trial_args = dict()
+        self.set_fixed_trial_args(
+            dispatcher_constructor=dispatcher_constructor, project_dir=project_dir,
+            output_dir=output_dir, submit_constructor=submit_constructor,
+            storage_dir=storage_dir, dispatcher_kwargs=dispatcher_kwargs,
+            submit_kwargs=submit_kwargs, interval=interval,
+            storage_constructor=storage_constructor, storage_kwargs=storage_kwargs,
+            log_constructor=log_constructor, log_kwargs=log_kwargs, report=report,
+            cleanup=cleanup, check_storage=check_storage,
+        )
+        self.label = label
+    def _evaluate(self, x, out, *args, **kwargs):
+        config = {param: x for param, x in zip(self.params, x)}
+        tid = self.compute_id_from_args(self.label, config)
+        results = self.run_trial(
+            config=config,
+            label=self.label,
+            tid=tid
+        )
+        out["F"] = [results[metric] for metric in self.metrics]
+
 @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
-def optuna_search(
+def pymoo_search(
     # algo args
     study_label: str = None, param_space: dict = None, metrics: dict = None,
     param_space_samplers = None, num_trials: int = 0, num_workers: int = 1,
     algo: Optional[str] = None, algo_kwargs: Optional[dict] = None,
-    seed: Optional[int] = None, optuna_storage: Optional = None,
+    seed: Optional[int] = None,
 
     # trial args
     dispatcher_constructor: callable = None, project_dir: str = None,
@@ -92,6 +171,11 @@ def optuna_search(
     # set up debug_log first...
     storage_dir = storage_dir or output_dir
     log_kwargs = log_kwargs or {'file_out': f"{storage_dir}/{study_label}.log"}
+
+    storage_kwargs = storage_kwargs or {
+        'directory': storage_dir,
+        'label': study_label
+    }
     if log_constructor:
         try:
             debug_log = log_constructor(**log_kwargs)
@@ -101,3 +185,50 @@ def optuna_search(
                 f"log_constructor {log_constructor} must return an instance of class Logger when called with **log_kwargs {log_kwargs}, instead encountered error: {e}.")
     else:
         raise ValueError(f"log_constructor must be provided for cmaes_search to set up debug_log.")
+
+    algo_kwargs = algo_kwargs or {'pop_size': num_workers, 'eliminate_duplicates': True}
+
+    try:
+        algo = _get_algo(_SAMPLERS[algo])
+        algo = algo(**algo_kwargs)
+    except KeyError as e:
+        raise ValueError(f"algo must be one of {list(_SAMPLERS.keys())}, except got error {e}") from None
+    except TypeError as e:
+        raise TypeError(f"algo_kwargs {algo_kwargs} not compatible with selected algo {algo}, instead got error {e}") from None
+
+    if param_space_samplers is not None:
+        if len(param_space_samplers) != len(param_space):
+            raise ValueError("param_space_samplers must have corresponding ('categorical', 'int', 'float') strings for each param_space")
+        if not all(sampler in ('float') for sampler in param_space_samplers):
+            raise ValueError("all param_space_samplers must be one of 'float'")
+
+    num_generations = num_trials // num_workers
+    termination = TerminationCollection(
+        get_termination("n_gen", num_generations),
+    )
+
+    pool = multiprocessing.Pool(num_workers)
+    runner = StarmapParallelization(pool.starmap)
+
+    problem = TrialProblem(
+        label=study_label,
+        params=param_space,
+        metrics=metrics,
+        dispatcher_constructor=dispatcher_constructor,
+        project_dir=project_dir,
+        output_dir=output_dir,
+        submit_constructor=submit_constructor,
+        storage_dir=storage_dir,
+        dispatcher_kwargs=dispatcher_kwargs,
+        submit_kwargs=submit_kwargs,
+        interval=interval,
+        storage_constructor=storage_constructor,
+        log_constructor=log_constructor,
+        elementwise_runner=runner,
+    )
+
+    results = minimize(problem=problem, algorithm=algo, termination=termination, seed=seed, verbose=False)
+
+    data_storage = storage_constructor(**storage_kwargs)
+    df = data_storage.to_df()
+    return df
