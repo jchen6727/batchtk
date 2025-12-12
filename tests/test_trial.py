@@ -5,7 +5,7 @@ from batchtk.runtk.dispatchers import INETDispatcher, UNIXDispatcher, LocalDispa
 from batchtk.runtk.submits import SHSubmitSOCK, SHSubmitSFS
 from batchtk.runtk.trial import trial, LABEL_POINTER, PATH_POINTER
 
-from batchtk.utils import create_path, ScriptLogger, SQLiteStorage
+from batchtk.utils import create_path, create_logger, SQLiteStorage
 
 import logging
 import json
@@ -38,7 +38,7 @@ def rosenbrock(x0, x1):
     return 100 * (x1 - x0**2)**2 + (A - x0)**2
 
 storage = SQLiteStorage(directory=result_out)
-logger = ScriptLogger(file_out=log_out)
+logger = create_logger(file_out=log_out)
 
 class TestTRIALS:
     @pytest.fixture(params=TRIALS)
