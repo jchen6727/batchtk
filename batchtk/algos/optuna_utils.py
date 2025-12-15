@@ -17,6 +17,7 @@ _SAMPLERS = {
     'random': optuna.samplers.RandomSampler,
     'tspe':  optuna.samplers.TPESampler,
     'cmaes': optuna.samplers.CmaEsSampler,
+    'grid': optuna.samplers.GridSampler,
 }
 
 @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")

@@ -30,3 +30,5 @@ tests/123.sh
 *.run
 
 tests/test_sh_shinet.sh
+
+.git_exclude/
