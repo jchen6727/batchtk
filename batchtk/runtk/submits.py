@@ -262,7 +262,7 @@ protected args:
             return deserializers['eq'](self.handles.template)
 
 _DEFAULT_SUBMIT = Template(template="sh {output_dir}/{label}.sh",
-                           key_args={'output_dir', 'label'})
+                           key_args={'output_path', 'output_dir', 'label'})
 
 _DEFAULT_SCRIPT = Template(
     template= \
@@ -300,17 +300,20 @@ class SHSubmit(Submit):
     def __init__(self,
                  submit_template = None,
                  script_template = None,
+                 path_template = None,
                  handles = None,
                  key_args = None,
                  **kwargs):
         #check for class attributes first, then passed arguments, then default values
         submit_template = submit_template or self.__class__.SUBMIT_TEMPLATE
         script_template = script_template or self.__class__.SCRIPT_TEMPLATE
+        path_template = path_template or self.__class__.PATH_TEMPLATE
         handles = handles or self.__class__.HANDLES
         key_args = key_args or self.__class__.KEY_ARGS
         super().__init__(
             submit_template = submit_template,
             script_template = script_template,
+            path_template = path_template,
             handles = handles,
             key_args = key_args,
             **kwargs

@@ -155,10 +155,14 @@ def ray_search(dispatcher_constructor: Callable, # constructor for the dispatche
         dispatcher_kwargs = None
         if submit_constructor == submits.SGESubmitSSH:
             from fabric import connection
-            dispatcher_kwargs = {'connection': connection.Connection(host)}
+            dispatcher_kwargs = {
+                'connection_constructor': connection.Connection,
+                'connection_kwargs': {'host': host}}
         if submit_constructor == submits.SlurmSubmitSSH:
             from batchtk.utils.utils import TOTPConnection
-            dispatcher_kwargs = {'connection': TOTPConnection(host, key)}
+            dispatcher_kwargs = {
+                'connection_constructor': TOTPConnection,
+                'connection_kwargs': {'host': host, 'key': key}},
         if dispatcher_kwargs == None:
             raise ValueError("for SSH based methods, please provide either 'sftp' or None as the comm_type")
     else:
