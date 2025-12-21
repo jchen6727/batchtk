@@ -20,7 +20,7 @@ def _check_submit_key_args(submit_constructor, simple_run=True):
     """
     submit = submit_constructor()
     # ensure that templates can format macro placeholders
-    submit.update_template('submit', output_path=runtk.OUTPUT_PATH_STR)
+    submit.update_template('command', output_path=runtk.OUTPUT_PATH_STR)
     submit.update_template('script', stdout=runtk.STDOUT_STR, stderr=runtk.STDERR_STR,
                                      output_path=runtk.OUTPUT_PATH_STR)
     submit.update_template('path'  , output_path=runtk.OUTPUT_PATH_STR)
@@ -28,7 +28,7 @@ def _check_submit_key_args(submit_constructor, simple_run=True):
     # check that there are relevant placeholders
 
     # submit command should have {output_dir}/{label}
-    submit.templates.submit
+    submit.templates.command
 
     # submit scrip
     submit.templates.script
@@ -130,20 +130,20 @@ def serialize(args, var ='env', serializer ='sh'):
     return args # not necessary to return
 
 
-_Job = namedtuple('job', 'submit script path handles')
+_Job = namedtuple('job', 'command script path handles')
 
 class Submit(object):
-    def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None,
+    def __init__(self, command_template, script_template, path_template=None, handles=None, log=None,
                  key_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'command', 'stdout', 'stderr', 'path'),
                  protected_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'stdout', 'stderr', 'path'),
                  **kwargs):
 
         #key_args can be updated and formatted,
         #protected_args can only be formatted
-        self.submit_template = Template(submit_template, key_args=key_args)
+        self.command_template = Template(command_template, key_args=key_args)
         self.script_template = Template(script_template, key_args=key_args)
-        self.path_template = path_template or Template(self.submit_template.template.split(' ')[-1])
-        self.key_args = self.submit_template.key_args | self.script_template.key_args | self.path_template.key_args
+        self.path_template = path_template or Template(self.command_template.template.split(' ')[-1])
+        self.key_args = self.command_template.key_args | self.script_template.key_args | self.path_template.key_args
         self.protected_args = set(protected_args)
         handles = handles or self.create_handles() # can only call after submit and script template attributes are created.
         if not handles:#TODO need better serialization of handles # move handles logic elsewhere
@@ -151,9 +151,9 @@ class Submit(object):
         self.handles = Template(serializers['eq'](handles), # maybe just pass key_args ...
                                 key_args=('label', 'project_dir', 'output_dir', 'output_path', 'socket_name'))
 
-        self.templates = _Job(self.submit_template, self.script_template, self.path_template, self.handles)
+        self.templates = _Job(self.command_template, self.script_template, self.path_template, self.handles)
         self.job = None
-        self.submit = None
+        self.command = None
         self.script = None
         self.path = None
         self.proc = None
@@ -194,7 +194,7 @@ class Submit(object):
         kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
         job = self.format_job(**kwargs) # doesn't update the templates
         self.job     = job
-        self.submit  = job.submit
+        self.command  = job.command
         self.script  = job.script
         self.path    = job.path
         self.handles = job.handles
@@ -228,11 +228,11 @@ class Submit(object):
     def __repr__(self):
         mkey_args = {key: self.key_args[key] for key in self.key_args if key not in self.protected_args}
         if self.job:
-            ssph = self.job._replace(handles=self.repr_handles()) #submit, script, path, handles
+            csph = self.job._replace(handles=self.repr_handles()) #command, script, path, handles
         else:
-            ssph = self.templates._replace(handles=self.repr_handles())
+            csph = self.templates._replace(handles=self.repr_handles())
         return """
-submit:
+command:
 {}
 
 script:
@@ -249,7 +249,7 @@ submit args:
 
 protected args:
 {}
-""".format(*ssph, mkey_args, self.protected_args)
+""".format(*csph, mkey_args, self.protected_args)
 
     def deploy_job(self, fs=None):
         pass
@@ -271,7 +271,7 @@ protected args:
                 flush_fptr(fptr)
         except Exception as e:
             raise Exception("Failed to write script to file: {}\n{}".format(self.path, e))
-        self.proc = cmd.run(self.job.submit)
+        self.proc = cmd.run(self.job.command)
         return self.proc
 
     def check_job(self):
@@ -291,7 +291,7 @@ protected args:
         else:
             return deserializers['eq'](self.handles.template)
 
-_DEFAULT_SUBMIT = Template(template="sh {output_dir}/{label}.sh",
+_DEFAULT_COMMAND = Template(template="sh {output_dir}/{label}.sh",
                            key_args={'output_path', 'output_dir', 'label'})
 
 _DEFAULT_SCRIPT = Template(
@@ -321,27 +321,27 @@ class SHSubmit(Submit):
     # class attributes -- can be overridden in the calling __init__
     # or can be used via type( )
 
-    SUBMIT_TEMPLATE  = _DEFAULT_SUBMIT
+    COMMAND_TEMPLATE  = _DEFAULT_COMMAND
     SCRIPT_TEMPLATE  = _DEFAULT_SCRIPT
     PATH_TEMPLATE    = _DEFAULT_PATH
     HANDLES          = _DEFAULT_HANDLES
     KEY_ARGS         = _DEFAULT_KEY_ARGS
 
     def __init__(self,
-                 submit_template = None,
+                 command_template = None,
                  script_template = None,
                  path_template = None,
                  handles = None,
                  key_args = None,
                  **kwargs):
         #check for class attributes first, then passed arguments, then default values
-        submit_template = submit_template or self.__class__.SUBMIT_TEMPLATE
+        command_template = command_template or self.__class__.COMMAND_TEMPLATE
         script_template = script_template or self.__class__.SCRIPT_TEMPLATE
         path_template = path_template or self.__class__.PATH_TEMPLATE
         handles = handles or self.__class__.HANDLES
         key_args = key_args or self.__class__.KEY_ARGS
         super().__init__(
-            submit_template = submit_template,
+            command_template = command_template,
             script_template = script_template,
             path_template = path_template,
             handles = handles,
