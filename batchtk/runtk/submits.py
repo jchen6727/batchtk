@@ -13,17 +13,26 @@ def _check_submit_key_args(submit_constructor, simple_run=True):
     """
     Helper function--
     perform the default formatting method calls
+
+    submit_constructor:
+
+    simple_run:
     """
     submit = submit_constructor()
-
-    # ensure that templates can format macro strings
-    submit.update_template('script', stdout=runtk.STDOUT_STR, stderr=runtk.STDERR_STR,
-                                output_path=runtk.OUTPUT_PATH_STR)
+    # ensure that templates can format macro placeholders
     submit.update_template('submit', output_path=runtk.OUTPUT_PATH_STR)
-    submit.update_template('path', output_path=runtk.OUTPUT_PATH_STR)
+    submit.update_template('script', stdout=runtk.STDOUT_STR, stderr=runtk.STDERR_STR,
+                                     output_path=runtk.OUTPUT_PATH_STR)
+    submit.update_template('path'  , output_path=runtk.OUTPUT_PATH_STR)
 
-    
+    # check that there are relevant placeholders
 
+    # submit command should have {output_dir}/{label}
+    submit.templates.submit
+
+    # submit scrip
+    submit.templates.script
+    submit.templates.path
 
 
 class Template(object):
@@ -184,10 +193,10 @@ class Submit(object):
     def create_job(self, **kwargs):
         kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
         job = self.format_job(**kwargs) # doesn't update the templates
-        self.job = job
-        self.submit = job.submit
-        self.script = job.script
-        self.path = job.path
+        self.job     = job
+        self.submit  = job.submit
+        self.script  = job.script
+        self.path    = job.path
         self.handles = job.handles
 
     def format_job(self, **kwargs):
