@@ -121,3 +121,18 @@ class TomlParser(MParser):
         new_class.__module__ = __name__
         setattr(sys.modules[__name__], class_name, new_class)
         return new_class
+
+    def create_submit_py(self, base = SHSubmit, file_name = None, class_name = None):
+        class_obj = self.get_submit_class(base=base)
+
+        class_str = (
+            f"from batchtk.runtk.submits import {base.__name__}\n",
+            f"\n",
+            f"class {class_name}({base.__name__}):\n",
+            f"\tSUBMIT_TEMPLATE = \n"
+            f"\tSCRIPT_TEMPLATE = \n"
+            f"\tPATH_TEMPLATE = \n"
+            f"\tHANDLES = \n"
+            f"\tKEY_ARGS = \n"
+        )
+        return class_str
