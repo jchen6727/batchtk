@@ -101,6 +101,7 @@ def cmaes_search(
 
     algo_kwargs = algo_kwargs or {}
     bounds = []
+    param_space_samplers = param_space_samplers or ['float'] * len(param_space)
     if not all(sampler in ('categorical', 'int', 'float') for sampler in param_space_samplers):
         raise ValueError("all param_space_samplers must be one of 'categorical', 'int', or 'float'")
     if any(sampler in ('categorical', 'int') for sampler in param_space_samplers) or algo == 'margin':
@@ -159,7 +160,7 @@ def cmaes_search(
 
     def eval_trial(cfg, tid):
         cfg['_batchtk_label_pointer'] = LABEL_POINTER
-        cfg['_batchtk_path_pointer'] = DIR_POINTER
+        cfg['_batchtk_dir_pointer'] = DIR_POINTER
         loss = runtk_trial(
             config=cfg,
             label=study_label,

@@ -2,6 +2,11 @@ from abc import ABC, abstractmethod
 import re
 import warnings
 from batchtk.runtk.submits import SHSubmit
+import sys
+import os
+import multiprocessing
+# multiprocessing just to ensure that dynamic types are handled BEFORE spawning workers...
+
 try:
     import tomllib as toml
 except ImportError:
@@ -89,9 +94,19 @@ class TomlParser(MParser):
             return toml.load(fptr)
 
     def get_submit_class(self, base = SHSubmit):
+        if multiprocessing.parent_process() is not None:
+            raise RuntimeError(
+                "Dynamic submit class creation via .toml is not supported in child processes. "
+                "Please generate the submit class in the main process and pass it to child. "
+                "that is, call get_submit_class() BEFORE the __main__ guard."
+            )
+
         if not issubclass(base, SHSubmit):
             raise ValueError("must provide a base that subclasses from SHSubmit or any associated Submit")
-        class_name = "CustomSubmit"
+
+        file_name = os.path.basename(self.file_path).replace('.', '_').replace('-', '_')
+        class_name = f"CustomSubmit_{file_name}"
+        
         class_attrs = {}
         for class_attr in ('submit_template', 'script_template', 'path_template', 'handles', 'key_args'):
             if class_attr in self.config:
@@ -102,4 +117,22 @@ class TomlParser(MParser):
             (base,),
             class_attrs
         )
+
+        new_class.__module__ = __name__
+        setattr(sys.modules[__name__], class_name, new_class)
         return new_class
+
+    def create_submit_py(self, base = SHSubmit, file_name = None, class_name = None):
+        class_obj = self.get_submit_class(base=base)
+
+        class_str = (
+            f"from batchtk.runtk.submits import {base.__name__}\n",
+            f"\n",
+            f"class {class_name}({base.__name__}):\n",
+            f"\tSUBMIT_TEMPLATE = \n"
+            f"\tSCRIPT_TEMPLATE = \n"
+            f"\tPATH_TEMPLATE = \n"
+            f"\tHANDLES = \n"
+            f"\tKEY_ARGS = \n"
+        )
+        return class_str

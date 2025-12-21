@@ -1,4 +1,4 @@
-import os, pandas, numpy, sqlite3, io, pickle
+import os, pandas, numpy, sqlite3, io, pickle, time, random
 import numpy
 from typing import Any
 from batchtk.utils.misc import expand_path
@@ -113,6 +113,7 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
                  schema: dict = None, # now dict instead of list/tuple 2/2 PBLOB default
                  default_type: str= 'PBLOB', #pickled BLOB or TEXT...
                  timeout: int =30,
+                 max_retries: int = 5,
                  type_map: dict = None,
                  type_rules: list = None,
                  adapters: list = None,
@@ -128,6 +129,7 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
         filename = filename or "{}.sqlite.db".format(label)
         self.path = "{}/{}".format(directory, filename)
         self.timeout = timeout
+        self.max_retries = max_retries
 
         #self.instance_kwargs = {}
         self.type_map = type_map or self._DEFAULT_TYPE_MAP
@@ -195,10 +197,20 @@ class SQLiteStorage(SQLStorage, StateMixin): #SQLiteTable...
             conn.commit()
 
     def init_db(self):
-        if os.path.exists(self.path): # new db
-            self._sync_schema()
-            return
-        self._create_db()
+        base_delay = 0.1
+        for attempt in range(self.max_retries):
+            try:
+                if os.path.exists(self.path): # existing db
+                    self._sync_schema()
+                else: # new db
+                    self._create_db()
+                return # Success, so we exit the loop and the function
+            except self._oe as e:
+                if "locked" in str(e) and attempt < self.max_retries - 1:
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    time.sleep(delay)
+                    continue
+                raise e
 
     def insert(self, entry: dict):
         # perform type inference

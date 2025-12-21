@@ -17,6 +17,7 @@ _SAMPLERS = {
     'random': optuna.samplers.RandomSampler,
     'tspe':  optuna.samplers.TPESampler,
     'cmaes': optuna.samplers.CmaEsSampler,
+    'grid': optuna.samplers.GridSampler,
 }
 
 @deprecated_arg({"output_path": "output_dir", "project_path": "project_dir"}, deprecated_since="0.1.7", removal_when="0.1.9")
@@ -91,7 +92,7 @@ def optuna_search(
         cfg = {key: trial.__getattribute__(param_space_samplers[i])(key, *args) for i, (key, args) in enumerate(param_space.items())}
         tid = "{}".format(trial.number)
         cfg['_batchtk_label_pointer'] = LABEL_POINTER
-        cfg['_batchtk_path_pointer'] = DIR_POINTER
+        cfg['_batchtk_dir_pointer'] = DIR_POINTER
         data = runtk_trial(
             config=cfg,
             label=study_label,

@@ -87,7 +87,7 @@ def smac_search(
         config_dict = cfg.get_dictionary() # cfg is a configspace.Configuration, not a dictionary...
         tid = str(uuid.uuid4())  # SMAC3 smac doesn't provide a way to handle ID.
         config_dict['_batchtk_label_pointer'] = LABEL_POINTER
-        config_dict['_batchtk_path_pointer'] = DIR_POINTER
+        config_dict['_batchtk_dir_pointer'] = DIR_POINTER
         data = runtk_trial(
             config=config_dict,
             label=study_label,

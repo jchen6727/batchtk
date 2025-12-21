@@ -5,8 +5,26 @@ from batchtk import runtk
 from batchtk.utils import flush_fptr
 import re
 import warnings
-from traceback import print_stack
+import traceback
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
+
+
+def _check_submit_key_args(submit_constructor, simple_run=True):
+    """
+    Helper function--
+    perform the default formatting method calls
+    """
+    submit = submit_constructor()
+
+    # ensure that templates can format macro strings
+    submit.update_template('script', stdout=runtk.STDOUT_STR, stderr=runtk.STDERR_STR,
+                                output_path=runtk.OUTPUT_PATH_STR)
+    submit.update_template('submit', output_path=runtk.OUTPUT_PATH_STR)
+    submit.update_template('path', output_path=runtk.OUTPUT_PATH_STR)
+
+    
+
+
 
 class Template(object):
     """
@@ -46,13 +64,16 @@ class Template(object):
         try:
             return self.template.format(**mkwargs)
         except KeyError as e:
+            _new_key_args = {key: "{" + key + "}" for key in self.get_args()}
             message = (
                 f"Warning:"
-                f"In Template.format({kwargs}): argument '{e.args}' was found in the script:"
+                f"for Template:\n{self}"
+                f"In Template.format({kwargs}): argument '{e.args[0]}' was found in the script:"
                 f"{self.template}"
-                f"Recommend user provide '{e.args}' to Template.key_args or in kwargs."
+                f"Recommend user provide '{e.args[0]}' to Template.key_args or in kwargs."
                 f"current self.key_args:\n{self.key_args}"
-                f"see traceback:\n{print_stack(limit=5)}" # avoid recursion?
+                f"suggested self.key_args:\n{_new_key_args}"
+                f"see traceback:\n{''.join(traceback.format_stack(limit=5))}" # avoid recursion?
             )
             warnings.warn(message)
             self.key_args = {key: "{" + key + "}" for key in self.get_args()}
@@ -262,7 +283,7 @@ protected args:
             return deserializers['eq'](self.handles.template)
 
 _DEFAULT_SUBMIT = Template(template="sh {output_dir}/{label}.sh",
-                           key_args={'output_dir', 'label'})
+                           key_args={'output_path', 'output_dir', 'label'})
 
 _DEFAULT_SCRIPT = Template(
     template= \
@@ -300,17 +321,20 @@ class SHSubmit(Submit):
     def __init__(self,
                  submit_template = None,
                  script_template = None,
+                 path_template = None,
                  handles = None,
                  key_args = None,
                  **kwargs):
         #check for class attributes first, then passed arguments, then default values
         submit_template = submit_template or self.__class__.SUBMIT_TEMPLATE
         script_template = script_template or self.__class__.SCRIPT_TEMPLATE
+        path_template = path_template or self.__class__.PATH_TEMPLATE
         handles = handles or self.__class__.HANDLES
         key_args = key_args or self.__class__.KEY_ARGS
         super().__init__(
             submit_template = submit_template,
             script_template = script_template,
+            path_template = path_template,
             handles = handles,
             key_args = key_args,
             **kwargs
