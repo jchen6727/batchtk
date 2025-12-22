@@ -22,6 +22,75 @@ def deprecated_arg(kwarg_map: dict, deprecated_since: str=None, removal_when: st
         return wrapped
     return decorator
 
+def deprecated_attribute(old_attr, new_attr, deprecated_since: str=None, removal_when: str=None):
+    def decorator(cls):
+        @property
+        def deprecated_prop(self):
+            deprecated_statement = f"was deprecated in version {deprecated_since}" if deprecated_since else "has been deprecated"
+            removal_statement = f" and is scheduled to be removed in version/on date {removal_when}\n" if removal_when else ""
+            message = (
+                f"Attribute '{old_attr}' on {cls.__name__} {deprecated_statement}\n"
+                f"{removal_statement}"
+                f"Please update your code to use '{new_attr}' instead."
+            )
+            warnings.warn(message, DeprecationWarning, stacklevel=2)
+            return getattr(self, new_attr)
+
+        @deprecated_prop.setter
+        def deprecated_prop(self, value):
+            deprecated_statement = f"was deprecated in version {deprecated_since}" if deprecated_since else "has been deprecated"
+            removal_statement = f" and is scheduled to be removed in version/on date {removal_when}\n" if removal_when else ""
+            message = (
+                f"Attribute '{old_attr}' on {cls.__name__} {deprecated_statement}\n"
+                f"{removal_statement}"
+                f"Please update your code to use '{new_attr}' instead."
+            )
+            warnings.warn(message, DeprecationWarning, stacklevel=2)
+            setattr(self, new_attr, value)
+
+        setattr(cls, old_attr, deprecated_prop)
+        return cls
+    return decorator
+
+class _ClassProperty(object):
+    def __init__(self, fget, fset):
+        self.fget = fget
+        self.fset = fset
+
+    def __get__(self, obj, owner):
+        return self.fget(owner)
+
+    def __set__(self, owner, value):
+        self.fset(owner, value)
+
+def deprecated_class_attribute(old_attr, new_attr, deprecated_since: str=None, removal_when: str=None):
+    def decorator(cls):
+        def getter(owner_cls):
+            deprecated_statement = f"was deprecated in version {deprecated_since}" if deprecated_since else "has been deprecated"
+            removal_statement = f" and is scheduled to be removed in version/on date {removal_when}\n" if removal_when else ""
+            message = (
+                f"Class attribute '{old_attr}' on {owner_cls.__name__} {deprecated_statement}\n"
+                f"{removal_statement}"
+                f"Please update your code to use '{new_attr}' instead."
+            )
+            warnings.warn(message, DeprecationWarning, stacklevel=2)
+            return getattr(owner_cls, new_attr)
+
+        def setter(owner_cls, value):
+            deprecated_statement = f"was deprecated in version {deprecated_since}" if deprecated_since else "has been deprecated"
+            removal_statement = f" and is scheduled to be removed in version/on date {removal_when}\n" if removal_when else ""
+            message = (
+                f"Class attribute '{old_attr}' on {owner_cls.__name__} {deprecated_statement}\n"
+                f"{removal_statement}"
+                f"Please update your code to use '{new_attr}' instead."
+            )
+            warnings.warn(message, DeprecationWarning, stacklevel=2)
+            setattr(owner_cls, new_attr, value)
+        
+        setattr(cls, old_attr, _ClassProperty(getter, setter))
+        return cls
+    return decorator
+
 def create_deprecation_handlers(module_name, module_globals, deprecation_map):
     """
     Factory function that creates PEP 562-compliant __getattr__

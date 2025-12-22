@@ -6,6 +6,7 @@ from batchtk.utils import flush_fptr
 import re
 import warnings
 import traceback
+from batchtk.utils.version import deprecated_arg, deprecated_attribute, deprecated_class_attribute
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
 
 
@@ -27,10 +28,17 @@ def _check_submit_key_args(submit_constructor, simple_run=True):
 
     # check that there are relevant placeholders
 
-    # submit command should have {output_dir}/{label}
-    submit.templates.command
+    check_fails = []
+    # submit command should include {output_dir}/{label}
+    for _str in ['{output_dir}', '{label}']:
+        if _str not in submit.templates.command:
+            msg = (
+                f"command_template(/COMMAND_TEMPLATE) attribute missing {_str} string...\n"
+                 "recommend adding it, can use {output_path} for {output_dir}/{label}\n"
+            )
+            check_fails.append(msg)
 
-    # submit scrip
+    # submit script should include a cd
     submit.templates.script
     submit.templates.path
 
@@ -132,7 +140,10 @@ def serialize(args, var ='env', serializer ='sh'):
 
 _Job = namedtuple('job', 'command script path handles')
 
+@deprecated_attribute('submit', 'command', deprecated_since='0.1.0')
+@deprecated_attribute('submit_template', 'command_template', deprecated_since='0.1.0')
 class Submit(object):
+    @deprecated_arg({'submit_template': 'command_template'}, deprecated_since='0.1.0')
     def __init__(self, command_template, script_template, path_template=None, handles=None, log=None,
                  key_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'command', 'stdout', 'stderr', 'path'),
                  protected_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'stdout', 'stderr', 'path'),
@@ -194,7 +205,7 @@ class Submit(object):
         kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
         job = self.format_job(**kwargs) # doesn't update the templates
         self.job     = job
-        self.command  = job.command
+        self.command = job.command
         self.script  = job.script
         self.path    = job.path
         self.handles = job.handles
@@ -317,16 +328,19 @@ _DEFAULT_PATH = Template(template="{output_path}.sh",
 _DEFAULT_HANDLES = runtk.ALL_HANDLES
 
 _DEFAULT_KEY_ARGS = ('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'command', 'stdout', 'stderr', 'path')
+
+@deprecated_class_attribute('SUBMIT_TEMPLATE', 'COMMAND_TEMPLATE', deprecated_since='0.1.0')
 class SHSubmit(Submit):
     # class attributes -- can be overridden in the calling __init__
     # or can be used via type( )
 
-    COMMAND_TEMPLATE  = _DEFAULT_COMMAND
+    COMMAND_TEMPLATE = _DEFAULT_COMMAND
     SCRIPT_TEMPLATE  = _DEFAULT_SCRIPT
     PATH_TEMPLATE    = _DEFAULT_PATH
     HANDLES          = _DEFAULT_HANDLES
     KEY_ARGS         = _DEFAULT_KEY_ARGS
 
+    @deprecated_arg({'submit_template': 'command_template'}, deprecated_since='0.1.0')
     def __init__(self,
                  command_template = None,
                  script_template = None,
