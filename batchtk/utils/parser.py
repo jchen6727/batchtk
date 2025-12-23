@@ -24,11 +24,12 @@ except ImportError:
 
 
 _CHECKLIST_DEFAULTS = {
-    'submit_template': (
+    'command_template': (
         '{output_path}',
     ),
     'script_template': (
         '{project_dir}',
+        '{handles}'
         '{env}',
         '{command}',
         '{stdout}',

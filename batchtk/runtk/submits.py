@@ -10,7 +10,7 @@ from batchtk.utils.version import deprecated_arg, deprecated_attribute, deprecat
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
 
 
-def _check_submit_key_args(submit_constructor, simple_run=True):
+def _check_submit_key_args(submit_constructor, generate_file=True):
     """
     Helper function--
     perform the default formatting method calls
@@ -19,7 +19,28 @@ def _check_submit_key_args(submit_constructor, simple_run=True):
 
     simple_run:
     """
+    #TODO -> move/consolidate this to utils.parser._check?
     submit = submit_constructor()
+
+    check_fails = {
+        'command': [],
+        'script': [],
+        'path': [],
+    }
+    msg = (
+        "submit attribute template {} missing {} placeholder...\n"
+        "this can cause errors during execution...\n"
+    )
+
+    key_fails = {
+        'command': [],
+        'script': [],
+        'path': [],
+    }
+
+    # check key args of each template before macro formatting:
+    for template in [submit.templates.command, submit.templates.script, submit.templates.path]:
+         -
     # ensure that templates can format macro placeholders
     submit.update_template('command', output_path=runtk.OUTPUT_PATH_STR)
     submit.update_template('script', stdout=runtk.STDOUT_STR, stderr=runtk.STDERR_STR,
@@ -28,19 +49,45 @@ def _check_submit_key_args(submit_constructor, simple_run=True):
 
     # check that there are relevant placeholders
 
-    check_fails = []
+
+    rec = "recommend adding it (can use {output_path} for {output_dir}/{label})\n"
     # submit command should include {output_dir}/{label}
     for _str in ['{output_dir}', '{label}']:
         if _str not in submit.templates.command:
-            msg = (
-                f"command_template(/COMMAND_TEMPLATE) attribute missing {_str} string...\n"
-                 "recommend adding it, can use {output_path} for {output_dir}/{label}\n"
-            )
-            check_fails.append(msg)
+            check_fails['command'].append(msg.format('command', _str))
+    # submit script should include a cd {project_dir}
+    for _str in ['{project_dir}', '{handles}', '{env}']:
+        if _str not in submit.templates.script:
+            check_fails['script'].append(msg.format('command', _str))
+    # submit path should include {output_dir}/{label}
+    for _str in ['{output_dir}', '{label}']:
+        if _str not in submit.templates.path:
+            check_fails['path'].append(msg.format('path', _str))
 
-    # submit script should include a cd
-    submit.templates.script
-    submit.templates.path
+    # print statements
+    for template in check_fails:
+        if check_fails[template]:
+            print(f'evaluation of {template} shows the following issues')
+            for error in check_fails[template]:
+                print(error)
+        else:
+            print(f'evaluation of {template} passed successfully')
+
+    # check key args of each template:
+    # reset check_fails
+    check_fails = {
+        'command': [],
+        'script': [],
+        'path': [],
+    }
+    for template in [submit.templates.command, submit.templates.script, submit.templates.path]:
+
+
+
+
+
+
+
 
 
 class Template(object):
