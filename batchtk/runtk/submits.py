@@ -10,7 +10,7 @@ from batchtk.utils.version import deprecated_arg, deprecated_attribute, deprecat
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
 
 
-def _check_submit_key_args(submit_constructor, generate_file=True):
+def _check_submit_key_args(submit_constructor):
     """
     Helper function--
     perform the default formatting method calls
@@ -22,7 +22,13 @@ def _check_submit_key_args(submit_constructor, generate_file=True):
     #TODO -> move/consolidate this to utils.parser._check?
     submit = submit_constructor()
 
-    check_fails = {
+    templates = {
+        'command': submit.templates.command,
+        'script': submit.templates.script,
+        'path': submit.templates.path,
+    }
+
+    missing_placeholders = {
         'command': [],
         'script': [],
         'path': [],
@@ -32,61 +38,61 @@ def _check_submit_key_args(submit_constructor, generate_file=True):
         "this can cause errors during execution...\n"
     )
 
-    key_fails = {
-        'command': [],
-        'script': [],
-        'path': [],
-    }
+    actual_keys = {}
+
+    provided_keys = {}
 
     # check key args of each template before macro formatting:
-    for template in [submit.templates.command, submit.templates.script, submit.templates.path]:
-         -
-    # ensure that templates can format macro placeholders
+    for label, template in templates.items:
+        provided_keys[label] = template.key_args
+        actual_keys[label] = set(template.get_args())
+
+
+    # ensure that templates can format macro placeholders (will change template string)
     submit.update_template('command', output_path=runtk.OUTPUT_PATH_STR)
     submit.update_template('script', stdout=runtk.STDOUT_STR, stderr=runtk.STDERR_STR,
                                      output_path=runtk.OUTPUT_PATH_STR)
     submit.update_template('path'  , output_path=runtk.OUTPUT_PATH_STR)
 
+    # update actual_keys of each template after doing macro formatting::
+    for label, template in [submit.templates.command, submit.templates.script, submit.templates.path]:
+        actual_keys[template] = actual_keys[template] | set(template.get_args())
+
+
     # check that there are relevant placeholders
-
-
+    #TODO just check within the actual keys instead?
     rec = "recommend adding it (can use {output_path} for {output_dir}/{label})\n"
     # submit command should include {output_dir}/{label}
     for _str in ['{output_dir}', '{label}']:
         if _str not in submit.templates.command:
-            check_fails['command'].append(msg.format('command', _str))
+            missing_placeholders['command'].append(msg.format('command', _str))
     # submit script should include a cd {project_dir}
     for _str in ['{project_dir}', '{handles}', '{env}']:
         if _str not in submit.templates.script:
-            check_fails['script'].append(msg.format('command', _str))
+            missing_placeholders['script'].append(msg.format('command', _str))
     # submit path should include {output_dir}/{label}
     for _str in ['{output_dir}', '{label}']:
         if _str not in submit.templates.path:
-            check_fails['path'].append(msg.format('path', _str))
+            missing_placeholders['path'].append(msg.format('path', _str))
 
     # print statements
-    for template in check_fails:
-        if check_fails[template]:
+    for template in missing_placeholders:
+        if missing_placeholders[template]:
             print(f'evaluation of {template} shows the following issues')
-            for error in check_fails[template]:
+            for error in missing_placeholders[template]:
                 print(error)
         else:
             print(f'evaluation of {template} passed successfully')
 
-    # check key args of each template:
-    # reset check_fails
-    check_fails = {
-        'command': [],
-        'script': [],
-        'path': [],
-    }
-    for template in [submit.templates.command, submit.templates.script, submit.templates.path]:
+    for template in templates:
+        if provided_keys != actual_keys:
+            print(f"submit template attribute {template} has mismatched key args:\n"
+                  f"provided: {provided_keys[template]}\n"
+                  f"actual: {actual_keys[template]}")
+        else:
+            print(f"submit template attribute {template} has correct key args")
 
-
-
-
-
-
+    return
 
 
 
