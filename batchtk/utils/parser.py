@@ -24,11 +24,12 @@ except ImportError:
 
 
 _CHECKLIST_DEFAULTS = {
-    'submit_template': (
+    'command_template': (
         '{output_path}',
     ),
     'script_template': (
         '{project_dir}',
+        '{handles}'
         '{env}',
         '{command}',
         '{stdout}',
@@ -108,7 +109,7 @@ class TomlParser(MParser):
         class_name = f"CustomSubmit_{file_name}"
         
         class_attrs = {}
-        for class_attr in ('submit_template', 'script_template', 'path_template', 'handles', 'key_args'):
+        for class_attr in ('command_template', 'script_template', 'path_template', 'handles', 'key_args'):
             if class_attr in self.config:
                 class_attrs[class_attr.upper()] = self.config[class_attr]
 
@@ -121,3 +122,18 @@ class TomlParser(MParser):
         new_class.__module__ = __name__
         setattr(sys.modules[__name__], class_name, new_class)
         return new_class
+
+    def create_submit_py(self, base = SHSubmit, file_name = None, class_name = None):
+        class_obj = self.get_submit_class(base=base)
+
+        class_str = (
+            f"from batchtk.runtk.submits import {base.__name__}\n",
+            f"\n",
+            f"class {class_name}({base.__name__}):\n",
+            f"\tSUBMIT_TEMPLATE = \n"
+            f"\tSCRIPT_TEMPLATE = \n"
+            f"\tPATH_TEMPLATE = \n"
+            f"\tHANDLES = \n"
+            f"\tKEY_ARGS = \n"
+        )
+        return class_str
