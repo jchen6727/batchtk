@@ -362,13 +362,15 @@ _DEFAULT_SCRIPT = Template(
     template= \
 """\
 #!/bin/sh
+
+source ~/.bashrc
+
 cd {project_dir}
 
 {handles}
+{env}
 
 export JOBID=$$
-
-{env}
 nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1

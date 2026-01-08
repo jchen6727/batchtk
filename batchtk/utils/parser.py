@@ -109,7 +109,7 @@ class TomlParser(MParser):
         class_name = f"CustomSubmit_{file_name}"
         
         class_attrs = {}
-        for class_attr in ('submit_template', 'script_template', 'path_template', 'handles', 'key_args'):
+        for class_attr in ('command_template', 'script_template', 'path_template', 'handles', 'key_args'):
             if class_attr in self.config:
                 class_attrs[class_attr.upper()] = self.config[class_attr]
 
