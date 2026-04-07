@@ -8,10 +8,6 @@ The rosenbrock minimum is at (A, A**2), where rosenbrock(A, A**2) = 0
 """
 A = 1
 
-PATHSTR = '_batchtk_path_pointer'
-LABELSTR = '_batchtk_label_pointer'
-
-
 print("starting process: {}".format(os.getpid()))
 
 def rosenbrock(x0, x1):
@@ -19,10 +15,14 @@ def rosenbrock(x0, x1):
 
 runner = get_runner()
 print("runner id: {}".format(id(runner)))
-mappings = {'x0': A, 'x1': A**2}
+mappings = {'x0': A, 'x1': A**2, 'dir': '.', 'label': '_overwrite_'}
 mappings.update(runner.get_mappings())
 
 inputs = {key: mappings[key] for key in ('x0', 'x1')}
+
+if 'dir' in mappings and 'label' in mappings:
+    file = "{}/{}.txt".format(mappings['dir'], mappings['label'])
+    mappings['file'] = file
 
 fx = rosenbrock(mappings['x0'], mappings['x1'])
 #results = json.dumps({**mappings, 'fx': fx})
@@ -34,8 +34,7 @@ with get_runner() as runner:
     print("communication runner id: {}".format(id(runner)))
     runner.send(results)
 
-if PATHSTR in mappings and LABELSTR in mappings:
-    file = "{}/{}.txt".format(mappings[PATHSTR], mappings[LABELSTR])
-    print("writing results to file: {}".format(file))
-    with open(file, 'w') as fptr:
+if 'file' in mappings:
+    with open(mappings['file'], 'w') as fptr:
         fptr.write(results)
+

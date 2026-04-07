@@ -1,0 +1,13 @@
+submit_template = "sh {output_path}.sh"
+
+script_template = """\
+#!/bin/sh
+cd {project_dir}
+
+{handles}
+
+{env}
+nohup python rosenbrock_func.py > {stdout} 2>&1 &
+pid=$!
+echo $pid >&1
+"""

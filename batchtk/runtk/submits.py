@@ -5,8 +5,96 @@ from batchtk import runtk
 from batchtk.utils import flush_fptr
 import re
 import warnings
-from traceback import print_stack
+import traceback
+from batchtk.utils.version import deprecated_arg, deprecated_attribute, deprecated_class_attribute
 #TODO, encapsulate file system #DONE, encapsulate connection #DONE
+
+
+def _check_submit_key_args(submit_constructor):
+    """
+    Helper function--
+    perform the default formatting method calls
+
+    submit_constructor:
+
+    simple_run:
+    """
+    #TODO -> move/consolidate this to utils.parser._check?
+    submit = submit_constructor()
+
+    templates = {
+        'command': submit.templates.command,
+        'script': submit.templates.script,
+        'path': submit.templates.path,
+    }
+
+    missing_placeholders = {
+        'command': [],
+        'script': [],
+        'path': [],
+    }
+    msg = (
+        "submit attribute template {} missing {} placeholder...\n"
+        "this can cause errors during execution...\n"
+    )
+
+    actual_keys = {}
+
+    provided_keys = {}
+
+    # check key args of each template before macro formatting:
+    for label, template in templates.items:
+        provided_keys[label] = template.key_args
+        actual_keys[label] = set(template.get_args())
+
+
+    # ensure that templates can format macro placeholders (will change template string)
+    submit.update_template('command', output_path=runtk.OUTPUT_PATH_STR)
+    submit.update_template('script', stdout=runtk.STDOUT_STR, stderr=runtk.STDERR_STR,
+                                     output_path=runtk.OUTPUT_PATH_STR)
+    submit.update_template('path'  , output_path=runtk.OUTPUT_PATH_STR)
+
+    # update actual_keys of each template after doing macro formatting::
+    for label, template in [submit.templates.command, submit.templates.script, submit.templates.path]:
+        actual_keys[template] = actual_keys[template] | set(template.get_args())
+
+
+    # check that there are relevant placeholders
+    #TODO just check within the actual keys instead?
+    rec = "recommend adding it (can use {output_path} for {output_dir}/{label})\n"
+    # submit command should include {output_dir}/{label}
+    for _str in ['{output_dir}', '{label}']:
+        if _str not in submit.templates.command:
+            missing_placeholders['command'].append(msg.format('command', _str))
+    # submit script should include a cd {project_dir}
+    for _str in ['{project_dir}', '{handles}', '{env}']:
+        if _str not in submit.templates.script:
+            missing_placeholders['script'].append(msg.format('command', _str))
+    # submit path should include {output_dir}/{label}
+    for _str in ['{output_dir}', '{label}']:
+        if _str not in submit.templates.path:
+            missing_placeholders['path'].append(msg.format('path', _str))
+
+    # print statements
+    for template in missing_placeholders:
+        if missing_placeholders[template]:
+            print(f'evaluation of {template} shows the following issues')
+            for error in missing_placeholders[template]:
+                print(error)
+        else:
+            print(f'evaluation of {template} passed successfully')
+
+    for template in templates:
+        if provided_keys != actual_keys:
+            print(f"submit template attribute {template} has mismatched key args:\n"
+                  f"provided: {provided_keys[template]}\n"
+                  f"actual: {actual_keys[template]}")
+        else:
+            print(f"submit template attribute {template} has correct key args")
+
+    return
+
+
 
 class Template(object):
     """
@@ -46,13 +134,16 @@ class Template(object):
         try:
             return self.template.format(**mkwargs)
         except KeyError as e:
+            _new_key_args = {key: "{" + key + "}" for key in self.get_args()}
             message = (
                 f"Warning:"
-                f"In Template.format({kwargs}): argument '{e.args}' was found in the script:"
+                f"for Template:\n{self}"
+                f"In Template.format({kwargs}): argument '{e.args[0]}' was found in the script:"
                 f"{self.template}"
-                f"Recommend user provide '{e.args}' to Template.key_args or in kwargs."
+                f"Recommend user provide '{e.args[0]}' to Template.key_args or in kwargs."
                 f"current self.key_args:\n{self.key_args}"
-                f"see traceback:\n{print_stack(limit=5)}" # avoid recursion?
+                f"suggested self.key_args:\n{_new_key_args}"
+                f"see traceback:\n{''.join(traceback.format_stack(limit=5))}" # avoid recursion?
             )
             warnings.warn(message)
             self.key_args = {key: "{" + key + "}" for key in self.get_args()}
@@ -100,20 +191,23 @@ def serialize(args, var ='env', serializer ='sh'):
     return args # not necessary to return
 
 
-_Job = namedtuple('job', 'submit script path handles')
+_Job = namedtuple('job', 'command script path handles')
 
+@deprecated_attribute('submit', 'command', deprecated_since='0.1.0')
+@deprecated_attribute('submit_template', 'command_template', deprecated_since='0.1.0')
 class Submit(object):
-    def __init__(self, submit_template, script_template, path_template=None, handles=None, log=None,
+    @deprecated_arg({'submit_template': 'command_template'}, deprecated_since='0.1.0')
+    def __init__(self, command_template, script_template, path_template=None, handles=None, log=None,
                  key_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'command', 'stdout', 'stderr', 'path'),
                  protected_args=('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'stdout', 'stderr', 'path'),
                  **kwargs):
 
         #key_args can be updated and formatted,
         #protected_args can only be formatted
-        self.submit_template = Template(submit_template, key_args=key_args)
+        self.command_template = Template(command_template, key_args=key_args)
         self.script_template = Template(script_template, key_args=key_args)
-        self.path_template = path_template or Template(self.submit_template.template.split(' ')[-1])
-        self.key_args = self.submit_template.key_args | self.script_template.key_args | self.path_template.key_args
+        self.path_template = path_template or Template(self.command_template.template.split(' ')[-1])
+        self.key_args = self.command_template.key_args | self.script_template.key_args | self.path_template.key_args
         self.protected_args = set(protected_args)
         handles = handles or self.create_handles() # can only call after submit and script template attributes are created.
         if not handles:#TODO need better serialization of handles # move handles logic elsewhere
@@ -121,9 +215,9 @@ class Submit(object):
         self.handles = Template(serializers['eq'](handles), # maybe just pass key_args ...
                                 key_args=('label', 'project_dir', 'output_dir', 'output_path', 'socket_name'))
 
-        self.templates = _Job(self.submit_template, self.script_template, self.path_template, self.handles)
+        self.templates = _Job(self.command_template, self.script_template, self.path_template, self.handles)
         self.job = None
-        self.submit = None
+        self.command = None
         self.script = None
         self.path = None
         self.proc = None
@@ -163,10 +257,10 @@ class Submit(object):
     def create_job(self, **kwargs):
         kwargs = serialize(kwargs, var = 'env', serializer = 'sh')
         job = self.format_job(**kwargs) # doesn't update the templates
-        self.job = job
-        self.submit = job.submit
-        self.script = job.script
-        self.path = job.path
+        self.job     = job
+        self.command = job.command
+        self.script  = job.script
+        self.path    = job.path
         self.handles = job.handles
 
     def format_job(self, **kwargs):
@@ -198,11 +292,11 @@ class Submit(object):
     def __repr__(self):
         mkey_args = {key: self.key_args[key] for key in self.key_args if key not in self.protected_args}
         if self.job:
-            ssph = self.job._replace(handles=self.repr_handles()) #submit, script, path, handles
+            csph = self.job._replace(handles=self.repr_handles()) #command, script, path, handles
         else:
-            ssph = self.templates._replace(handles=self.repr_handles())
+            csph = self.templates._replace(handles=self.repr_handles())
         return """
-submit:
+command:
 {}
 
 script:
@@ -219,7 +313,7 @@ submit args:
 
 protected args:
 {}
-""".format(*ssph, mkey_args, self.protected_args)
+""".format(*csph, mkey_args, self.protected_args)
 
     def deploy_job(self, fs=None):
         pass
@@ -241,7 +335,7 @@ protected args:
                 flush_fptr(fptr)
         except Exception as e:
             raise Exception("Failed to write script to file: {}\n{}".format(self.path, e))
-        self.proc = cmd.run(self.job.submit)
+        self.proc = cmd.run(self.job.command)
         return self.proc
 
     def check_job(self):
@@ -261,20 +355,22 @@ protected args:
         else:
             return deserializers['eq'](self.handles.template)
 
-_DEFAULT_SUBMIT = Template(template="sh {output_dir}/{label}.sh",
-                           key_args={'output_dir', 'label'})
+_DEFAULT_COMMAND = Template(template="sh {output_dir}/{label}.sh",
+                           key_args={'output_path', 'output_dir', 'label'})
 
 _DEFAULT_SCRIPT = Template(
     template= \
 """\
 #!/bin/sh
+
+source ~/.bashrc
+
 cd {project_dir}
 
 {handles}
+{env}
 
 export JOBID=$$
-
-{env}
 nohup {command} > {stdout} 2>&1 &
 pid=$!
 echo $pid >&1
@@ -287,30 +383,36 @@ _DEFAULT_PATH = Template(template="{output_path}.sh",
 _DEFAULT_HANDLES = runtk.ALL_HANDLES
 
 _DEFAULT_KEY_ARGS = ('label', 'project_dir', 'output_dir', 'output_path', 'env', 'handles', 'socket_name', 'command', 'stdout', 'stderr', 'path')
+
+@deprecated_class_attribute('SUBMIT_TEMPLATE', 'COMMAND_TEMPLATE', deprecated_since='0.1.0')
 class SHSubmit(Submit):
     # class attributes -- can be overridden in the calling __init__
     # or can be used via type( )
 
-    SUBMIT_TEMPLATE  = _DEFAULT_SUBMIT
+    COMMAND_TEMPLATE = _DEFAULT_COMMAND
     SCRIPT_TEMPLATE  = _DEFAULT_SCRIPT
     PATH_TEMPLATE    = _DEFAULT_PATH
     HANDLES          = _DEFAULT_HANDLES
     KEY_ARGS         = _DEFAULT_KEY_ARGS
 
+    @deprecated_arg({'submit_template': 'command_template'}, deprecated_since='0.1.0')
     def __init__(self,
-                 submit_template = None,
+                 command_template = None,
                  script_template = None,
+                 path_template = None,
                  handles = None,
                  key_args = None,
                  **kwargs):
         #check for class attributes first, then passed arguments, then default values
-        submit_template = submit_template or self.__class__.SUBMIT_TEMPLATE
+        command_template = command_template or self.__class__.COMMAND_TEMPLATE
         script_template = script_template or self.__class__.SCRIPT_TEMPLATE
+        path_template = path_template or self.__class__.PATH_TEMPLATE
         handles = handles or self.__class__.HANDLES
         key_args = key_args or self.__class__.KEY_ARGS
         super().__init__(
-            submit_template = submit_template,
+            command_template = command_template,
             script_template = script_template,
+            path_template = path_template,
             handles = handles,
             key_args = key_args,
             **kwargs
@@ -319,12 +421,14 @@ class SHSubmit(Submit):
     def set_handles(self):
         pass
 
-    def _parse_job_id(self, proc):
+    def _parse_proc(self, proc) -> str:
         """
         [PROTECTED INTERNAL METHOD]
-        self.submit_job calls this
-        takes the string returned by submitting job:
-        (either directly via shell call or through job scheduler)
+        SHSubmit.submit_job() calls this after Submit.submit_job()
+        This internal method
+        takes the proc returned by submitting job:
+        (for instance the results of the shell call or through job scheduler)
+        and returns a job_id.
 
         any logic (i.e. parsing proc in order to tell if the job submission succeeded or failed, and raising Error)
         should also be implemented here
@@ -332,8 +436,8 @@ class SHSubmit(Submit):
         return proc
 
     def submit_job(self, **kwargs):
-        proc = super().submit_job()
-        self.job_id = self._parse_job_id(proc)
+        proc = super().submit_job(**kwargs)
+        self.job_id = self._parse_proc(proc)
         return self.job_id
 
 # reference classes used as examples and for testing.

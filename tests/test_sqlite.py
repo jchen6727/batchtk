@@ -52,22 +52,3 @@ print(df)
 log.close()
 
 
-"""
-from batchtk.utils import SQLiteLogger
-from batchtk.runtk import LocalDispatcher, SHSubmitSFS
-from batchtk.runtk.trial import trial
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import os
-
-log = SQLiteLogger(path='./test_logs2', entries=['x.0', 'x.1', 'fx'])
-
-log.log({
-    'x.0': 2,
-    'x.1': 3,
-    'fx': 9
-})
-
-print(log.to_df)
-#TODO: add test for SQLiteLogger
-"""
-
