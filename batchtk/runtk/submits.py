@@ -1,4 +1,31 @@
-### Submit class ###
+"""
+batchtk.runtk.submits
+
+This module provides the classes and functions responsible for generating,
+formatting, and submitting job scripts in the batchtk framework. It acts as
+the bridge between the Dispatcher and the execution environment by creating
+executable scripts from templates and serializing environment variables.
+
+Classes:
+    Template: A wrapper around string templates that manages placeholders
+        (key_args) and provides safe formatting and updating capabilities.
+    Submit: The base class for defining a job submission. It manages the
+        command, script, path, and handle templates, serializes environment
+        variables, and provides methods to create and submit jobs.
+    SHSubmit: A subclass of Submit configured with default templates for
+        standard shell script (.sh) execution.
+    SHSubmitSFS / SHSubmitSOCK: Example subclasses for specific configurations.
+
+Functions:
+    _check_submit_key_args: Helper function to validate template placeholders.
+    serialize: Serializes environment variables into a specified format.
+
+Usage:
+    Submit objects are typically created by a Dispatcher to generate a job
+    script. The Dispatcher calls `create_job()` to format the templates with
+    the necessary environment variables and paths, and then `submit_job()`
+    to write the script to disk and execute it via the configured protocol.
+"""
 import logging
 from collections import namedtuple
 from batchtk import runtk
@@ -98,7 +125,18 @@ def _check_submit_key_args(submit_constructor):
 
 class Template(object):
     """
-    Class for Template objects
+    A wrapper class for string templates that provides safe formatting and updating.
+    
+    This class manages template placeholders (key_args) to prevent formatting errors
+    when partial formatting is required. It allows placeholders to persist if they
+    are not provided during formatting.
+    
+    Methods:
+        __init__: Initializes the template and its key arguments.
+        get_args: Extracts all placeholder names from the template string, called internally.
+        format: Safely formats the template without modifying the original.
+        update: Permanently updates the template by replacing provided placeholders.
+        check_missing: Checks if any required placeholders remain unformatted.
     """
     def __new__(cls, template = None, key_args = None, **kwargs):
         if isinstance(template, Template):
@@ -107,6 +145,18 @@ class Template(object):
             return super().__new__(cls)
 
     def __init__(self, template, key_args = None, **kwargs): # ensure idempotency with the first check
+        """
+        Initializes the Template object. If another Template object is passed,
+        it bypasses initialization.
+        
+        Args:
+            template (str or Template): The template string with placeholders (e.g., "{key}").
+            key_args (iterable, optional): An explicit list of allowed placeholders.
+                If not provided, it automatically extracts them from the template string.
+            
+        Example:
+            t = Template("echo {msg} to {file}", key_args=['msg', 'file'])
+        """
         if isinstance(template, Template): # passthrough if already a Template
             return # why is this necessary?
         # if a template is passed to __new__, it returns an instance of Template, therefore calling the __init__ function
@@ -116,7 +166,17 @@ class Template(object):
         else:
             self.key_args = {key: "{" + key + "}" for key in self.get_args()}
 
-    def get_args(self):
+    def get_args(self, **kwargs):
+        """
+        Extracts all format placeholders from the current template string using regex.
+        
+        Returns:
+            list: A list of string placeholder names found in the template.
+            
+        Example:
+            t = Template("command {arg1} {arg2}")
+            t.get_args() # Returns ['arg1', 'arg2']
+        """
         return re.findall(r'{(.*?)}', self.template)
 
 #    def __format__(self, **kwargs):
@@ -125,10 +185,19 @@ class Template(object):
 
     def format(self, **kwargs):
         """
-        formats the template with the supplied kwargs, returns the formatted string. The template itself is
-        unchanged
-        :param kwargs:
-        :return self.template.format(**kwargs) (str): template string formatted with kwargs.
+        Formats the template with the supplied kwargs, returning the formatted string.
+        The template itself remains unchanged. Unspecified kwargs will remain as
+        placeholders in the returned string.
+        
+        Args:
+            **kwargs: Key-value pairs matching the template placeholders.
+            
+        Returns:
+            str: The formatted template string.
+            
+        Example:
+            t = Template("echo {a} {b}")
+            t.format(a="hello") # Returns "echo hello {b}"
         """
         mkwargs = self.key_args | kwargs
         try:
@@ -152,27 +221,49 @@ class Template(object):
 
     def update(self, **kwargs):
         """
-        permanently updates the template with the supplied kwargs, returns None (template updated in place)
-        :param kwargs:
-        :return None:
+        Permanently updates the template string in place by formatting it with
+        the supplied kwargs. This function will preserve unspecified placeholders.
+        
+        Args:
+            **kwargs: Key-value pairs to replace in the template.
+            
+        Example:
+            t = Template("echo {msg} to {file}")
+            t.update(msg="hello")
+            print(t) # Output: "echo hello to {file}"
         """
         self.template = self.format(**kwargs)
 
     def check_missing(self, template):
         """
-        checks for missing keys in the provided template
-        use, for instance as
-        self.check_missing(self.format(**kwargs)) to validate that the format string completes successfully.
-        :param template:
-        :return:
+        Checks for missing keys (unformatted placeholders) in a provided template string.
+        Typically used to validate that a formatting operation completed successfully.
+        
+        Args:
+            template (str): The formatted string to check.
+            
+        Returns:
+            list: A list of keys that are still present as placeholders in the string.
+            
+        Example:
+            t = Template("echo {a} {b}")
+            formatted_str = t.format(a="1")
+            t.check_missing(formatted_str) # Returns ['b']
         """
         return [key for key in self.key_args if key in template]
 
 
     def __repr__(self):
+        """
+        Returns the raw template string.
+        """
         return self.template
 
     def __call__(self, **kwargs):
+        """
+        Allows calling the Template instance directly to format it.
+        Alias for format().
+        """
         return self.format(**kwargs)
 
 
